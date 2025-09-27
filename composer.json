@@ -1,0 +1,21 @@
+{
+  "name": "sebastian/constructora-app",
+  "description": "Aplicación de gestión para constructora",
+  "type": "project",
+  "autoload": {
+    "psr-4": {
+      "Src\\": "src/"
+    }
+  },
+  "authors": [
+    {
+      "name": "Sebiant",
+      "email": "sebastianvaneos@gmail.com"
+    }
+  ],
+  "require": {
+    "vlucas/phpdotenv": "^5.6"
+  },
+  "config": {
+  }
+}
