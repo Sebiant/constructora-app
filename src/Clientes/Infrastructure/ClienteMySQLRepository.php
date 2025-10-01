@@ -47,11 +47,55 @@ class ClienteMySQLRepository implements ClienteRepository {
     }
 
     public function save(Cliente $cliente): void {
+        $sql = "INSERT INTO clientes (nit, nombre, estado) VALUES (?, ?, ?)";
+        $stmt = $this->connection->prepare($sql);
+        
+        $stmt->execute([
+            $cliente->getNit(),
+            $cliente->getNombre(), 
+            $cliente->getEstado() ? 1 : 0
+        ]);
+
+        $idGenerado = $this->connection->lastInsertId();
+        
+        $cliente->setId($idGenerado);
     }
 
     public function update(Cliente $cliente): void {
+        $sql = "UPDATE clientes SET nit = ?, nombre = ?, estado = ? WHERE id_cliente = ?";
+        $stmt = $this->connection->prepare($sql);
+        
+        $stmt->execute([
+            $cliente->getNit(),
+            $cliente->getNombre(),
+            $cliente->getEstado() ? 1 : 0,
+            $cliente->getId()
+        ]);
+
+        // Verificar si se actualizó algún registro
+        if ($stmt->rowCount() === 0) {
+            throw new \Exception("No se pudo actualizar el cliente. Posiblemente no existe.");
+        }
     }
 
     public function delete(int $id): void {
+        $sql = "DELETE FROM clientes WHERE id_cliente = ?";
+        $stmt = $this->connection->prepare($sql);
+        
+        $stmt->execute([$id]);
+
+        // Verificar si se eliminó algún registro
+        if ($stmt->rowCount() === 0) {
+            throw new \Exception("No se pudo eliminar el cliente. Posiblemente no existe.");
+        }
+    }
+
+    // Método adicional para compatibilidad con tu código existente
+    public function findById(int $id): ?Cliente {
+        return $this->find($id);
+    }
+
+    public function findAll(): array {
+        return $this->getAll();
     }
 }
