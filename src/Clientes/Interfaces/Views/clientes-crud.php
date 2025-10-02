@@ -32,32 +32,6 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (!empty($clientes)): ?>
-                        <?php foreach ($clientes as $cliente): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($cliente->getNit()) ?></td>
-                                <td><?= htmlspecialchars($cliente->getNombre()) ?></td>
-                                <td><?= htmlspecialchars($cliente->getTelefono() ?? '') ?></td>
-                                <td>
-                                    <span class="badge bg-<?= ($cliente->getEstado() === 'Activo') ? 'success' : 'secondary' ?>">
-                                        <?= htmlspecialchars($cliente->getEstado()) ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <button class="btn btn-warning btn-sm" onclick="cargarModalEditar(<?= $cliente->getId() ?>)">
-                                        <i class="bi bi-pencil"></i> Editar
-                                    </button>
-                                    <button class="btn btn-danger btn-sm" onclick="eliminarCliente(<?= $cliente->getId() ?>)">
-                                        <i class="bi bi-trash"></i> Eliminar
-                                    </button>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="5" class="text-center">No hay clientes registrados</td>
-                        </tr>
-                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -88,17 +62,14 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                         <input type="text" name="nombre" id="nombre" class="form-control" required 
                                placeholder="Nombre completo del cliente">
                     </div>
-
-                    <div class="mb-3">
-                        <label for="telefono" class="form-label">Teléfono:</label>
-                        <input type="text" name="telefono" id="telefono" class="form-control" 
-                               placeholder="Número de contacto">
-                    </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="guardarCliente()">Guardar</button>
+                <!-- Botón para CREAR -->
+                <button type="button" class="btn btn-success" id="btnGuardar" onclick="guardarCliente()">Guardar</button>
+                <!-- Botón para EDITAR -->
+                <button type="button" class="btn btn-primary" id="btnActualizar" onclick="guardarClienteEditar()" style="display: none;">Actualizar</button>
             </div>
         </div>
     </div>
@@ -109,6 +80,8 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
 ?>
 
 <script>
+const API_CLIENTES = "../ClienteController.php";
+
 $(document).ready(function() {
     var table = $('#datos_clientes').DataTable({
         language: {
@@ -121,7 +94,7 @@ $(document).ready(function() {
         processing: true,
         serverSide: false,
         ajax: {
-            url: "/workspace/constructora-app/src/Clientes/Interfaces/ClienteController.php",
+            url: API_CLIENTES,
             type: "GET",
             data: { action: "getAll" },
             dataSrc: ""
@@ -132,19 +105,19 @@ $(document).ready(function() {
             {
                 "data": "estado",
                 render: function(data, type, row) {
+                    let estado = data === true ? "Activo" : "Inactivo";
                     let badgeClass = data === true ? "bg-success" : "bg-secondary";
-                    let estadoTexto = data === true ? "Activo" : "Inactivo";
-                    return `<span class="badge ${badgeClass}">${estadoTexto}</span>`;
+                    return `<span class="badge ${badgeClass}">${estado}</span>`;
                 }
             },
             {
                 data: null,
                 render: function (data, type, row) {
                     return `
-                        <button class="btn btn-warning btn-sm btn-editar" data-id="${row.id_cliente}">
+                        <button class="btn btn-warning btn-sm btn-editar" data-id="${row.id}">
                             <i class="bi bi-pencil"></i> Editar
                         </button>
-                        <button class="btn btn-danger btn-sm btn-eliminar" data-id="${row.id_cliente}">
+                        <button class="btn btn-danger btn-sm btn-eliminar" data-id="${row.id}">
                             <i class="bi bi-trash"></i> Eliminar
                         </button>
                     `;
@@ -153,5 +126,164 @@ $(document).ready(function() {
             }
         ]
     });
+
+    $('#datos_clientes').on('click', '.btn-editar', function () {
+        var id = $(this).data('id');
+        console.log("Botón editar clickeado - ID:", id);
+        if (id && id !== "undefined") {
+            cargarModalEditar(id);
+        } else {
+            alert("Error: ID no válido");
+        }
+    });
+
+    $('#datos_clientes').on('click', '.btn-eliminar', function () {
+        var id = $(this).data('id');
+        console.log("Botón eliminar clickeado - ID:", id);
+        if (id && id !== "undefined") {
+            eliminarCliente(id);
+        } else {
+            alert("Error: ID no válido");
+        }
+    });
 });
+
+function cargarModalCrear() {
+    $("#formClientes")[0].reset();
+    $("#id_cliente").val("");
+    $("#accion").val("crear");
+
+    $("#modalClientesLabel").text("Crear Cliente");
+    $("#btnGuardar").show();
+    $("#btnActualizar").hide();
+
+    $("#modalClientes").modal("show");
+}
+
+// Crear cliente
+function guardarCliente() {
+    let nit = $("#nit").val();
+    let nombre = $("#nombre").val();
+
+    if (!nit || !nombre) {
+        alert("Por favor, complete todos los campos");
+        return;
+    }
+
+    $.ajax({
+        url: API_CLIENTES + "?action=create",
+        method: "POST",
+        dataType: "json",
+        contentType: "application/json",
+        data: JSON.stringify({
+            nit: nit,
+            nombre: nombre
+        }),
+        success: function (res) {
+            if (res.success) {
+                alert("Cliente creado");
+                $("#modalClientes").modal("hide");
+                $('#datos_clientes').DataTable().ajax.reload();
+            } else {
+                alert("Error: " + (res.error || "No se pudo crear"));
+            }
+        },
+        error: function (xhr) {
+            alert("Error en la petición: " + xhr.responseText);
+        }
+    });
+}
+
+// Abrir modal en modo EDITAR
+function cargarModalEditar(id) {
+    console.log("Cargando cliente ID:", id);
+    
+    $.ajax({
+        url: API_CLIENTES + "?action=getById&id=" + id,
+        method: "GET",
+        dataType: "json",
+        success: function (res) {
+            console.log("Respuesta del servidor:", res);
+            
+            if (res.success && res.data) {
+                let cliente = res.data;
+
+                $("#id_cliente").val(cliente.id);
+                $("#nit").val(cliente.nit);
+                $("#nombre").val(cliente.nombre);
+
+                $("#accion").val("editar");
+                $("#modalClientesLabel").text("Editar Cliente");
+
+                $("#btnGuardar").hide();
+                $("#btnActualizar").show();
+
+                $("#modalClientes").modal("show");
+            } else {
+                alert("Cliente no encontrado: " + (res.error || ""));
+            }
+        },
+        error: function (xhr) {
+            console.error("Error AJAX:", xhr);
+            alert("Error al cargar cliente: " + xhr.responseText);
+        }
+    });
+}
+
+// Actualizar cliente
+function guardarClienteEditar() {
+    let payload = {
+        id: $("#id_cliente").val(),
+        nit: $("#nit").val(),
+        nombre: $("#nombre").val()
+    };
+
+    $.ajax({
+        url: API_CLIENTES + "?action=update",
+        method: "POST",
+        dataType: "json",
+        contentType: "application/json",
+        data: JSON.stringify(payload),
+        success: function (res) {
+            if (res.success) {
+                alert("Cliente actualizado");
+                $("#modalClientes").modal("hide");
+                $('#datos_clientes').DataTable().ajax.reload();
+            } else {
+                alert("Error: " + (res.error || "No se pudo actualizar"));
+            }
+        },
+        error: function (xhr) {
+            alert("Error en la petición: " + xhr.responseText);
+        }
+    });
+}
+
+// Eliminar cliente
+function eliminarCliente(id) {
+    if (!confirm("¿Está seguro de eliminar este cliente?")) {
+        return;
+    }
+
+    $.ajax({
+        url: API_CLIENTES + "?action=delete",
+        method: "POST",
+        dataType: "json",
+        contentType: "application/json",
+        data: JSON.stringify({
+            id: parseInt(id)
+        }),
+        success: function (res) {
+            if (res.success) {
+                alert("Cliente eliminado");
+                $('#datos_clientes').DataTable().ajax.reload();
+            } else {
+                alert("Error: " + (res.error || "No se pudo eliminar"));
+            }
+        },
+        error: function (xhr) {
+            alert("Error en la petición: " + xhr.responseText);
+        }
+    });
+}
 </script>

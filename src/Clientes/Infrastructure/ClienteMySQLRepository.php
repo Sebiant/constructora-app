@@ -72,7 +72,6 @@ class ClienteMySQLRepository implements ClienteRepository {
             $cliente->getId()
         ]);
 
-        // Verificar si se actualizó algún registro
         if ($stmt->rowCount() === 0) {
             throw new \Exception("No se pudo actualizar el cliente. Posiblemente no existe.");
         }
@@ -84,13 +83,11 @@ class ClienteMySQLRepository implements ClienteRepository {
         
         $stmt->execute([$id]);
 
-        // Verificar si se eliminó algún registro
         if ($stmt->rowCount() === 0) {
             throw new \Exception("No se pudo eliminar el cliente. Posiblemente no existe.");
         }
     }
 
-    // Método adicional para compatibilidad con tu código existente
     public function findById(int $id): ?Cliente {
         return $this->find($id);
     }

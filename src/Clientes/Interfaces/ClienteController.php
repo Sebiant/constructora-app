@@ -71,7 +71,6 @@ try {
             }
             
             try {
-                // Convertir estado a booleano
                 $estado = $input['estado'] ?? true;
                 if (is_string($estado)) {
                     $estado = ($estado === 'true' || $estado === '1' || $estado === 'activo');
@@ -112,13 +111,11 @@ try {
             }
             
             try {
-                // Convertir estado a booleano
                 $estado = $input['estado'] ?? true;
                 if (is_string($estado)) {
                     $estado = ($estado === 'true' || $estado === '1' || $estado === 'activo');
                 }
-                
-                // Usar el Use Case para actualizar
+
                 $updateUseCase = new UpdateCliente($repo);
                 $cliente = $updateUseCase->execute(
                     (int)$input['id'],
