@@ -6,6 +6,7 @@ require __DIR__ . '/../../../config/database.php';
 
 use Src\Presupuestos\Infrastructure\PresupuestoMySQLRepository;
 use Src\Presupuestos\Application\CreatePresupuesto;
+use Src\Presupuestos\Application\GetAllPresupuestos;
 use Src\Presupuestos\Domain\Presupuesto;
 
 $db = new \Database();
@@ -18,6 +19,7 @@ header('Content-Type: application/json');
 
 try {
     switch ($action) {
+
         case 'create':
             $data = json_decode(file_get_contents('php://input'), true);
 
@@ -34,7 +36,7 @@ try {
                 $data['fecha_creacion']
             );
 
-            // Caso de uso
+            // Caso de uso: crear presupuesto
             $useCase = new CreatePresupuesto($repo);
             $resultado = $useCase->execute($presupuesto);
 
@@ -45,15 +47,28 @@ try {
             ]);
             break;
 
+        case 'getAll':
+            // Caso de uso: obtener todos los presupuestos
+            $useCase = new GetAllPresupuestos($repo);
+            $presupuestos = $useCase->execute();
+
+            echo json_encode([
+                'success' => true,
+                'data' => $presupuestos
+            ]);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode([
                 'error' => 'Acción no válida',
                 'acciones_disponibles' => [
-                    'create' => 'Crear nuevo presupuesto'
+                    'create' => 'Crear nuevo presupuesto',
+                    'getall' => 'Listar todos los presupuestos'
                 ]
             ]);
     }
+
 } catch (\Exception $e) {
     http_response_code(400);
     echo json_encode(['error' => $e->getMessage()]);

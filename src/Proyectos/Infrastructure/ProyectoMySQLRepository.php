@@ -91,4 +91,37 @@ class ProyectoMySQLRepository implements ProyectoRepository {
         $stmt = $this->conn->prepare("DELETE FROM proyectos WHERE id_proyecto=:id");
         return $stmt->execute(['id' => $id]);
     }
+
+    // Nuevo método: asignar responsable
+    public function asignarResponsable(int $idProyecto, int $idResponsable): bool {
+        $sql = "UPDATE proyectos SET id_responsable = :id_responsable WHERE id_proyecto = :id_proyecto";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute([
+            'id_responsable' => $idResponsable,
+            'id_proyecto'    => $idProyecto
+        ]);
+    }
+
+    // Nuevo método: obtener proyectos por responsable
+    public function getProyectosPorResponsable(int $idResponsable): array {
+        $sql = "SELECT * FROM proyectos WHERE id_responsable = :id_responsable";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute(['id_responsable' => $idResponsable]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $proyectos = [];
+        foreach ($rows as $row) {
+            $proyectos[] = new Proyecto(
+                $row['id_proyecto'],
+                $row['nombre'],
+                $row['id_cliente'],
+                $row['fecha_inicio'],
+                $row['fecha_fin'],
+                $row['estado'],
+                $row['observaciones']
+            );
+        }
+
+        return array_map(fn($p) => $p->toArray(), $proyectos);
+    }
 }

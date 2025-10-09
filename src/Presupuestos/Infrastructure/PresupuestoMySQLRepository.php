@@ -28,9 +28,23 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
         return $presupuesto;
     }
 
-    // Métodos pendientes de implementar, solo para evitar el error
     public function getAll(): array {
-        return [];
+        $query = "SELECT 
+                        p.id_presupuesto,
+                        p.id_proyecto,
+                        pr.nombre AS nombre_proyecto,
+                        p.fecha_creacion,
+                        p.monto_total
+                  FROM presupuestos p
+                  INNER JOIN proyectos pr ON p.id_proyecto = pr.id_proyecto
+                  ORDER BY p.fecha_creacion DESC";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $result ?: [];
     }
 
     public function find(int $id): ?Presupuesto {
