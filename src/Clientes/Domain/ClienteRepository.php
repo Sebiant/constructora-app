@@ -8,4 +8,6 @@ interface ClienteRepository {
     public function save(Cliente $cliente): void;
     public function update(Cliente $cliente): void;
     public function delete(int $id): void;
+
+    public function toggleEstado(int $id): bool;
 }

@@ -93,6 +93,7 @@ $(document).ready(function() {
         pageLength: 10,
         processing: true,
         serverSide: false,
+        order: [],
         ajax: {
             url: API_CLIENTES,
             type: "GET",
@@ -107,7 +108,18 @@ $(document).ready(function() {
                 render: function(data, type, row) {
                     let estado = data === true ? "Activo" : "Inactivo";
                     let badgeClass = data === true ? "bg-success" : "bg-secondary";
-                    return `<span class="badge ${badgeClass}">${estado}</span>`;
+                    let cursorStyle = "cursor: pointer;";
+                    let title = "Click para cambiar estado";
+                    
+                    return `
+                        <span class="badge ${badgeClass} badge-toggle-estado" 
+                              style="${cursorStyle}" 
+                              title="${title}"
+                              data-id="${row.id}" 
+                              data-estado="${data}">
+                            ${estado}
+                        </span>
+                    `;  
                 }
             },
             {
@@ -146,7 +158,60 @@ $(document).ready(function() {
             alert("Error: ID no válido");
         }
     });
+
+    // NUEVO: Evento para el toggle del estado
+    $('#datos_clientes').on('click', '.badge-toggle-estado', function () {
+        var id = $(this).data('id');
+        var estadoActual = $(this).data('estado');
+        
+        console.log("Toggle estado - ID:", id, "Estado actual:", estadoActual);
+        
+        toggleEstadoCliente(id, estadoActual);
+    });
 });
+
+//Toggle estado del cliente
+function toggleEstadoCliente(id, estadoActual) {
+    if (!id || id === "undefined") {
+        alert("Error: ID no válido");
+        return;
+    }
+
+    let nuevoEstado = !estadoActual;
+    let textoConfirmacion = nuevoEstado ? 
+        "¿Activar este cliente?" : 
+        "¿Desactivar este cliente?";
+
+    if (!confirm(textoConfirmacion)) {
+        return;
+    }
+
+    console.log("Enviando toggle estado - ID:", id, "Nuevo estado:", nuevoEstado);
+    
+    $.ajax({
+        url: API_CLIENTES + "?action=toggleEstado",
+        method: "POST",
+        dataType: "json",
+        contentType: "application/json",
+        data: JSON.stringify({
+            id: parseInt(id)
+        }),
+        success: function (res) {
+            console.log("Respuesta toggle estado:", res);
+            
+            if (res.success) {
+                alert("Estado actualizado correctamente");
+                $('#datos_clientes').DataTable().ajax.reload();
+            } else {
+                alert("Error: " + (res.error || "No se pudo cambiar el estado"));
+            }
+        },
+        error: function (xhr, status, error) {
+            console.log("Error en toggle estado:", xhr.responseText);
+            alert("Error en la petición: " + xhr.responseText);
+        }
+    });
+}
 
 function cargarModalCrear() {
     $("#formClientes")[0].reset();

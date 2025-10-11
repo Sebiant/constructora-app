@@ -13,7 +13,7 @@ class ClienteMySQLRepository implements ClienteRepository {
     }
 
     public function getAll(): array {
-        $stmt = $this->connection->query("SELECT id_cliente, nit, nombre, estado FROM clientes");
+        $stmt = $this->connection->query("SELECT id_cliente, nit, nombre, estado FROM clientes ORDER BY estado DESC, id_cliente ASC");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $clientes = [];
@@ -94,5 +94,33 @@ class ClienteMySQLRepository implements ClienteRepository {
 
     public function findAll(): array {
         return $this->getAll();
+    }
+
+    // En tu ClienteMySQLRepository.php - agrega este método
+    public function toggleEstado(int $id): bool {
+        // Primero obtener el cliente para saber el estado actual
+        $cliente = $this->findById($id);
+        if (!$cliente) {
+            throw new \Exception("Cliente no encontrado");
+        }
+        
+        // Calcular el nuevo estado (toggle)
+        $nuevoEstado = !$cliente->getEstado();
+        
+        // Actualizar en la base de datos - usando id_cliente como columna
+        $stmt = $this->connection->prepare(
+            "UPDATE clientes SET estado = ? WHERE id_cliente = ?"
+        );
+        
+        $success = $stmt->execute([
+            $nuevoEstado ? 1 : 0, 
+            $id
+        ]);
+        
+        if (!$success || $stmt->rowCount() === 0) {
+            throw new \Exception("Error al actualizar el estado en la base de datos");
+        }
+        
+        return $nuevoEstado;
     }
 }
