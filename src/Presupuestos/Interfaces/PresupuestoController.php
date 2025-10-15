@@ -8,6 +8,7 @@ use Src\Presupuestos\Infrastructure\PresupuestoMySQLRepository;
 use Src\Presupuestos\Application\CreatePresupuesto;
 use Src\Presupuestos\Application\GetAllPresupuestos;
 use Src\Presupuestos\Domain\Presupuesto;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 $db = new \Database();
 $connection = $db->getConnection();
@@ -36,7 +37,6 @@ try {
                 $data['fecha_creacion']
             );
 
-            // Caso de uso: crear presupuesto
             $useCase = new CreatePresupuesto($repo);
             $resultado = $useCase->execute($presupuesto);
 
@@ -48,7 +48,6 @@ try {
             break;
 
         case 'getAll':
-            // Caso de uso: obtener todos los presupuestos
             $useCase = new GetAllPresupuestos($repo);
             $presupuestos = $useCase->execute();
 
@@ -58,17 +57,64 @@ try {
             ]);
             break;
 
+        // 🔥 NUEVA ACCIÓN: importar y previsualizar Excel
+        case 'importPreview':
+            if (!isset($_FILES['archivo_excel']) || $_FILES['archivo_excel']['error'] !== UPLOAD_ERR_OK) {
+                throw new \Exception('No se recibió el archivo Excel o hubo un error en la carga.');
+            }
+
+            $rutaTmp = $_FILES['archivo_excel']['tmp_name'];
+            $spreadsheet = IOFactory::load($rutaTmp);
+            $hoja = $spreadsheet->getActiveSheet();
+            $data = $hoja->toArray();
+
+            $filas = [];
+            $encabezado = true;
+
+            foreach ($data as $fila) {
+                if ($encabezado) {
+                    $encabezado = false;
+                    continue;
+                }
+
+                // Lectura básica de columnas
+                $cap = trim($fila[0] ?? '');
+                $cod = trim($fila[1] ?? '');
+                $cantidad = trim($fila[2] ?? '');
+
+                if ($cap === '' && $cod === '' && $cantidad === '') continue;
+
+                $errores = [];
+                if (!is_numeric($cap)) $errores[] = 'CAP no numérico';
+                if (!is_numeric($cod)) $errores[] = 'COD no numérico';
+                if (!is_numeric($cantidad) || $cantidad <= 0) $errores[] = 'Cantidad inválida';
+
+                $filas[] = [
+                    'CAP' => $cap,
+                    'COD' => $cod,
+                    'Cantidad' => $cantidad,
+                    'ok' => empty($errores),
+                    'errores' => $errores
+                ];
+            }
+
+            echo json_encode([
+                'ok' => true,
+                'filas' => $filas
+            ]);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode([
                 'error' => 'Acción no válida',
                 'acciones_disponibles' => [
                     'create' => 'Crear nuevo presupuesto',
-                    'getall' => 'Listar todos los presupuestos'
+                    'getAll' => 'Listar todos los presupuestos',
+                    'importPreview' => 'Leer archivo Excel y devolver vista previa'
                 ]
             ]);
     }
-
 } catch (\Exception $e) {
     http_response_code(400);
     echo json_encode(['error' => $e->getMessage()]);
