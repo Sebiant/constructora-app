@@ -57,8 +57,10 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                     </div>
 
                     <div class="mb-3">
-                        <label for="id_cliente" class="form-label">ID Cliente:</label>
-                        <input type="number" name="id_cliente" id="id_cliente" class="form-control" required placeholder="ID del cliente">
+                        <label for="id_cliente" class="form-label">Cliente:</label>
+                        <select name="id_cliente" id="id_cliente" class="form-select" required>
+                            <option value="">Seleccione un cliente</option>
+                        </select>
                     </div>
 
                     <div class="mb-3">
@@ -69,14 +71,6 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                     <div class="mb-3">
                         <label for="fecha_fin" class="form-label">Fecha Fin:</label>
                         <input type="date" name="fecha_fin" id="fecha_fin" class="form-control">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="estado" class="form-label">Estado:</label>
-                        <select name="estado" id="estado" class="form-select">
-                            <option value="activo">Activo</option>
-                            <option value="inactivo">Inactivo</option>
-                        </select>
                     </div>
 
                     <div class="mb-3">
@@ -101,6 +95,36 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
 <script>
 const API_PROYECTOS = "../ProyectoController.php";
 
+function cargarClientes() {
+    const selectCliente = document.getElementById('id_cliente');
+    
+    selectCliente.innerHTML = '<option value="">Cargando clientes...</option>';
+
+    $.ajax({
+        url: API_PROYECTOS + "?action=getClientes",
+        method: "GET",
+        dataType: "json",
+        success: function(data) {
+            if (data.success && data.clientes && data.clientes.length > 0) {
+                selectCliente.innerHTML = '<option value="">Seleccione un cliente</option>';
+                data.clientes.forEach(cliente => {
+                    const option = document.createElement('option');
+                    option.value = cliente.id_cliente;
+                    option.textContent = cliente.nombre;
+                    selectCliente.appendChild(option);
+                });
+            } else {
+                selectCliente.innerHTML = '<option value="">No hay clientes disponibles</option>';
+                console.error('No se pudieron cargar los clientes:', data.message);
+            }
+        },
+        error: function(xhr, status, error) {
+            selectCliente.innerHTML = '<option value="">Error al cargar clientes</option>';
+            console.error('Error:', error);
+        }
+    });
+}
+
 $(document).ready(function() {
     var table = $('#datos_proyectos').DataTable({
         language: { url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json" },
@@ -110,15 +134,15 @@ $(document).ready(function() {
         pageLength: 10,
         processing: true,
         serverSide: false,
+        order: [],
         ajax: {
-            url: API_PROYECTOS,
+            url: API_PROYECTOS + "?action=getAll",
             type: "GET",
-            data: { action: "getAll" },
             dataSrc: ""
         },
         columns: [
             { "data": "nombre" },
-            { "data": "id_cliente" },
+            { "data": "nombre_cliente" },
             { "data": "fecha_inicio" },
             { "data": "fecha_fin" },
             {
@@ -155,6 +179,10 @@ $(document).ready(function() {
         let id = $(this).data('id');
         if (id) eliminarProyecto(id);
     });
+
+    $('#modalProyectos').on('show.bs.modal', function () {
+        cargarClientes();
+    });
 });
 
 function cargarModalCrear() {
@@ -165,37 +193,67 @@ function cargarModalCrear() {
     $("#modalProyectosLabel").text("Crear Proyecto");
     $("#btnGuardar").show();
     $("#btnActualizar").hide();
-
-    $("#modalProyectos").modal("show");
 }
 
 function guardarProyecto() {
-    let payload = {
-        nombre: $("#nombre").val(),
-        id_cliente: $("#id_cliente").val(),
-        fecha_inicio: $("#fecha_inicio").val(),
-        fecha_fin: $("#fecha_fin").val(),
-        estado: $("#estado").val(),
-        observaciones: $("#observaciones").val()
-    };
+    // Obtener valores directamente
+    let nombre = $("#nombre").val();
+    let id_cliente = $("#id_cliente").val();
+    let fecha_inicio = $("#fecha_inicio").val();
+    let fecha_fin = $("#fecha_fin").val();
+    let estado = $("#estado").val();
+    let observaciones = $("#observaciones").val();
+
+    console.log("Valores del formulario:");
+    console.log("Nombre:", nombre);
+    console.log("ID Cliente:", id_cliente);
+    console.log("Fecha Inicio:", fecha_inicio);
+    console.log("Fecha Fin:", fecha_fin);
+    console.log("Observaciones:", observaciones);
+
+    // Validar campos requeridos
+    if (!nombre || !id_cliente || !fecha_inicio) {
+        alert("Por favor complete todos los campos requeridos: Nombre, Cliente y Fecha Inicio");
+        return;
+    }
+
+    // Usar FormData que es más confiable
+    let formData = new FormData();
+    formData.append('action', 'create'); // ¡AGREGAR ACTION AQUÍ!
+    formData.append('nombre', nombre);
+    formData.append('id_cliente', id_cliente);
+    formData.append('fecha_inicio', fecha_inicio);
+    formData.append('fecha_fin', fecha_fin);
+    formData.append('estado', estado);
+    formData.append('observaciones', observaciones);
+
+    console.log("Enviando FormData con action incluido");
 
     $.ajax({
-        url: API_PROYECTOS + "?action=create",
+        url: API_PROYECTOS, // SIN action en la URL
         method: "POST",
+        data: formData,
+        processData: false,
+        contentType: false,
         dataType: "json",
-        contentType: "application/json",
-        data: JSON.stringify(payload),
         success: function (res) {
+            console.log("Respuesta del servidor:", res);
+            
             if (res.success) {
-                alert("Proyecto creado");
+                alert("Proyecto creado exitosamente");
                 $("#modalProyectos").modal("hide");
                 $('#datos_proyectos').DataTable().ajax.reload();
             } else {
-                alert("Error: " + (res.error || "No se pudo crear"));
+                alert("Error: " + (res.error || res.message || "No se pudo crear el proyecto"));
             }
         },
-        error: function (xhr) {
-            alert("Error en la petición: " + xhr.responseText);
+        error: function (xhr, status, error) {
+            console.error("Error en la peticion:");
+            console.error("Status:", status);
+            console.error("Error:", error);
+            console.error("Respuesta:", xhr.responseText);
+            
+            alert("Error en la peticion: " + error);
         }
     });
 }
@@ -210,7 +268,6 @@ function cargarModalEditar(id) {
                 let p = res.data;
                 $("#id_proyecto").val(p.id_proyecto);
                 $("#nombre").val(p.nombre);
-                $("#id_cliente").val(p.id_cliente);
                 $("#fecha_inicio").val(p.fecha_inicio);
                 $("#fecha_fin").val(p.fecha_fin);
                 $("#estado").val(p.estado);
@@ -221,6 +278,10 @@ function cargarModalEditar(id) {
 
                 $("#btnGuardar").hide();
                 $("#btnActualizar").show();
+
+                setTimeout(() => {
+                    $("#id_cliente").val(p.id_cliente);
+                }, 300);
 
                 $("#modalProyectos").modal("show");
             } else {
@@ -233,9 +294,8 @@ function cargarModalEditar(id) {
     });
 }
 
-function guardarProyectoEditar() {
+function guardarProyecto() {
     let payload = {
-        id_proyecto: $("#id_proyecto").val(),
         nombre: $("#nombre").val(),
         id_cliente: $("#id_cliente").val(),
         fecha_inicio: $("#fecha_inicio").val(),
@@ -244,23 +304,38 @@ function guardarProyectoEditar() {
         observaciones: $("#observaciones").val()
     };
 
+    console.log("Datos que se envian al servidor:", payload);
+
+    // Validar campos requeridos
+    if (!payload.nombre || !payload.id_cliente || !payload.fecha_inicio) {
+        alert("Por favor complete todos los campos requeridos: Nombre, Cliente y Fecha Inicio");
+        return;
+    }
+
     $.ajax({
-        url: API_PROYECTOS + "?action=update",
+        url: API_PROYECTOS + "?action=create",
         method: "POST",
-        dataType: "json",
-        contentType: "application/json",
         data: JSON.stringify(payload),
+        contentType: "application/json",
+        dataType: "json",
         success: function (res) {
+            console.log("Respuesta del servidor:", res);
+            
             if (res.success) {
-                alert("Proyecto actualizado");
+                alert("Proyecto creado exitosamente");
                 $("#modalProyectos").modal("hide");
                 $('#datos_proyectos').DataTable().ajax.reload();
             } else {
-                alert("Error: " + (res.error || "No se pudo actualizar"));
+                alert("Error: " + (res.error || "No se pudo crear"));
             }
         },
-        error: function (xhr) {
-            alert("Error en la petición: " + xhr.responseText);
+        error: function (xhr, status, error) {
+            console.error("Error en la peticion:");
+            console.error("Status:", status);
+            console.error("Error:", error);
+            console.error("Respuesta:", xhr.responseText);
+            
+            alert("Error en la peticion: " + error);
         }
     });
 }
@@ -271,9 +346,8 @@ function eliminarProyecto(id) {
     $.ajax({
         url: API_PROYECTOS + "?action=delete",
         method: "POST",
+        data: { id: id },
         dataType: "json",
-        contentType: "application/json",
-        data: JSON.stringify({ id: parseInt(id) }),
         success: function (res) {
             if (res.success) {
                 alert("Proyecto eliminado");
@@ -283,7 +357,7 @@ function eliminarProyecto(id) {
             }
         },
         error: function (xhr) {
-            alert("Error en la petición: " + xhr.responseText);
+            alert("Error en la peticion: " + xhr.responseText);
         }
     });
 }

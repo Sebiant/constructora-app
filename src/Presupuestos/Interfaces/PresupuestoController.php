@@ -57,53 +57,51 @@ try {
             ]);
             break;
 
-        // 🔥 NUEVA ACCIÓN: importar y previsualizar Excel
         case 'importPreview':
-            if (!isset($_FILES['archivo_excel']) || $_FILES['archivo_excel']['error'] !== UPLOAD_ERR_OK) {
-                throw new \Exception('No se recibió el archivo Excel o hubo un error en la carga.');
-            }
-
-            $rutaTmp = $_FILES['archivo_excel']['tmp_name'];
-            $spreadsheet = IOFactory::load($rutaTmp);
-            $hoja = $spreadsheet->getActiveSheet();
-            $data = $hoja->toArray();
-
-            $filas = [];
-            $encabezado = true;
-
-            foreach ($data as $fila) {
-                if ($encabezado) {
-                    $encabezado = false;
-                    continue;
+            try {
+                // 1️⃣ Validar archivo
+                if (!isset($_FILES['archivo_excel']) || $_FILES['archivo_excel']['error'] !== UPLOAD_ERR_OK) {
+                    throw new \Exception('No se recibió el archivo Excel o hubo un error en la carga.');
                 }
 
-                // Lectura básica de columnas
-                $cap = trim($fila[0] ?? '');
-                $cod = trim($fila[1] ?? '');
-                $cantidad = trim($fila[2] ?? '');
+                // 2️⃣ Cargar Excel
+                $rutaTmp = $_FILES['archivo_excel']['tmp_name'];
+                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($rutaTmp);
+                $hoja = $spreadsheet->getActiveSheet();
+                $data = $hoja->toArray();
 
-                if ($cap === '' && $cod === '' && $cantidad === '') continue;
+                // 3️⃣ Instanciar repo
+                $repository = new \Src\Presupuestos\Infrastructure\PresupuestoMySQLRepository($connection);
 
-                $errores = [];
-                if (!is_numeric($cap)) $errores[] = 'CAP no numérico';
-                if (!is_numeric($cod)) $errores[] = 'COD no numérico';
-                if (!is_numeric($cantidad) || $cantidad <= 0) $errores[] = 'Cantidad inválida';
+                // 4️⃣ Validar y preparar filas
+                $filas = $repository->validateImportMasive($data);
 
-                $filas[] = [
-                    'CAP' => $cap,
-                    'COD' => $cod,
-                    'Cantidad' => $cantidad,
-                    'ok' => empty($errores),
-                    'errores' => $errores
-                ];
+                // 5️⃣ Calcular resumen
+                $totalFilas = count($filas);
+                $filasValidas = count(array_filter($filas, fn($fila) => $fila['ok']));
+                $filasConError = $totalFilas - $filasValidas;
+                $valorTotal = array_sum(array_column($filas, 'valor_total'));
+
+                // 6️⃣ Devolver JSON
+                echo json_encode([
+                    'ok' => true,
+                    'resumen' => [
+                        'total_filas' => $totalFilas,
+                        'filas_validas' => $filasValidas,
+                        'filas_con_error' => $filasConError,
+                        'valor_total' => $valorTotal
+                    ],
+                    'filas' => $filas
+                ]);
+
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'ok' => false,
+                    'error' => $e->getMessage()
+                ]);
             }
-
-            echo json_encode([
-                'ok' => true,
-                'filas' => $filas
-            ]);
             break;
-
+            
         default:
             http_response_code(404);
             echo json_encode([
