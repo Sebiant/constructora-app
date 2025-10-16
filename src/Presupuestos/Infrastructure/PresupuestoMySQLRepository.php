@@ -140,8 +140,6 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
 
             if (empty($codigoMaterial)) {
                 $errores[] = 'Código de material requerido';
-            } elseif (!is_numeric($codigoMaterial)) {
-                $errores[] = 'Código de material debe ser numérico';
             } elseif (!isset($materialesMap[$codigoMaterial])) {
                 $errores[] = 'Material no encontrado en base de datos';
             }
