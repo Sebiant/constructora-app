@@ -1,5 +1,5 @@
 <?php
-namespace Src\Presupuestos\Domain;
+namespace Src\Presupuesto\Domain;
 
 class Presupuesto {
     private ?int $id_presupuesto;

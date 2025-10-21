@@ -1,0 +1,269 @@
+$(document).ready(function () {
+  var table = $("#datos_clientes").DataTable({
+    language: {
+      url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json",
+    },
+    searching: true,
+    paging: true,
+    lengthChange: true,
+    pageLength: 10,
+    processing: true,
+    serverSide: false,
+    order: [],
+    ajax: {
+      url: API_CLIENTES,
+      type: "GET",
+      data: { action: "getAll" },
+      dataSrc: "",
+    },
+    columns: [
+      { data: "nit" },
+      { data: "nombre" },
+      {
+        data: "estado",
+        render: function (data, type, row) {
+          let estado = data === true ? "Activo" : "Inactivo";
+          let badgeClass = data === true ? "bg-success" : "bg-secondary";
+          let cursorStyle = "cursor: pointer;";
+          let title = "Click para cambiar estado";
+
+          return `
+                        <span class="badge ${badgeClass} badge-toggle-estado" 
+                              style="${cursorStyle}" 
+                              title="${title}"
+                              data-id="${row.id}" 
+                              data-estado="${data}">
+                            ${estado}
+                        </span>
+                    `;
+        },
+      },
+      {
+        data: null,
+        render: function (data, type, row) {
+          return `
+                        <button class="btn btn-warning btn-sm btn-editar" data-id="${row.id}">
+                            <i class="bi bi-pencil"></i> Editar
+                        </button>
+                        <button class="btn btn-danger btn-sm btn-eliminar" data-id="${row.id}">
+                            <i class="bi bi-trash"></i> Eliminar
+                        </button>
+                    `;
+        },
+        orderable: false,
+      },
+    ],
+  });
+
+  $("#datos_clientes").on("click", ".btn-editar", function () {
+    var id = $(this).data("id");
+    console.log("Botón editar clickeado - ID:", id);
+    if (id && id !== "undefined") {
+      cargarModalEditar(id);
+    } else {
+      alert("Error: ID no válido");
+    }
+  });
+
+  $("#datos_clientes").on("click", ".btn-eliminar", function () {
+    var id = $(this).data("id");
+    console.log("Botón eliminar clickeado - ID:", id);
+    if (id && id !== "undefined") {
+      eliminarCliente(id);
+    } else {
+      alert("Error: ID no válido");
+    }
+  });
+
+  // NUEVO: Evento para el toggle del estado
+  $("#datos_clientes").on("click", ".badge-toggle-estado", function () {
+    var id = $(this).data("id");
+    var estadoActual = $(this).data("estado");
+
+    console.log("Toggle estado - ID:", id, "Estado actual:", estadoActual);
+
+    toggleEstadoCliente(id, estadoActual);
+  });
+});
+
+//Toggle estado del cliente
+function toggleEstadoCliente(id, estadoActual) {
+  if (!id || id === "undefined") {
+    alert("Error: ID no válido");
+    return;
+  }
+
+  let nuevoEstado = !estadoActual;
+  let textoConfirmacion = nuevoEstado
+    ? "¿Activar este cliente?"
+    : "¿Desactivar este cliente?";
+
+  if (!confirm(textoConfirmacion)) {
+    return;
+  }
+
+  console.log("Enviando toggle estado - ID:", id, "Nuevo estado:", nuevoEstado);
+
+  $.ajax({
+    url: API_CLIENTES + "?action=toggleEstado",
+    method: "POST",
+    dataType: "json",
+    contentType: "application/json",
+    data: JSON.stringify({
+      id: parseInt(id),
+    }),
+    success: function (res) {
+      console.log("Respuesta toggle estado:", res);
+
+      if (res.success) {
+        alert("Estado actualizado correctamente");
+        $("#datos_clientes").DataTable().ajax.reload();
+      } else {
+        alert("Error: " + (res.error || "No se pudo cambiar el estado"));
+      }
+    },
+    error: function (xhr, status, error) {
+      console.log("Error en toggle estado:", xhr.responseText);
+      alert("Error en la petición: " + xhr.responseText);
+    },
+  });
+}
+
+function cargarModalCrear() {
+  $("#formClientes")[0].reset();
+  $("#id_cliente").val("");
+  $("#accion").val("crear");
+
+  $("#modalClientesLabel").text("Crear Cliente");
+  $("#btnGuardar").show();
+  $("#btnActualizar").hide();
+
+  $("#modalClientes").modal("show");
+}
+
+// Crear cliente
+function guardarCliente() {
+  let nit = $("#nit").val();
+  let nombre = $("#nombre").val();
+
+  if (!nit || !nombre) {
+    alert("Por favor, complete todos los campos");
+    return;
+  }
+
+  $.ajax({
+    url: API_CLIENTES + "?action=create",
+    method: "POST",
+    dataType: "json",
+    contentType: "application/json",
+    data: JSON.stringify({
+      nit: nit,
+      nombre: nombre,
+    }),
+    success: function (res) {
+      if (res.success) {
+        alert("Cliente creado");
+        $("#modalClientes").modal("hide");
+        $("#datos_clientes").DataTable().ajax.reload();
+      } else {
+        alert("Error: " + (res.error || "No se pudo crear"));
+      }
+    },
+    error: function (xhr) {
+      alert("Error en la petición: " + xhr.responseText);
+    },
+  });
+}
+
+// Abrir modal en modo EDITAR
+function cargarModalEditar(id) {
+  console.log("Cargando cliente ID:", id);
+
+  $.ajax({
+    url: API_CLIENTES + "?action=getById&id=" + id,
+    method: "GET",
+    dataType: "json",
+    success: function (res) {
+      console.log("Respuesta del servidor:", res);
+
+      if (res.success && res.data) {
+        let cliente = res.data;
+
+        $("#id_cliente").val(cliente.id);
+        $("#nit").val(cliente.nit);
+        $("#nombre").val(cliente.nombre);
+
+        $("#accion").val("editar");
+        $("#modalClientesLabel").text("Editar Cliente");
+
+        $("#btnGuardar").hide();
+        $("#btnActualizar").show();
+
+        $("#modalClientes").modal("show");
+      } else {
+        alert("Cliente no encontrado: " + (res.error || ""));
+      }
+    },
+    error: function (xhr) {
+      console.error("Error AJAX:", xhr);
+      alert("Error al cargar cliente: " + xhr.responseText);
+    },
+  });
+}
+
+// Actualizar cliente
+function guardarClienteEditar() {
+  let payload = {
+    id: $("#id_cliente").val(),
+    nit: $("#nit").val(),
+    nombre: $("#nombre").val(),
+  };
+
+  $.ajax({
+    url: API_CLIENTES + "?action=update",
+    method: "POST",
+    dataType: "json",
+    contentType: "application/json",
+    data: JSON.stringify(payload),
+    success: function (res) {
+      if (res.success) {
+        alert("Cliente actualizado");
+        $("#modalClientes").modal("hide");
+        $("#datos_clientes").DataTable().ajax.reload();
+      } else {
+        alert("Error: " + (res.error || "No se pudo actualizar"));
+      }
+    },
+    error: function (xhr) {
+      alert("Error en la petición: " + xhr.responseText);
+    },
+  });
+}
+
+// Eliminar cliente
+function eliminarCliente(id) {
+  if (!confirm("¿Está seguro de eliminar este cliente?")) {
+    return;
+  }
+
+  $.ajax({
+    url: API_CLIENTES + "?action=delete",
+    method: "POST",
+    dataType: "json",
+    contentType: "application/json",
+    data: JSON.stringify({
+      id: parseInt(id),
+    }),
+    success: function (res) {
+      if (res.success) {
+        alert("Cliente eliminado");
+        $("#datos_clientes").DataTable().ajax.reload();
+      } else {
+        alert("Error: " + (res.error || "No se pudo eliminar"));
+      }
+    },
+    error: function (xhr) {
+      alert("" + xhr.responseText);
+    },
+  });
+}

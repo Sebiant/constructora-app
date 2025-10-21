@@ -24,13 +24,19 @@ class ProyectoMySQLRepository implements ProyectoRepository {
 
         $proyectos = [];
         foreach ($rows as $row) {
+            // Convertir estado de BD (número) a string para el dominio
+            $estadoDominio = ($row['estado'] == 1) ? 'activo' : 'inactivo';
+
             $proyecto = new Proyecto(
                 $row['id_proyecto'],
                 $row['nombre'],
+                $row['objeto'] ?? null,
+                $row['numero_contrato'] ?? null,
+                isset($row['valor']) ? (float)$row['valor'] : null,
                 $row['id_cliente'],
                 $row['fecha_inicio'],
                 $row['fecha_fin'],
-                $row['estado'],
+                $estadoDominio, // Estado convertido
                 $row['observaciones']
             );
             
@@ -48,29 +54,45 @@ class ProyectoMySQLRepository implements ProyectoRepository {
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return $row ? new Proyecto(
+        if (!$row) {
+            return null;
+        }
+
+        // Convertir estado de BD (número) a string para el dominio
+        $estadoDominio = ($row['estado'] == 1) ? 'activo' : 'inactivo';
+
+        return new Proyecto(
             $row['id_proyecto'],
             $row['nombre'],
+            $row['objeto'] ?? null,
+            $row['numero_contrato'] ?? null,
+            isset($row['valor']) ? (float)$row['valor'] : null,
             $row['id_cliente'],
             $row['fecha_inicio'],
             $row['fecha_fin'],
-            $row['estado'],
+            $estadoDominio, // Estado convertido
             $row['observaciones']
-        ) : null;
+        );
     }
 
     public function save(Proyecto $proyecto): Proyecto {
-        $sql = "INSERT INTO proyectos (nombre, id_cliente, fecha_inicio, fecha_fin, estado, observaciones) 
-                VALUES (:nombre, :id_cliente, :fecha_inicio, :fecha_fin, :estado, :observaciones)";
+        $sql = "INSERT INTO proyectos (nombre, objeto, numero_contrato, valor, id_cliente, fecha_inicio, fecha_fin, estado, observaciones) 
+                VALUES (:nombre, :objeto, :numero_contrato, :valor, :id_cliente, :fecha_inicio, :fecha_fin, :estado, :observaciones)";
         $stmt = $this->conn->prepare($sql);
 
+        // Convertir el estado de string a valor numérico para la base de datos
+        $estadoBD = ($proyecto->getEstado() === 'activo') ? 1 : 0;
+
         $stmt->execute([
-            'nombre'        => $proyecto->getNombre(),
-            'id_cliente'    => $proyecto->getIdCliente(),
-            'fecha_inicio'  => $proyecto->getFechaInicio(),
-            'fecha_fin'     => $proyecto->getFechaFin(),
-            'estado'        => $proyecto->getEstado() ?? 1,
-            'observaciones' => $proyecto->getObservaciones()
+            'nombre'          => $proyecto->getNombre(),
+            'objeto'          => $proyecto->getObjeto(),
+            'numero_contrato' => $proyecto->getNumeroContrato(),
+            'valor'           => $proyecto->getValor(),
+            'id_cliente'      => $proyecto->getIdCliente(),
+            'fecha_inicio'    => $proyecto->getFechaInicio(),
+            'fecha_fin'       => $proyecto->getFechaFin(),
+            'estado'          => $estadoBD,
+            'observaciones'   => $proyecto->getObservaciones()
         ]);
 
         $id = (int)$this->conn->lastInsertId();
@@ -80,21 +102,27 @@ class ProyectoMySQLRepository implements ProyectoRepository {
     }
 
     public function update(Proyecto $proyecto, array $responsables = []): bool {
-        // 1️⃣ Actualizar datos del proyecto
         $sql = "UPDATE proyectos 
-                SET nombre=:nombre, id_cliente=:id_cliente, fecha_inicio=:fecha_inicio, 
+                SET nombre=:nombre, objeto=:objeto, numero_contrato=:numero_contrato, valor=:valor, 
+                    id_cliente=:id_cliente, fecha_inicio=:fecha_inicio, 
                     fecha_fin=:fecha_fin, estado=:estado, observaciones=:observaciones
                 WHERE id_proyecto=:id";
         $stmt = $this->conn->prepare($sql);
 
+        // Convertir el estado de string a valor numérico para la base de datos
+        $estadoBD = ($proyecto->getEstado() === 'activo') ? 1 : 0;
+
         $resultado = $stmt->execute([
-            'nombre'        => $proyecto->getNombre(),
-            'id_cliente'    => $proyecto->getIdCliente(),
-            'fecha_inicio'  => $proyecto->getFechaInicio(),
-            'fecha_fin'     => $proyecto->getFechaFin(),
-            'estado'        => $proyecto->getEstado(),
-            'observaciones' => $proyecto->getObservaciones(),
-            'id'            => $proyecto->getId()
+            'nombre'          => $proyecto->getNombre(),
+            'objeto'          => $proyecto->getObjeto(),
+            'numero_contrato' => $proyecto->getNumeroContrato(),
+            'valor'           => $proyecto->getValor(),
+            'id_cliente'      => $proyecto->getIdCliente(),
+            'fecha_inicio'    => $proyecto->getFechaInicio(),
+            'fecha_fin'       => $proyecto->getFechaFin(),
+            'estado'          => $estadoBD,
+            'observaciones'   => $proyecto->getObservaciones(),
+            'id'              => $proyecto->getId()
         ]);
 
         if (!$resultado) return false;
@@ -142,6 +170,9 @@ class ProyectoMySQLRepository implements ProyectoRepository {
             $proyectos[] = [
                 'id' => $row['id_proyecto'],
                 'nombre' => $row['nombre'],
+                'objeto' => $row['objeto'] ?? null,
+                'numero_contrato' => $row['numero_contrato'] ?? null,
+                'valor' => isset($row['valor']) ? (float)$row['valor'] : null,
                 'id_cliente' => $row['id_cliente'],
                 'fecha_inicio' => $row['fecha_inicio'],
                 'fecha_fin' => $row['fecha_fin'],
@@ -153,6 +184,7 @@ class ProyectoMySQLRepository implements ProyectoRepository {
 
         return $proyectos;
     }
+
     public function getClientes(): array {
         $stmt = $this->conn->query("SELECT id_cliente, nombre FROM clientes WHERE estado = '1' ORDER BY nombre");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

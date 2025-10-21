@@ -4,6 +4,9 @@ namespace Src\Proyectos\Domain;
 class Proyecto {
     private ?int $id_proyecto;
     private string $nombre;
+    private ?string $objeto;
+    private ?string $numero_contrato;
+    private ?float $valor;
     private int $id_cliente;
     private string $fecha_inicio;
     private ?string $fecha_fin;
@@ -13,6 +16,9 @@ class Proyecto {
     public function __construct(
         ?int $id_proyecto,
         string $nombre,
+        ?string $objeto = null,
+        ?string $numero_contrato = null,
+        ?float $valor = null,
         int $id_cliente,
         string $fecha_inicio,
         ?string $fecha_fin,
@@ -21,6 +27,9 @@ class Proyecto {
     ) {
         $this->id_proyecto = $id_proyecto;
         $this->nombre = $nombre;
+        $this->objeto = $objeto;
+        $this->numero_contrato = $numero_contrato;
+        $this->valor = $valor;
         $this->id_cliente = $id_cliente;
         $this->fecha_inicio = $fecha_inicio;
         $this->fecha_fin = $fecha_fin;
@@ -30,13 +39,27 @@ class Proyecto {
     
     public static function crear(
         string $nombre,
+        ?string $objeto = null,
+        ?string $numero_contrato = null,
+        ?float $valor = null,
         int $id_cliente,
         string $fecha_inicio,
         ?string $fecha_fin = null,
         string $estado = 'activo',
         ?string $observaciones = null
     ): self {
-        return new self(null, $nombre, $id_cliente, $fecha_inicio, $fecha_fin, $estado, $observaciones);
+        return new self(
+            null, 
+            $nombre, 
+            $objeto, 
+            $numero_contrato, 
+            $valor, 
+            $id_cliente, 
+            $fecha_inicio, 
+            $fecha_fin, 
+            $estado, 
+            $observaciones
+        );
     }
 
     // Getters
@@ -46,6 +69,18 @@ class Proyecto {
 
     public function getNombre(): string {
         return $this->nombre;
+    }
+
+    public function getObjeto(): ?string {
+        return $this->objeto;
+    }
+
+    public function getNumeroContrato(): ?string {
+        return $this->numero_contrato;
+    }
+
+    public function getValor(): ?float {
+        return $this->valor;
     }
 
     public function getIdCliente(): int {
@@ -77,6 +112,18 @@ class Proyecto {
         $this->nombre = $nombre;
     }
 
+    public function setObjeto(?string $objeto): void {
+        $this->objeto = $objeto;
+    }
+
+    public function setNumeroContrato(?string $numero_contrato): void {
+        $this->numero_contrato = $numero_contrato;
+    }
+
+    public function setValor(?float $valor): void {
+        $this->valor = $valor;
+    }
+
     public function setIdCliente(int $id_cliente): void {
         $this->id_cliente = $id_cliente;
     }
@@ -99,13 +146,16 @@ class Proyecto {
 
     public function toArray(): array {
         return [
-            'id_proyecto'   => $this->id_proyecto,
-            'nombre'        => $this->nombre,
-            'id_cliente'    => $this->id_cliente,
-            'fecha_inicio'  => $this->fecha_inicio,
-            'fecha_fin'     => $this->fecha_fin,
-            'estado'        => $this->estado === 'activo' || $this->estado === '1',
-            'observaciones' => $this->observaciones
+            'id_proyecto'     => $this->id_proyecto,
+            'nombre'          => $this->nombre,
+            'objeto'          => $this->objeto,
+            'numero_contrato' => $this->numero_contrato,
+            'valor'           => $this->valor,
+            'id_cliente'      => $this->id_cliente,
+            'fecha_inicio'    => $this->fecha_inicio,
+            'fecha_fin'       => $this->fecha_fin,
+            'estado'          => $this->estado === 'activo' || $this->estado === '1',
+            'observaciones'   => $this->observaciones
         ];
     }
 
@@ -113,6 +163,9 @@ class Proyecto {
         return new self(
             $data['id_proyecto'] ?? null,
             $data['nombre'],
+            $data['objeto'] ?? null,
+            $data['numero_contrato'] ?? null,
+            isset($data['valor']) ? (float)$data['valor'] : null,
             $data['id_cliente'],
             $data['fecha_inicio'],
             $data['fecha_fin'] ?? null,

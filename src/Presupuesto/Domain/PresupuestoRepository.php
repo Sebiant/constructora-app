@@ -1,5 +1,5 @@
 <?php
-namespace Src\Presupuestos\Domain;
+namespace Src\Presupuesto\Domain;
 
 interface PresupuestoRepository {
     public function getAll(): array;

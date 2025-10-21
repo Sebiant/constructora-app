@@ -28,12 +28,21 @@ try {
                 exit;
             }
 
+            // Convertir el estado de '1'/'0' a 'activo'/'inactivo'
+            $estado = 'activo'; // Por defecto activo - ¡DEFINIRLA ANTES DE USARLA!
+            if (isset($data['estado'])) {
+                $estado = ($data['estado'] === '1' || $data['estado'] === 'activo') ? 'activo' : 'inactivo';
+            }
+
             $proyecto = Proyecto::crear(
                 $data['nombre'],
+                $data['objeto'] ?? null,
+                $data['numero_contrato'] ?? null,
+                isset($data['valor']) ? (float)$data['valor'] : null,
                 $data['id_cliente'],
                 $data['fecha_inicio'],
                 $data['fecha_fin'] ?? null,
-                $data['estado'] ?? '1',
+                $estado, // Usar el estado convertido
                 $data['observaciones'] ?? null
             );
 
@@ -80,7 +89,6 @@ try {
             echo json_encode($proyecto);
             break;
 
-        // En tu ProyectoController.php, agrega este case:
         case 'update':
             $input = json_decode(file_get_contents('php://input'), true);
             
@@ -93,15 +101,24 @@ try {
             }
             
             try {
+                // Convertir el estado para el update
+                $estado = true; // Por defecto activo
+                if (isset($input['estado'])) {
+                    $estado = ($input['estado'] === '1' || $input['estado'] === 'activo' || $input['estado'] === true);
+                }
+
                 $updateUseCase = new \Src\Proyectos\Application\UpdateProyecto($repo);
                 $result = $updateUseCase->execute(
                     (int)$input['id_proyecto'],
                     $input['nombre'],
+                    $input['objeto'] ?? null,
+                    $input['numero_contrato'] ?? null,
+                    isset($input['valor']) ? (float)$input['valor'] : null,
                     (int)$input['id_cliente'],
                     $input['fecha_inicio'],
                     $input['fecha_fin'] ?? null,
                     $input['observaciones'] ?? null,
-                    $input['estado'] ?? true
+                    $estado
                 );
                 
                 http_response_code(200);
@@ -111,6 +128,9 @@ try {
                     'data' => [
                         'id_proyecto' => $result['proyecto']->getId(),
                         'nombre' => $result['proyecto']->getNombre(),
+                        'objeto' => $result['proyecto']->getObjeto(),
+                        'numero_contrato' => $result['proyecto']->getNumeroContrato(),
+                        'valor' => $result['proyecto']->getValor(),
                         'id_cliente' => $result['proyecto']->getIdCliente(),
                         'fecha_inicio' => $result['proyecto']->getFechaInicio(),
                         'fecha_fin' => $result['proyecto']->getFechaFin(),

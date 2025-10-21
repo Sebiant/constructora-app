@@ -16,6 +16,9 @@ class GetProyectoById {
         return [
             'id' => $proyecto->getId(),
             'nombre' => $proyecto->getNombre(),
+            'objeto' => $proyecto->getObjeto(),
+            'numero_contrato' => $proyecto->getNumeroContrato(),
+            'valor' => $proyecto->getValor(),
             'id_cliente' => $proyecto->getIdCliente(),
             'fecha_inicio' => $proyecto->getFechaInicio(),
             'fecha_fin' => $proyecto->getFechaFin(),

@@ -11,10 +11,13 @@ class UpdateProyecto {
     public function execute(
         int $id_proyecto,
         string $nombre,
+        ?string $objeto = null,
+        ?string $numero_contrato = null,
+        ?float $valor = null,
         int $id_cliente,
         string $fecha_inicio,
-        ?string $fecha_fin,
-        ?string $observaciones,
+        ?string $fecha_fin = null,
+        ?string $observaciones = null,
         bool $estado = true
     ) {
         // Verificar si el proyecto existe
@@ -23,14 +26,20 @@ class UpdateProyecto {
             throw new Exception("Proyecto no encontrado");
         }
         
-        // Crear objeto Proyecto actualizado
+        // Convertir estado booleano a string para el constructor
+        $estadoString = $estado ? 'activo' : 'inactivo';
+        
+        // Crear objeto Proyecto actualizado con los nuevos campos
         $proyecto = new Proyecto(
             $id_proyecto,
             $nombre,
+            $objeto,
+            $numero_contrato,
+            $valor,
             $id_cliente,
             $fecha_inicio,
             $fecha_fin,
-            $estado,
+            $estadoString,
             $observaciones
         );
         

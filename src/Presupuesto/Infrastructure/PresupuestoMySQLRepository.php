@@ -1,8 +1,8 @@
 <?php
-namespace Src\Presupuestos\Infrastructure;
+namespace Src\Presupuesto\Infrastructure;
 
-use Src\Presupuestos\Domain\Presupuesto;
-use Src\Presupuestos\Domain\PresupuestoRepository;
+use Src\Presupuesto\Domain\Presupuesto;
+use Src\Presupuesto\Domain\PresupuestoRepository;
 use PDO;
 
 class PresupuestoMySQLRepository implements PresupuestoRepository {
@@ -91,7 +91,32 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
         return $result ?: [];
     }
 
-    public function validateImportMasive(array $data): array {
+    // 🔴 REEMPLAZADO: Nuevo método para validar capítulos
+    public function validarCapituloParaProyecto(int $idCapitulo, int $idProyecto): ?array {
+        $query = "SELECT 
+                    c.id_capitulo,
+                    c.nombre_cap,
+                    c.id_presupuesto,
+                    p.id_proyecto
+                FROM capitulos c
+                INNER JOIN presupuestos p ON c.id_presupuesto = p.id_presupuesto
+                WHERE c.id_capitulo = :id_capitulo 
+                AND p.id_proyecto = :id_proyecto
+                AND c.estado = 1
+                LIMIT 1";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([
+            'id_capitulo' => $idCapitulo,
+            'id_proyecto' => $idProyecto
+        ]);
+
+        $capitulo = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $capitulo ?: null;
+    }
+
+    
+    public function validateImportMasive(array $data, ?string $proyectoSeleccionado = null): array {
         $filas = [];
         $encabezado = true;
 
@@ -109,33 +134,44 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
             }
 
             // Mapeo de columnas del Excel
-            $nombreProyecto = trim($fila[0] ?? '');
-            $nombrePresupuesto = trim($fila[1] ?? '');
-            $codigoCapitulo = trim($fila[2] ?? '');
-            $codigoMaterial = trim($fila[3] ?? '');
-            $cantidad = trim($fila[4] ?? '');
-            $fecha = trim($fila[5] ?? '');
+            $codigoCapitulo = trim($fila[1] ?? '');
+            $codigoMaterial = trim($fila[2] ?? '');
+            $cantidad = trim($fila[3] ?? '');
+            $fecha = trim($fila[4] ?? '');
+            $nombrePresupuesto = trim($fila[0] ?? '');
 
             // Saltar filas completamente vacías
-            if (empty($nombreProyecto) && empty($codigoCapitulo) && empty($codigoMaterial)) {
+            if (empty($codigoCapitulo) && empty($codigoMaterial)) {
                 continue;
             }
 
             $errores = [];
+            $idCapitulo = null;
+            $nombreCapitulo = 'Capítulo no válido';
 
             // Validaciones básicas
-            if (empty($nombreProyecto)) {
-                $errores[] = 'Nombre de proyecto requerido';
+            if (empty($proyectoSeleccionado)) {
+                $errores[] = 'Proyecto no seleccionado';
             }
 
             if (empty($nombrePresupuesto)) {
                 $errores[] = 'Nombre de presupuesto requerido';
             }
 
+            // 🔴 CORREGIDO: Validación de capítulos
             if (empty($codigoCapitulo)) {
-                $errores[] = 'Código de capítulo requerido';
+                $errores[] = 'ID de capítulo requerido';
             } elseif (!is_numeric($codigoCapitulo)) {
-                $errores[] = 'Código de capítulo debe ser numérico';
+                $errores[] = 'ID de capítulo debe ser numérico';
+            } else {
+                // Validar que el capítulo pertenece al proyecto
+                $capituloValido = $this->validarCapituloParaProyecto((int)$codigoCapitulo, (int)$proyectoSeleccionado);
+                if (!$capituloValido) {
+                    $errores[] = 'El capítulo no existe o no pertenece a este proyecto';
+                } else {
+                    $idCapitulo = $capituloValido['id_capitulo'];
+                    $nombreCapitulo = $capituloValido['nombre_cap'];
+                }
             }
 
             if (empty($codigoMaterial)) {
@@ -150,11 +186,13 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
                 $errores[] = 'Cantidad debe ser un número mayor a 0';
             }
 
-            // Obtener información del material (aunque haya errores, para mostrar en previsualización)
+            // Obtener info del material (aunque haya errores)
             $nombreMaterial = 'No encontrado';
             $precioUnitario = 0;
             $unidad = 'N/A';
             $tipoMaterial = 'N/A';
+            $idMaterial = null;
+            $idMatPrecio = null;
             
             if (isset($materialesMap[$codigoMaterial])) {
                 $material = $materialesMap[$codigoMaterial];
@@ -162,29 +200,47 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
                 $precioUnitario = (float)$material['precio_actual'];
                 $unidad = $material['unidad'];
                 $tipoMaterial = $material['tipo_material'];
+                $idMaterial = $material['id_material'];
+                $idMatPrecio = $material['id_mat_precio'];
             }
 
-            // Calcular valor total (aunque haya errores)
             $valorTotal = $precioUnitario * (float)$cantidad;
 
             $filas[] = [
-                'proyecto' => $nombreProyecto,
+                // --- Datos para mostrar ---
                 'presupuesto' => $nombrePresupuesto,
-                'capitulo' => $codigoCapitulo,
+                'capitulo' => $nombreCapitulo, // 🔴 Ahora muestra el nombre, no el ID
                 'material_codigo' => $codigoMaterial,
                 'material_nombre' => $nombreMaterial,
                 'tipo_material' => $tipoMaterial,
                 'unidad' => $unidad,
-                'cantidad' => $cantidad,
-                'precio_unitario' => $precioUnitario,
+                'cantidad' => (float)$cantidad,
+                'precio_unitario' => (float)$precioUnitario,
                 'valor_total' => $valorTotal,
                 'fecha' => $fecha,
+
+                // --- Datos para la BD ---
+                'id_det_presupuesto' => null,
+                'id_presupuesto' => $idPresupuesto ?? null,
+                'id_material' => $idMaterial,
+                'id_capitulo' => $idCapitulo, // 🔴 Ahora tiene el ID válido o null
+                'id_mat_precio' => $idMatPrecio,
+                'idestado' => 1,
+                'idusuario' => $idUsuario ?? 1,
+                'fechareg' => date('Y-m-d H:i:s'),
+                'fechaupdate' => date('Y-m-d H:i:s'),
+
+                // --- Campos adicionales para control ---
+                'id_proyecto' => $proyectoSeleccionado,
+                'precio_actual' => (float)$precioUnitario,
+                'valor_total_calculado' => $valorTotal,
+
+                // --- Estado de validación ---
                 'ok' => empty($errores),
                 'errores' => $errores
             ];
         }
 
         return $filas;
-    }
-    
+    }   
 }

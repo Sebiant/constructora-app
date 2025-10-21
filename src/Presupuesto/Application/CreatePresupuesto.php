@@ -1,17 +1,17 @@
 <?php
+namespace Src\Presupuesto\Application;
 
-namespace Src\Presupuestos\Application;
-
+use Src\Presupuestos\Domain\Presupuesto;
 use Src\Presupuestos\Domain\PresupuestoRepository;
 
-class GetAllPresupuestos {
+class CreatePresupuesto {
     private PresupuestoRepository $repository;
 
     public function __construct(PresupuestoRepository $repository) {
         $this->repository = $repository;
     }
 
-    public function execute(): array {
-        return $this->repository->getAll();
+    public function execute(Presupuesto $presupuesto): Presupuesto {
+        return $this->repository->save($presupuesto);
     }
 }
