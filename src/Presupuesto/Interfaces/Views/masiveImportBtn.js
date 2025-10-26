@@ -12,6 +12,122 @@ $(document).ready(function () {
   cargarMultiplicadores();
 });
 
+function cargarProyectos() {
+  const selectProyecto = $("#id_proyecto");
+  selectProyecto.html('<option value="">Cargando proyectos...</option>');
+
+  $.ajax({
+    url: API_PRESUPUESTOS + "?action=getProyectos",
+    method: "GET",
+    dataType: "json",
+    success: function (res) {
+      if (res.success && res.data.length > 0) {
+        selectProyecto.html('<option value="">Seleccione un proyecto</option>');
+        res.data.forEach((p) => {
+          selectProyecto.append(
+            `<option value="${p.id_proyecto}">${p.nombre}</option>`
+          );
+        });
+
+        selectProyecto.off("change").on("change", function () {
+          const proyectoId = $(this).val();
+          console.log("Proyecto seleccionado:", proyectoId);
+          cargarPresupuestosPorProyecto(proyectoId);
+
+          $("#tablaPreview").html("");
+          $("#accionesFinales").hide();
+          $("#resumenImportacion").hide();
+          listaPresupuestos = [];
+        });
+
+        const proyectoSeleccionado = selectProyecto.val();
+        if (proyectoSeleccionado) {
+          cargarPresupuestosPorProyecto(proyectoSeleccionado);
+        }
+      } else {
+        selectProyecto.html(
+          '<option value="">No hay proyectos disponibles</option>'
+        );
+      }
+    },
+    error: function () {
+      selectProyecto.html(
+        '<option value="">Error al cargar proyectos</option>'
+      );
+    },
+  });
+}
+
+function cargarPresupuestosPorProyecto(proyectoId) {
+  console.log("Cargando presupuestos para proyecto:", proyectoId);
+  const selectPresupuesto = $("#id_presupuesto");
+
+  if (!proyectoId || proyectoId === "") {
+    selectPresupuesto.html(
+      '<option value="">Primero seleccione un proyecto</option>'
+    );
+    selectPresupuesto.prop("disabled", true);
+    return;
+  }
+
+  selectPresupuesto.html('<option value="">Cargando presupuestos...</option>');
+  selectPresupuesto.prop("disabled", true);
+
+  const formData = new FormData();
+  formData.append("proyecto_id", proyectoId);
+
+  $.ajax({
+    url: API_PRESUPUESTOS + "?action=getPresupuestosByProyecto",
+    method: "POST",
+    data: formData,
+    contentType: false,
+    processData: false,
+    dataType: "json",
+    success: function (res) {
+      console.log("Presupuestos cargados:", res);
+      selectPresupuesto.empty();
+
+      if (res.success && res.data && res.data.length > 0) {
+        res.data.forEach((presupuesto) => {
+          const fecha = new Date(presupuesto.fecha_creacion);
+          const fechaFormateada = fecha.toLocaleDateString("es-ES");
+          const montoFormateado = formatCurrency(presupuesto.monto_total || 0);
+
+          selectPresupuesto.append(
+            `<option value="${presupuesto.id_presupuesto}">
+              Presupuesto ${presupuesto.id_presupuesto} - ${fechaFormateada} - ${montoFormateado}
+            </option>`
+          );
+        });
+
+        selectPresupuesto.prop("disabled", false);
+
+        selectPresupuesto.off("change").on("change", function () {
+          const idPresupuesto = $(this).val();
+          if (idPresupuesto) {
+            cargarCapitulosDelPresupuesto(idPresupuesto);
+          }
+        });
+
+        console.log(
+          `${res.data.length} presupuestos cargados para el proyecto`
+        );
+      } else {
+        selectPresupuesto.append(
+          '<option value="">No hay presupuestos para este proyecto</option>'
+        );
+        console.log("ℹNo hay presupuestos para este proyecto");
+      }
+    },
+    error: function (xhr, status, error) {
+      console.error("Error al cargar presupuestos:", error);
+      selectPresupuesto.html(
+        '<option value="">Error al cargar presupuestos</option>'
+      );
+    },
+  });
+}
+
 function cargarMultiplicadores() {
   $.ajax({
     url: API_PRESUPUESTOS + "?action=getMultiplicadores",
@@ -47,36 +163,6 @@ function cargarMultiplicadores() {
   });
 }
 
-function cargarProyectos() {
-  const selectProyecto = $("#id_proyecto");
-  selectProyecto.html('<option value="">Cargando proyectos...</option>');
-
-  $.ajax({
-    url: API_PRESUPUESTOS + "?action=getProyectos",
-    method: "GET",
-    dataType: "json",
-    success: function (res) {
-      if (res.success && res.data.length > 0) {
-        selectProyecto.html('<option value="">Seleccione un proyecto</option>');
-        res.data.forEach((p) => {
-          selectProyecto.append(
-            `<option value="${p.id_proyecto}">${p.nombre}</option>`
-          );
-        });
-      } else {
-        selectProyecto.html(
-          '<option value="">No hay proyectos disponibles</option>'
-        );
-      }
-    },
-    error: function () {
-      selectProyecto.html(
-        '<option value="">Error al cargar proyectos</option>'
-      );
-    },
-  });
-}
-
 function cargarMaterialesEnSelect(materialSeleccionado = "") {
   const selectMaterial = $("#material");
   selectMaterial.html('<option value="">Cargando materiales...</option>');
@@ -93,14 +179,14 @@ function cargarMaterialesEnSelect(materialSeleccionado = "") {
         );
         res.data.forEach((m) => {
           selectMaterial.append(`
-                        <option value="${m.cod_material}" 
-                            data-id_material="${m.id_material}"
-                            data-id_mat_precio="${m.id_mat_precio}"
-                            data-precio="${m.precio_actual}"
-                            data-unidad="${m.unidad}">
-                            ${m.cod_material} - ${m.nombre_material}
-                        </option>
-                    `);
+            <option value="${m.cod_material}" 
+                data-id_material="${m.id_material}"
+                data-id_mat_precio="${m.id_mat_precio}"
+                data-precio="${m.precio_actual}"
+                data-unidad="${m.unidad}">
+                ${m.cod_material} - ${m.nombre_material}
+            </option>
+          `);
         });
 
         if (materialSeleccionado) {
@@ -114,9 +200,58 @@ function cargarMaterialesEnSelect(materialSeleccionado = "") {
     },
     error: function (xhr, status, error) {
       console.error("Error al cargar materiales:", error);
-      console.log("Status:", status);
-      console.log("Response:", xhr.responseText);
-      alert("Error al cargar materiales: " + xhr.status + " - " + error);
+      alert("Error al cargar materiales: " + error);
+    },
+  });
+}
+
+function cargarCapitulosDelPresupuesto(
+  idPresupuesto,
+  capituloSeleccionado = ""
+) {
+  const selectCapitulo = $("#capituloSelect");
+
+  if (!idPresupuesto) {
+    selectCapitulo.html(
+      '<option value="">Primero seleccione un presupuesto</option>'
+    );
+    return;
+  }
+
+  selectCapitulo.html('<option value="">Cargando capítulos...</option>');
+
+  $.ajax({
+    url: API_PRESUPUESTOS + "?action=getCapitulosByPresupuesto",
+    method: "POST",
+    data: { id_presupuesto: idPresupuesto },
+    dataType: "json",
+    success: function (res) {
+      selectCapitulo.empty();
+
+      if (res.success && res.data && res.data.length > 0) {
+        selectCapitulo.append(
+          '<option value="">Seleccione un capítulo</option>'
+        );
+        res.data.forEach((capitulo) => {
+          selectCapitulo.append(
+            `<option value="${capitulo.id_capitulo}">${capitulo.id_capitulo} - ${capitulo.nombre_cap}</option>`
+          );
+        });
+
+        if (capituloSeleccionado) {
+          selectCapitulo.val(capituloSeleccionado);
+        }
+      } else {
+        selectCapitulo.append(
+          '<option value="">No hay capítulos disponibles</option>'
+        );
+      }
+    },
+    error: function (xhr, status, error) {
+      console.error("Error al cargar capítulos:", error);
+      selectCapitulo.html(
+        '<option value="">Error al cargar capítulos</option>'
+      );
     },
   });
 }
@@ -316,7 +451,6 @@ function formatNumber(value) {
   }).format(value);
 }
 
-// Event Listeners
 $("#formImportar").on("submit", function (e) {
   e.preventDefault();
   importarExcel();
@@ -336,10 +470,17 @@ $(document).on("click", ".btn-editar", function () {
   const cap = $(this).data("cap");
   const fila = listaPresupuestos[index];
 
+  const idPresupuestoSeleccionado = $("#id_presupuesto").val();
+
   $("#indexFila").val(index);
   $("#proyectoFila").val(proyecto);
   $("#capFila").val(cap);
   $("#cod").val(fila.material_codigo);
+
+  cargarCapitulosDelPresupuesto(
+    idPresupuestoSeleccionado,
+    fila.id_capitulo || ""
+  );
 
   cargarMaterialesEnSelect(fila.material_codigo);
 
@@ -371,6 +512,7 @@ $(document).on("change", "#material", function () {
 function importarExcel() {
   const archivo = $("#archivo_excel")[0].files[0];
   const proyectoSeleccionado = $("#id_proyecto").val();
+  const presupuestoSeleccionado = $("#id_presupuesto").val();
 
   if (!archivo) {
     alert("Por favor selecciona un archivo Excel.");
@@ -380,10 +522,15 @@ function importarExcel() {
     alert("Por favor selecciona un proyecto.");
     return;
   }
+  if (!presupuestoSeleccionado) {
+    alert("Por favor selecciona un presupuesto.");
+    return;
+  }
 
   const formData = new FormData();
   formData.append("archivo_excel", archivo);
   formData.append("id_proyecto", proyectoSeleccionado);
+  formData.append("id_presupuesto", presupuestoSeleccionado);
 
   $("#mensajeResultado").html(
     `<div class="text-info">Procesando archivo...</div>`
@@ -414,7 +561,11 @@ function importarExcel() {
         ...fila,
         proyecto: $("#id_proyecto option:selected").text(),
         id_proyecto: proyectoSeleccionado,
+        id_presupuesto: presupuestoSeleccionado,
       }));
+
+      console.log("DATOS CARGADOS DESDE EXCEL - listaPresupuestos:");
+      mostrarListaPresupuestosEnConsola();
 
       $("#totalFilas").text(data.resumen.total_filas);
       $("#filasValidas").text(data.resumen.filas_validas);
@@ -443,6 +594,20 @@ function importarExcel() {
 function actualizarPresupuesto() {
   const index = $("#indexFila").val();
   const materialSeleccionado = $("#material option:selected");
+  const capituloSeleccionado = $("#capituloSelect").val();
+  const capituloTexto =
+    $("#capituloSelect option:selected").text().split(" - ")[1] ||
+    $("#capituloSelect option:selected").text();
+
+  if (!capituloSeleccionado) {
+    alert("Por favor seleccione un capítulo válido");
+    return;
+  }
+
+  if (!materialSeleccionado.val()) {
+    alert("Por favor seleccione un material válido");
+    return;
+  }
 
   listaPresupuestos[index].material_codigo = materialSeleccionado.val();
   listaPresupuestos[index].material_nombre =
@@ -453,6 +618,17 @@ function actualizarPresupuesto() {
   listaPresupuestos[index].precio_unitario =
     materialSeleccionado.data("precio") || $("#precio").val();
 
+  listaPresupuestos[index].id_capitulo = capituloSeleccionado;
+  listaPresupuestos[index].capitulo = capituloTexto;
+
+  const erroresSinCapitulo = listaPresupuestos[index].errores.filter(
+    (error) => !error.includes("capítulo")
+  );
+  listaPresupuestos[index].errores = erroresSinCapitulo;
+  listaPresupuestos[index].ok = erroresSinCapitulo.length === 0;
+
+  console.log("ITEM ACTUALIZADO:", listaPresupuestos[index]);
+
   $("#modalPresupuesto").modal("hide");
   agruparDatosPorCapitulo();
   renderTablaComoPDF();
@@ -460,6 +636,24 @@ function actualizarPresupuesto() {
 
 function guardarEnBaseDatos() {
   const btn = $(this);
+  const idPresupuesto = $("#id_presupuesto").val();
+
+  if (!idPresupuesto) {
+    alert("Error: No se ha seleccionado un presupuesto");
+    return;
+  }
+
+  const itemsValidos = listaPresupuestos.filter((item) => item.ok);
+
+  if (itemsValidos.length === 0) {
+    alert("No hay items válidos para guardar");
+    return;
+  }
+
+  console.log("GUARDANDO EN BD:");
+  console.log("ID Presupuesto:", idPresupuesto);
+  console.log("Items válidos:", itemsValidos.length);
+
   btn
     .prop("disabled", true)
     .html(
@@ -469,21 +663,90 @@ function guardarEnBaseDatos() {
   $.ajax({
     url: API_PRESUPUESTOS + "?action=guardarPresupuestos",
     type: "POST",
-    data: { presupuestos: JSON.stringify(listaPresupuestos) },
+    data: {
+      presupuestos: JSON.stringify(itemsValidos),
+      id_presupuesto: idPresupuesto,
+    },
     dataType: "json",
     success: function (data) {
       if (data.ok) {
         alert("Presupuestos guardados correctamente");
+        console.log("Guardado exitoso:", data);
         location.reload();
       } else {
         alert("Error: " + (data.mensaje || "No se pudieron guardar los datos"));
+        console.error("Error al guardar:", data);
       }
     },
     error: function (xhr, status, error) {
       alert("Error al guardar: " + error);
+      console.error("Error en la petición:", error);
     },
     complete: function () {
       btn.prop("disabled", false).html("Guardar Presupuestos");
     },
   });
+}
+
+function mostrarListaPresupuestosEnConsola() {
+  console.log("=== LISTA COMPLETA DE PRESUPUESTOS ===");
+  console.log("Total de items:", listaPresupuestos.length);
+
+  console.log("=== DETALLE COMPLETO POR ITEM ===");
+  listaPresupuestos.forEach((item, index) => {
+    console.log(`\n--- ITEM ${index} ---`);
+
+    console.log("DATOS PARA MOSTRAR:");
+    console.log("  • presupuesto:", item.presupuesto);
+    console.log("  • capitulo:", item.capitulo);
+    console.log("  • material_codigo:", item.material_codigo);
+    console.log("  • material_nombre:", item.material_nombre);
+    console.log("  • tipo_material:", item.tipo_material);
+    console.log("  • unidad:", item.unidad);
+    console.log("  • cantidad:", item.cantidad);
+    console.log("  • precio_unitario:", item.precio_unitario);
+    console.log("  • valor_total:", item.valor_total);
+    console.log("  • fecha:", item.fecha);
+
+    console.log("DATOS PARA BD:");
+    console.log("  • id_det_presupuesto:", item.id_det_presupuesto);
+    console.log("  • id_presupuesto:", item.id_presupuesto);
+    console.log("  • id_proyecto:", item.id_proyecto);
+    console.log("  • id_material:", item.id_material);
+    console.log("  • id_capitulo:", item.id_capitulo);
+    console.log("  • id_mat_precio:", item.id_mat_precio);
+    console.log("  • idestado:", item.idestado);
+    console.log("  • idusuario:", item.idusuario);
+    console.log("  • fechareg:", item.fechareg);
+    console.log("  • fechaupdate:", item.fechaupdate);
+
+    console.log("DATOS ADICIONALES:");
+    console.log("  • precio_actual:", item.precio_actual);
+    console.log("  • valor_total_calculado:", item.valor_total_calculado);
+    console.log("  • proyecto:", item.proyecto);
+    console.log("  • indexOriginal:", item.indexOriginal);
+
+    console.log("ESTADO DE VALIDACIÓN:");
+    console.log("  • ok:", item.ok);
+    console.log("  • errores:", item.errores);
+  });
+
+  const validos = listaPresupuestos.filter((item) => item.ok).length;
+  const conErrores = listaPresupuestos.filter((item) => !item.ok).length;
+  const valorTotal = listaPresupuestos.reduce(
+    (sum, item) => sum + (item.valor_total || 0),
+    0
+  );
+
+  console.log("=== ESTADÍSTICAS COMPLETAS ===");
+  console.log(`Válidos: ${validos}`);
+  console.log(`Con errores: ${conErrores}`);
+  console.log(`Valor total: ${formatCurrency(valorTotal)}`);
+  console.log(`Total items: ${listaPresupuestos.length}`);
+
+  console.log("=== ESTRUCTURA COMPLETA (objeto) ===");
+  console.log(listaPresupuestos);
+
+  console.log("=== JSON PARA ENVIAR A BD ===");
+  console.log(JSON.stringify(listaPresupuestos, null, 2));
 }

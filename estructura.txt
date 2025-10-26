@@ -1,0 +1,151 @@
+/constructora-app
+│
+├── /src
+│   ├── /Clientes
+│   │   ├── Domain
+│   │   │   └── Cliente.php
+│   │   ├── Application
+│   │   │   ├── CreateCliente.php
+│   │   │   └── UpdateCliente.php
+│   │   ├── Infrastructure
+│   │   │   └── ClienteMySQLRepository.php
+│   │   └── Interfaces
+│   │       ├── ClienteController.php
+│   │       └── Views
+│   │           ├── clientesView.js
+│   │           └── clientesView.php
+│   │
+│   ├── /Proyectos
+│   │   ├── Domain
+│   │   │   ├── Proyecto.php
+│   │   │   └── ProyectoRepository.php
+│   │   ├── Application
+│   │   │   ├── CreateProyecto.php
+│   │   │   ├── AssignResponsable.php
+│   │   │   └── UpdateProyecto.php
+│   │   ├── Infrastructure
+│   │   │   ├── ProyectoMySQLRepository.php
+│   │   │   └── ProyectoSeeder.php
+│   │   └── Interfaces
+│   │       ├── ProyectoController.php
+│   │       └── Views
+│   │           └── proyecto-crud.php
+│   │
+│   ├── /Presupuestos
+│   │   ├── Domain
+│   │   │   ├── Presupuesto.php
+│   │   │   └── PresupuestoRepository.php
+│   │   ├── Application
+│   │   │   ├── CreatePresupuesto.php
+│   │   │   └── CalcularTotal.php
+│   │   ├── Infrastructure
+│   │   │   └── PresupuestoMySQLRepository.php
+│   │   └── Interfaces
+│   │       ├── PresupuestoController.php
+│   │       └── Views
+│   │           └── index.php
+│   │
+│   ├── /Insumos
+│   │   ├── Domain
+│   │   │   ├── Insumo.php
+│   │   │   └── TipoInsumo.php
+│   │   ├── Application
+│   │   │   ├── CreateInsumo.php
+│   │   │   └── UpdateInsumo.php
+│   │   ├── Infrastructure
+│   │   │   └── InsumoMySQLRepository.php
+│   │   └── Interfaces
+│   │       ├── InsumoController.php
+│   │       └── Views
+│   │           └── index.php
+│   │
+│   ├── /Capitulos
+│   │   ├── Domain
+│   │   │   └── Capitulo.php
+│   │   ├── Application
+│   │   │   ├── CreateCapitulo.php
+│   │   │   └── UpdateCapitulo.php
+│   │   ├── Infrastructure
+│   │   │   └── CapituloMySQLRepository.php
+│   │   └── Interfaces
+│   │       ├── CapituloController.php
+│   │       └── Views
+│   │           └── index.php
+│   │
+│   ├── /Responsables
+│   │   ├── Domain
+│   │   │   └── Responsable.php
+│   │   ├── Application
+│   │   │   ├── CreateResponsable.php
+│   │   │   └── UpdateResponsable.php
+│   │   ├── Infrastructure
+│   │   │   └── ResponsableMySQLRepository.php
+│   │   └── Interfaces
+│   │       ├── ResponsableController.php
+│   │       └── Views
+│   │           └── index.php
+│   │
+│   ├── /Usuarios
+│   │   ├── Domain
+│   │   │   ├── Usuario.php
+│   │   │   ├── Sesion.php
+│   │   │   └── UsuarioRepository.php
+│   │   │
+│   │   ├── Application
+│   │   │   ├── CreateUsuario.php              # antes adicionar_usuario.php
+│   │   │   ├── UpdateUsuario.php              # antes frm_modificar_usuario.php
+│   │   │   ├── ListUsuarios.php               # antes consultar_listausuarios.php
+│   │   │   ├── FilterUsuarios.php             # antes consultar_filtro_usuario.php
+│   │   │   └── ResetPassword.php              # antes olvide_contrasena.php + enviar_reset.php
+│   │   │
+│   │   ├── Infrastructure
+│   │   │   ├── UsuarioMySQLRepository.php     # antes ConexionBD.php + consultas directas
+│   │   │   └── Migration_Usuarios.php
+│   │   │
+│   │   └── Interfaces
+│   │       ├── UsuarioController.php          # antes control.php / ClaseControl.php
+│   │       ├── AuthController.php             # antes aut_logout.php + Sesion.php
+│   │       └── Views
+│   │           ├── usuarios-crud.php          # listado principal
+│   │           ├── adicionar_usuario.php
+│   │           ├── frm_modificar_usuario.php
+│   │           ├── recibido_usuario.php
+│   │           ├── recibido_modfrmusuario.php
+│   │           ├── consultar_usuarios.php
+│   │           ├── actualizar_contrasenas.php
+│   │           ├── restablecer_contrasenas.php
+│   │           └── olvide_contrasena.php
+│   │
+│   ├── /Auth   (si lo quieres separado de Usuarios)
+│   │   ├── Domain
+│   │   │   └── Credenciales.php
+│   │   ├── Application
+│   │   │   ├── Login.php
+│   │   │   ├── Logout.php
+│   │   │   └── ResetPassword.php
+│   │   └── Interfaces
+│   │       ├── AuthController.php
+│   │       └── Views
+│   │           ├── login.php
+│   │           ├── logout.php
+│   │           ├── olvide_contrasena.php
+│   │           ├── restablecer_contrasenas.php
+│   │           └── enviar_reset.php
+│   │
+│   └── /Shared
+│       ├── Helpers.php        # antes ClaseHTML.php, ClaseControl.php
+│       └── Layout.php         # portada.php, info.php, plantillas comunes
+│
+├── /public
+│   ├── index.php
+│   ├── css/
+│   ├── js/
+│   └── img/
+│
+├── /config
+│   ├── database.php           # antes config.php
+│   ├── routes.php
+│   └── app.php
+│
+├── composer.json
+└── .env
