@@ -118,7 +118,7 @@ try {
 
         case 'getProyectos':
             try {
-                $stmt = $connection->prepare("SELECT id_proyecto, nombre FROM proyectos ORDER BY nombre ASC");
+                $stmt = $connection->prepare("SELECT id_proyecto, nombre FROM proyectos WHERE estado = 1 ORDER BY nombre ASC");
                 $stmt->execute();
                 $proyectos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
@@ -217,8 +217,6 @@ try {
                 
                 error_log("=== DEBUG getPresupuestosByProyecto ===");
                 error_log("Proyecto ID: " . $proyectoId);
-                error_log("POST: " . print_r($_POST, true));
-                error_log("GET: " . print_r($_GET, true));
                 
                 if (!$proyectoId || !is_numeric($proyectoId)) {
                     throw new \Exception('ID de proyecto inválido o no proporcionado. Recibido: ' . $proyectoId);
@@ -273,19 +271,17 @@ try {
                     throw new \Exception('ID de presupuesto inválido');
                 }
 
-                $query = "SELECT id_capitulo, nombre_cap 
-                        FROM capitulos 
-                        WHERE id_presupuesto = :id_presupuesto 
-                        AND estado = 1
-                        ORDER BY id_capitulo ASC";
-                        
-                $stmt = $connection->prepare($query);
-                $stmt->execute(['id_presupuesto' => (int)$idPresupuesto]);
-                $capitulos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                // 🔴 IMPORTANTE: Usar la nueva función que ordena por fecha y agrega números ordinales
+                $repository = new PresupuestoMySQLRepository($connection);
+                $capitulos = $repository->getCapitulosOrdenadosPorPresupuesto((int)$idPresupuesto);
 
                 echo json_encode([
                     'success' => true,
-                    'data' => $capitulos
+                    'data' => $capitulos,
+                    'debug' => [
+                        'total_capitulos' => count($capitulos),
+                        'id_presupuesto' => $idPresupuesto
+                    ]
                 ]);
                 
             } catch (\Exception $e) {
@@ -305,30 +301,23 @@ try {
                     throw new \Exception('ID de presupuesto requerido');
                 }
                 
-                // Consulta para obtener materiales del presupuesto
+                // Consulta corregida para usar tu estructura real de tablas
                 $sql = "SELECT 
                             m.cod_material,
-                            m.nombre_material,
+                            CAST(m.nombremat AS CHAR) AS nombre_material,
                             c.id_capitulo,
-                            c.nombre_capitulo,
+                            c.nombre_cap,
                             u.unidesc as unidad,
                             dp.cantidad,
-                            dp.precio_unitario as precio,
-                            COALESCE(ped.cantidad_pedida, 0) as pedido,
+                            mp.valor AS precio,
                             m.id_tipo_material,
                             m.id_material,
-                            dp.id_det_presupuesto,
-                            (dp.cantidad - COALESCE(ped.cantidad_pedida, 0)) as disponible
-                        FROM detalle_presupuesto dp
+                            dp.id_det_presupuesto
+                        FROM det_presupuesto dp
                         INNER JOIN materiales m ON dp.id_material = m.id_material
                         INNER JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
-                        INNER JOIN unidades u ON m.idunidad = u.idunidad
-                        LEFT JOIN (
-                            SELECT id_det_presupuesto, SUM(cantidad) as cantidad_pedida
-                            FROM pedidos_detalle 
-                            WHERE idestado = 1
-                            GROUP BY id_det_presupuesto
-                        ) ped ON dp.id_det_presupuesto = ped.id_det_presupuesto
+                        INNER JOIN material_precio mp ON dp.id_mat_precio = mp.id_mat_precio
+                        INNER JOIN gr_unidad u ON m.idunidad = u.idunidad
                         WHERE dp.id_presupuesto = ?";
                 
                 $params = [$presupuestoId];
@@ -361,21 +350,19 @@ try {
             try {
                 $sql = "SELECT 
                             p.id_presupuesto,
-                            p.nombre as nombre_presupuesto,
-                            pr.id_proyecto,
+                            p.id_proyecto,
                             pr.nombre as nombre_proyecto,
                             p.monto_total as valor_total,
                             p.fecha_creacion,
-                            p.estado,
-                            COUNT(DISTINCT dp.id_capitulo) as total_capitulos,
-                            COUNT(dp.id_det_presupuesto) as total_materiales,
-                            COALESCE(SUM(ped.cantidad * dp.precio_unitario), 0) as utilizado
+                            p.idestado as estado,
+                            COUNT(DISTINCT c.id_capitulo) as total_capitulos,
+                            COUNT(dp.id_det_presupuesto) as total_materiales
                         FROM presupuestos p
                         INNER JOIN proyectos pr ON p.id_proyecto = pr.id_proyecto
-                        LEFT JOIN detalle_presupuesto dp ON p.id_presupuesto = dp.id_presupuesto
-                        LEFT JOIN pedidos_detalle ped ON dp.id_det_presupuesto = ped.id_det_presupuesto AND ped.idestado = 1
+                        LEFT JOIN capitulos c ON p.id_presupuesto = c.id_presupuesto AND c.estado = 1
+                        LEFT JOIN det_presupuesto dp ON p.id_presupuesto = dp.id_presupuesto AND dp.idestado = 1
                         WHERE p.idestado = 1
-                        GROUP BY p.id_presupuesto, p.nombre, pr.nombre, p.monto_total, p.fecha_creacion, p.estado
+                        GROUP BY p.id_presupuesto, p.id_proyecto, pr.nombre, p.monto_total, p.fecha_creacion, p.idestado
                         ORDER BY p.fecha_creacion DESC";
                 
                 $stmt = $connection->prepare($sql);
@@ -406,7 +393,7 @@ try {
                 // Obtener información básica del presupuesto
                 $sqlPresupuesto = "SELECT 
                                     p.id_presupuesto,
-                                    p.nombre as nombre_presupuesto,
+                                    p.id_proyecto,
                                     pr.nombre as nombre_proyecto,
                                     p.monto_total as valor_total
                                 FROM presupuestos p
@@ -425,9 +412,10 @@ try {
                 $sqlCapitulos = "SELECT 
                                     c.id_capitulo,
                                     c.nombre_cap,
-                                    SUM(dp.cantidad * dp.precio_unitario) as subtotal
+                                    SUM(dp.cantidad * mp.valor) as subtotal
                                 FROM capitulos c
-                                INNER JOIN detalle_presupuesto dp ON c.id_capitulo = dp.id_capitulo
+                                INNER JOIN det_presupuesto dp ON c.id_capitulo = dp.id_capitulo
+                                INNER JOIN material_precio mp ON dp.id_mat_precio = mp.id_mat_precio
                                 WHERE dp.id_presupuesto = ?
                                 GROUP BY c.id_capitulo, c.nombre_cap
                                 ORDER BY c.id_capitulo";
@@ -440,14 +428,15 @@ try {
                 foreach ($capitulos as &$capitulo) {
                     $sqlMateriales = "SELECT 
                                         m.cod_material,
-                                        m.nombre_material,
+                                        CAST(m.nombremat AS CHAR) AS nombre_material,
                                         u.unidesc as unidad,
                                         dp.cantidad,
-                                        dp.precio_unitario,
-                                        (dp.cantidad * dp.precio_unitario) as total
-                                    FROM detalle_presupuesto dp
+                                        mp.valor as precio_unitario,
+                                        (dp.cantidad * mp.valor) as total
+                                    FROM det_presupuesto dp
                                     INNER JOIN materiales m ON dp.id_material = m.id_material
-                                    INNER JOIN unidades u ON m.idunidad = u.idunidad
+                                    INNER JOIN material_precio mp ON dp.id_mat_precio = mp.id_mat_precio
+                                    INNER JOIN gr_unidad u ON m.idunidad = u.idunidad
                                     WHERE dp.id_presupuesto = ? AND dp.id_capitulo = ?
                                     ORDER BY m.cod_material";
                     
@@ -456,18 +445,25 @@ try {
                     $capitulo['materiales'] = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                 }
                 
-                // Calcular totales y porcentajes (simulados - ajusta según tu lógica de negocio)
+                // Calcular totales usando multiplicadores reales
                 $subtotal = array_sum(array_column($capitulos, 'subtotal'));
-                $porcentajeAdministracion = 21; // Ejemplo
-                $porcentajeImprevistos = 1;     // Ejemplo
-                $porcentajeUtilidad = 8;        // Ejemplo
-                $porcentajeIVA = 19;            // Ejemplo
                 
-                $administracion = $subtotal * ($porcentajeAdministracion / 100);
-                $imprevistos = $subtotal * ($porcentajeImprevistos / 100);
-                $utilidad = $subtotal * ($porcentajeUtilidad / 100);
+                // Obtener multiplicadores reales de la base de datos
+                $sqlMultiplicadores = "SELECT desccostoind, porcentaje FROM costos_ind WHERE id_estado = 1";
+                $stmt = $connection->prepare($sqlMultiplicadores);
+                $stmt->execute();
+                $multiplicadoresData = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                $multiplicadores = [];
+                foreach ($multiplicadoresData as $mult) {
+                    $multiplicadores[strtolower($mult['desccostoind'])] = (float)$mult['porcentaje'] / 100;
+                }
+                
+                $administracion = $subtotal * ($multiplicadores['administración'] ?? 0.21);
+                $imprevistos = $subtotal * ($multiplicadores['imprevistos'] ?? 0.01);
+                $utilidad = $subtotal * ($multiplicadores['utilidad'] ?? 0.08);
                 $subtotalAjustado = $subtotal + $administracion + $imprevistos + $utilidad;
-                $iva = $subtotalAjustado * ($porcentajeIVA / 100);
+                $iva = $subtotalAjustado * ($multiplicadores['iva'] ?? 0.19);
                 $totalPresupuesto = $subtotalAjustado + $iva;
                 
                 echo json_encode([
@@ -478,13 +474,13 @@ try {
                         'totales' => [
                             'subtotal' => $subtotal,
                             'administracion' => $administracion,
-                            'porcentaje_administracion' => $porcentajeAdministracion,
+                            'porcentaje_administracion' => ($multiplicadores['administración'] ?? 0.21) * 100,
                             'imprevistos' => $imprevistos,
-                            'porcentaje_imprevistos' => $porcentajeImprevistos,
+                            'porcentaje_imprevistos' => ($multiplicadores['imprevistos'] ?? 0.01) * 100,
                             'utilidad' => $utilidad,
-                            'porcentaje_utilidad' => $porcentajeUtilidad,
+                            'porcentaje_utilidad' => ($multiplicadores['utilidad'] ?? 0.08) * 100,
                             'iva' => $iva,
-                            'porcentaje_iva' => $porcentajeIVA,
+                            'porcentaje_iva' => ($multiplicadores['iva'] ?? 0.19) * 100,
                             'total_presupuesto' => $totalPresupuesto
                         ]
                     ]
@@ -500,7 +496,7 @@ try {
 
         case 'getUnidades':
             try {
-                $sql = "SELECT idunidad, unidesc FROM unidades WHERE idestado = 1 ORDER BY unidesc";
+                $sql = "SELECT idunidad, unidesc FROM gr_unidad WHERE id_estado = 1 ORDER BY unidesc";
                 $stmt = $connection->prepare($sql);
                 $stmt->execute();
                 $unidades = $stmt->fetchAll(\PDO::FETCH_ASSOC);
@@ -520,7 +516,7 @@ try {
 
         case 'getTiposMaterial':
             try {
-                $sql = "SELECT id_tipo_material, desc_tipo FROM tipos_material WHERE idestado = 1 ORDER BY desc_tipo";
+                $sql = "SELECT id_tipo_material, desc_tipo FROM tipo_material WHERE estado = 1 ORDER BY desc_tipo";
                 $stmt = $connection->prepare($sql);
                 $stmt->execute();
                 $tipos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
@@ -550,51 +546,31 @@ try {
                 $connection->beginTransaction();
                 
                 try {
-                    // 1. Crear el pedido principal
+                    // 1. Crear el pedido principal (ajusta según tu estructura real)
                     $sqlPedido = "INSERT INTO pedidos (id_presupuesto, fecha_pedido, estado, total) 
                                  VALUES (?, NOW(), 'pendiente', ?)";
                     $stmt = $connection->prepare($sqlPedido);
                     $stmt->execute([
-                        $pedidoData['seleccionActual']['datos']['presupuestoId'],
+                        $pedidoData['presupuestoId'] ?? 0,
                         $pedidoData['total'] ?? 0
                     ]);
                     
                     $idPedido = $connection->lastInsertId();
                     
-                    // 2. Guardar detalles del pedido
+                    // 2. Guardar detalles del pedido (ajusta según tu estructura)
                     $sqlDetalle = "INSERT INTO pedidos_detalle 
                                   (id_pedido, id_det_presupuesto, cantidad, precio_unitario, subtotal) 
                                   VALUES (?, ?, ?, ?, ?)";
                     $stmtDetalle = $connection->prepare($sqlDetalle);
                     
-                    foreach ($pedidoData['materiales'] as $material) {
+                    foreach ($pedidoData['materiales'] ?? [] as $material) {
                         if ($material['pedido'] > 0) {
                             $stmtDetalle->execute([
                                 $idPedido,
-                                $material['id_det_presupuesto'],
-                                $material['pedido'],
-                                $material['precio'],
-                                $material['pedido'] * $material['precio']
-                            ]);
-                        }
-                    }
-                    
-                    // 3. Guardar materiales extra si existen
-                    if (!empty($pedidoData['materialesExtra'])) {
-                        $sqlExtra = "INSERT INTO materiales_extra 
-                                    (id_pedido, codigo, descripcion, cantidad, unidad, precio, justificacion, estado) 
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente')";
-                        $stmtExtra = $connection->prepare($sqlExtra);
-                        
-                        foreach ($pedidoData['materialesExtra'] as $extra) {
-                            $stmtExtra->execute([
-                                $idPedido,
-                                $extra['codigo'],
-                                $extra['descripcion'],
-                                $extra['cantidad'],
-                                $extra['unidad'],
-                                $extra['precio'],
-                                $extra['justificacion']
+                                $material['id_det_presupuesto'] ?? 0,
+                                $material['pedido'] ?? 0,
+                                $material['precio'] ?? 0,
+                                ($material['pedido'] ?? 0) * ($material['precio'] ?? 0)
                             ]);
                         }
                     }
@@ -659,8 +635,6 @@ try {
             }
             break;
 
-        // ... (tus casos existentes se mantienen) ...
-
         default:
             http_response_code(404);
             echo json_encode([
@@ -673,6 +647,8 @@ try {
                     'getMateriales' => 'Obtener lista de materiales',
                     'getMultiplicadores' => 'Obtener porcentajes de costos indirectos',
                     'guardarPresupuestos' => 'Guardar presupuestos en base de datos',
+                    'getPresupuestosByProyecto' => 'Obtener presupuestos por proyecto',
+                    'getCapitulosByPresupuesto' => 'Obtener capítulos ordenados por presupuesto',
                     'getMaterialesByPresupuesto' => 'Obtener materiales por presupuesto',
                     'getPresupuestosCompletos' => 'Obtener presupuestos con estadísticas',
                     'getDetallesCompletosPresupuesto' => 'Obtener detalles completos de presupuesto',

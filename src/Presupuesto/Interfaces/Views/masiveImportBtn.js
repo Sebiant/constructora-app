@@ -232,15 +232,27 @@ function cargarCapitulosDelPresupuesto(
         selectCapitulo.append(
           '<option value="">Seleccione un capítulo</option>'
         );
+
+        // 🔴 IMPORTANTE: Los capítulos ya vienen ordenados del servidor con números ordinales
         res.data.forEach((capitulo) => {
+          const numeroCapitulo =
+            capitulo.numero_ordinal || res.data.indexOf(capitulo) + 1; // Fallback por si no viene el número ordinal
+
           selectCapitulo.append(
-            `<option value="${capitulo.id_capitulo}">${capitulo.id_capitulo} - ${capitulo.nombre_cap}</option>`
+            `<option value="${capitulo.id_capitulo}" 
+                     data-numero-ordinal="${numeroCapitulo}">
+              Capítulo ${numeroCapitulo} - ${capitulo.nombre_cap}
+            </option>`
           );
         });
 
         if (capituloSeleccionado) {
           selectCapitulo.val(capituloSeleccionado);
         }
+
+        console.log(
+          `${res.data.length} capítulos cargados (ordenados por fecha)`
+        );
       } else {
         selectCapitulo.append(
           '<option value="">No hay capítulos disponibles</option>'
@@ -595,9 +607,14 @@ function actualizarPresupuesto() {
   const index = $("#indexFila").val();
   const materialSeleccionado = $("#material option:selected");
   const capituloSeleccionado = $("#capituloSelect").val();
-  const capituloTexto =
-    $("#capituloSelect option:selected").text().split(" - ")[1] ||
-    $("#capituloSelect option:selected").text();
+
+  // Obtener el texto del capítulo seleccionado
+  const capituloTexto = $("#capituloSelect option:selected").text();
+
+  // Obtener el número ordinal del capítulo seleccionado
+  const numeroOrdinal = $("#capituloSelect option:selected").data(
+    "numero-ordinal"
+  );
 
   if (!capituloSeleccionado) {
     alert("Por favor seleccione un capítulo válido");
@@ -609,6 +626,7 @@ function actualizarPresupuesto() {
     return;
   }
 
+  // Actualizar datos del material
   listaPresupuestos[index].material_codigo = materialSeleccionado.val();
   listaPresupuestos[index].material_nombre =
     materialSeleccionado.text().split(" - ")[1] || materialSeleccionado.text();
@@ -618,11 +636,18 @@ function actualizarPresupuesto() {
   listaPresupuestos[index].precio_unitario =
     materialSeleccionado.data("precio") || $("#precio").val();
 
+  // Actualizar datos del capítulo
   listaPresupuestos[index].id_capitulo = capituloSeleccionado;
   listaPresupuestos[index].capitulo = capituloTexto;
 
+  // Guardar también el número ordinal si está disponible
+  if (numeroOrdinal) {
+    listaPresupuestos[index].numero_ordinal_original = numeroOrdinal;
+  }
+
+  // Limpiar errores relacionados con capítulo
   const erroresSinCapitulo = listaPresupuestos[index].errores.filter(
-    (error) => !error.includes("capítulo")
+    (error) => !error.includes("capítulo") && !error.includes("capitulo")
   );
   listaPresupuestos[index].errores = erroresSinCapitulo;
   listaPresupuestos[index].ok = erroresSinCapitulo.length === 0;
@@ -707,6 +732,7 @@ function mostrarListaPresupuestosEnConsola() {
     console.log("  • precio_unitario:", item.precio_unitario);
     console.log("  • valor_total:", item.valor_total);
     console.log("  • fecha:", item.fecha);
+    console.log("  • numero_ordinal_original:", item.numero_ordinal_original);
 
     console.log("DATOS PARA BD:");
     console.log("  • id_det_presupuesto:", item.id_det_presupuesto);
