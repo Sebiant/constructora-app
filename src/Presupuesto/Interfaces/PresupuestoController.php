@@ -296,6 +296,371 @@ try {
             }
             break;
 
+        case 'getMaterialesByPresupuesto':
+            try {
+                $presupuestoId = $_POST['presupuesto_id'] ?? null;
+                $capituloId = $_POST['capitulo_id'] ?? null;
+                
+                if (!$presupuestoId) {
+                    throw new \Exception('ID de presupuesto requerido');
+                }
+                
+                // Consulta para obtener materiales del presupuesto
+                $sql = "SELECT 
+                            m.cod_material,
+                            m.nombre_material,
+                            c.id_capitulo,
+                            c.nombre_capitulo,
+                            u.unidesc as unidad,
+                            dp.cantidad,
+                            dp.precio_unitario as precio,
+                            COALESCE(ped.cantidad_pedida, 0) as pedido,
+                            m.id_tipo_material,
+                            m.id_material,
+                            dp.id_det_presupuesto,
+                            (dp.cantidad - COALESCE(ped.cantidad_pedida, 0)) as disponible
+                        FROM detalle_presupuesto dp
+                        INNER JOIN materiales m ON dp.id_material = m.id_material
+                        INNER JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
+                        INNER JOIN unidades u ON m.idunidad = u.idunidad
+                        LEFT JOIN (
+                            SELECT id_det_presupuesto, SUM(cantidad) as cantidad_pedida
+                            FROM pedidos_detalle 
+                            WHERE idestado = 1
+                            GROUP BY id_det_presupuesto
+                        ) ped ON dp.id_det_presupuesto = ped.id_det_presupuesto
+                        WHERE dp.id_presupuesto = ?";
+                
+                $params = [$presupuestoId];
+                
+                if ($capituloId) {
+                    $sql .= " AND dp.id_capitulo = ?";
+                    $params[] = $capituloId;
+                }
+                
+                $sql .= " ORDER BY c.id_capitulo, m.cod_material";
+                
+                $stmt = $connection->prepare($sql);
+                $stmt->execute($params);
+                $materiales = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $materiales
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false, 
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getPresupuestosCompletos':
+            try {
+                $sql = "SELECT 
+                            p.id_presupuesto,
+                            p.nombre as nombre_presupuesto,
+                            pr.id_proyecto,
+                            pr.nombre as nombre_proyecto,
+                            p.monto_total as valor_total,
+                            p.fecha_creacion,
+                            p.estado,
+                            COUNT(DISTINCT dp.id_capitulo) as total_capitulos,
+                            COUNT(dp.id_det_presupuesto) as total_materiales,
+                            COALESCE(SUM(ped.cantidad * dp.precio_unitario), 0) as utilizado
+                        FROM presupuestos p
+                        INNER JOIN proyectos pr ON p.id_proyecto = pr.id_proyecto
+                        LEFT JOIN detalle_presupuesto dp ON p.id_presupuesto = dp.id_presupuesto
+                        LEFT JOIN pedidos_detalle ped ON dp.id_det_presupuesto = ped.id_det_presupuesto AND ped.idestado = 1
+                        WHERE p.idestado = 1
+                        GROUP BY p.id_presupuesto, p.nombre, pr.nombre, p.monto_total, p.fecha_creacion, p.estado
+                        ORDER BY p.fecha_creacion DESC";
+                
+                $stmt = $connection->prepare($sql);
+                $stmt->execute();
+                $presupuestos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $presupuestos
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getDetallesCompletosPresupuesto':
+            try {
+                $presupuestoId = $_GET['id'] ?? null;
+                
+                if (!$presupuestoId) {
+                    throw new \Exception('ID de presupuesto requerido');
+                }
+                
+                // Obtener información básica del presupuesto
+                $sqlPresupuesto = "SELECT 
+                                    p.id_presupuesto,
+                                    p.nombre as nombre_presupuesto,
+                                    pr.nombre as nombre_proyecto,
+                                    p.monto_total as valor_total
+                                FROM presupuestos p
+                                INNER JOIN proyectos pr ON p.id_proyecto = pr.id_proyecto
+                                WHERE p.id_presupuesto = ?";
+                
+                $stmt = $connection->prepare($sqlPresupuesto);
+                $stmt->execute([$presupuestoId]);
+                $presupuesto = $stmt->fetch(\PDO::FETCH_ASSOC);
+                
+                if (!$presupuesto) {
+                    throw new \Exception('Presupuesto no encontrado');
+                }
+                
+                // Obtener capítulos y materiales
+                $sqlCapitulos = "SELECT 
+                                    c.id_capitulo,
+                                    c.nombre_cap,
+                                    SUM(dp.cantidad * dp.precio_unitario) as subtotal
+                                FROM capitulos c
+                                INNER JOIN detalle_presupuesto dp ON c.id_capitulo = dp.id_capitulo
+                                WHERE dp.id_presupuesto = ?
+                                GROUP BY c.id_capitulo, c.nombre_cap
+                                ORDER BY c.id_capitulo";
+                
+                $stmt = $connection->prepare($sqlCapitulos);
+                $stmt->execute([$presupuestoId]);
+                $capitulos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                // Obtener materiales por capítulo
+                foreach ($capitulos as &$capitulo) {
+                    $sqlMateriales = "SELECT 
+                                        m.cod_material,
+                                        m.nombre_material,
+                                        u.unidesc as unidad,
+                                        dp.cantidad,
+                                        dp.precio_unitario,
+                                        (dp.cantidad * dp.precio_unitario) as total
+                                    FROM detalle_presupuesto dp
+                                    INNER JOIN materiales m ON dp.id_material = m.id_material
+                                    INNER JOIN unidades u ON m.idunidad = u.idunidad
+                                    WHERE dp.id_presupuesto = ? AND dp.id_capitulo = ?
+                                    ORDER BY m.cod_material";
+                    
+                    $stmt = $connection->prepare($sqlMateriales);
+                    $stmt->execute([$presupuestoId, $capitulo['id_capitulo']]);
+                    $capitulo['materiales'] = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                }
+                
+                // Calcular totales y porcentajes (simulados - ajusta según tu lógica de negocio)
+                $subtotal = array_sum(array_column($capitulos, 'subtotal'));
+                $porcentajeAdministracion = 21; // Ejemplo
+                $porcentajeImprevistos = 1;     // Ejemplo
+                $porcentajeUtilidad = 8;        // Ejemplo
+                $porcentajeIVA = 19;            // Ejemplo
+                
+                $administracion = $subtotal * ($porcentajeAdministracion / 100);
+                $imprevistos = $subtotal * ($porcentajeImprevistos / 100);
+                $utilidad = $subtotal * ($porcentajeUtilidad / 100);
+                $subtotalAjustado = $subtotal + $administracion + $imprevistos + $utilidad;
+                $iva = $subtotalAjustado * ($porcentajeIVA / 100);
+                $totalPresupuesto = $subtotalAjustado + $iva;
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => [
+                        'presupuesto' => $presupuesto,
+                        'capitulos' => $capitulos,
+                        'totales' => [
+                            'subtotal' => $subtotal,
+                            'administracion' => $administracion,
+                            'porcentaje_administracion' => $porcentajeAdministracion,
+                            'imprevistos' => $imprevistos,
+                            'porcentaje_imprevistos' => $porcentajeImprevistos,
+                            'utilidad' => $utilidad,
+                            'porcentaje_utilidad' => $porcentajeUtilidad,
+                            'iva' => $iva,
+                            'porcentaje_iva' => $porcentajeIVA,
+                            'total_presupuesto' => $totalPresupuesto
+                        ]
+                    ]
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getUnidades':
+            try {
+                $sql = "SELECT idunidad, unidesc FROM unidades WHERE idestado = 1 ORDER BY unidesc";
+                $stmt = $connection->prepare($sql);
+                $stmt->execute();
+                $unidades = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $unidades
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getTiposMaterial':
+            try {
+                $sql = "SELECT id_tipo_material, desc_tipo FROM tipos_material WHERE idestado = 1 ORDER BY desc_tipo";
+                $stmt = $connection->prepare($sql);
+                $stmt->execute();
+                $tipos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $tipos
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'guardarPedido':
+            try {
+                $pedidoData = json_decode($_POST['pedido_data'], true);
+                
+                if (!$pedidoData) {
+                    throw new \Exception('Datos del pedido no válidos');
+                }
+                
+                // Iniciar transacción
+                $connection->beginTransaction();
+                
+                try {
+                    // 1. Crear el pedido principal
+                    $sqlPedido = "INSERT INTO pedidos (id_presupuesto, fecha_pedido, estado, total) 
+                                 VALUES (?, NOW(), 'pendiente', ?)";
+                    $stmt = $connection->prepare($sqlPedido);
+                    $stmt->execute([
+                        $pedidoData['seleccionActual']['datos']['presupuestoId'],
+                        $pedidoData['total'] ?? 0
+                    ]);
+                    
+                    $idPedido = $connection->lastInsertId();
+                    
+                    // 2. Guardar detalles del pedido
+                    $sqlDetalle = "INSERT INTO pedidos_detalle 
+                                  (id_pedido, id_det_presupuesto, cantidad, precio_unitario, subtotal) 
+                                  VALUES (?, ?, ?, ?, ?)";
+                    $stmtDetalle = $connection->prepare($sqlDetalle);
+                    
+                    foreach ($pedidoData['materiales'] as $material) {
+                        if ($material['pedido'] > 0) {
+                            $stmtDetalle->execute([
+                                $idPedido,
+                                $material['id_det_presupuesto'],
+                                $material['pedido'],
+                                $material['precio'],
+                                $material['pedido'] * $material['precio']
+                            ]);
+                        }
+                    }
+                    
+                    // 3. Guardar materiales extra si existen
+                    if (!empty($pedidoData['materialesExtra'])) {
+                        $sqlExtra = "INSERT INTO materiales_extra 
+                                    (id_pedido, codigo, descripcion, cantidad, unidad, precio, justificacion, estado) 
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente')";
+                        $stmtExtra = $connection->prepare($sqlExtra);
+                        
+                        foreach ($pedidoData['materialesExtra'] as $extra) {
+                            $stmtExtra->execute([
+                                $idPedido,
+                                $extra['codigo'],
+                                $extra['descripcion'],
+                                $extra['cantidad'],
+                                $extra['unidad'],
+                                $extra['precio'],
+                                $extra['justificacion']
+                            ]);
+                        }
+                    }
+                    
+                    // Confirmar transacción
+                    $connection->commit();
+                    
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Pedido guardado correctamente',
+                        'id_pedido' => $idPedido
+                    ]);
+                    
+                } catch (\Exception $e) {
+                    // Revertir transacción en caso de error
+                    $connection->rollBack();
+                    throw $e;
+                }
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getPedidosByPresupuesto':
+            try {
+                $presupuestoId = $_POST['presupuesto_id'] ?? null;
+                
+                if (!$presupuestoId) {
+                    throw new \Exception('ID de presupuesto requerido');
+                }
+                
+                $sql = "SELECT 
+                            p.id_pedido,
+                            p.fecha_pedido,
+                            p.estado,
+                            p.total,
+                            COUNT(pd.id_det_pedido) as total_items
+                        FROM pedidos p
+                        LEFT JOIN pedidos_detalle pd ON p.id_pedido = pd.id_pedido
+                        WHERE p.id_presupuesto = ?
+                        GROUP BY p.id_pedido, p.fecha_pedido, p.estado, p.total
+                        ORDER BY p.fecha_pedido DESC";
+                
+                $stmt = $connection->prepare($sql);
+                $stmt->execute([$presupuestoId]);
+                $pedidos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $pedidos
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        // ... (tus casos existentes se mantienen) ...
+
         default:
             http_response_code(404);
             echo json_encode([
@@ -307,7 +672,14 @@ try {
                     'getProyectos' => 'Obtener lista de proyectos',
                     'getMateriales' => 'Obtener lista de materiales',
                     'getMultiplicadores' => 'Obtener porcentajes de costos indirectos',
-                    'guardarPresupuestos' => 'Guardar presupuestos en base de datos'
+                    'guardarPresupuestos' => 'Guardar presupuestos en base de datos',
+                    'getMaterialesByPresupuesto' => 'Obtener materiales por presupuesto',
+                    'getPresupuestosCompletos' => 'Obtener presupuestos con estadísticas',
+                    'getDetallesCompletosPresupuesto' => 'Obtener detalles completos de presupuesto',
+                    'getUnidades' => 'Obtener lista de unidades de medida',
+                    'getTiposMaterial' => 'Obtener tipos de material',
+                    'guardarPedido' => 'Guardar pedido en base de datos',
+                    'getPedidosByPresupuesto' => 'Obtener pedidos por presupuesto'
                 ]
             ]);
     }
