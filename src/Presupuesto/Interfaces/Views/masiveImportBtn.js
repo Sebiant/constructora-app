@@ -7,6 +7,8 @@ let multiplicadores = {
   iva: 0.19,
 };
 
+let guardando = false;
+
 $(document).ready(function () {
   cargarProyectos();
   cargarMultiplicadores();
@@ -31,7 +33,6 @@ function cargarProyectos() {
 
         selectProyecto.off("change").on("change", function () {
           const proyectoId = $(this).val();
-          console.log("Proyecto seleccionado:", proyectoId);
           cargarPresupuestosPorProyecto(proyectoId);
 
           $("#tablaPreview").html("");
@@ -59,7 +60,6 @@ function cargarProyectos() {
 }
 
 function cargarPresupuestosPorProyecto(proyectoId) {
-  console.log("Cargando presupuestos para proyecto:", proyectoId);
   const selectPresupuesto = $("#id_presupuesto");
 
   if (!proyectoId || proyectoId === "") {
@@ -84,7 +84,6 @@ function cargarPresupuestosPorProyecto(proyectoId) {
     processData: false,
     dataType: "json",
     success: function (res) {
-      console.log("Presupuestos cargados:", res);
       selectPresupuesto.empty();
 
       if (res.success && res.data && res.data.length > 0) {
@@ -95,8 +94,8 @@ function cargarPresupuestosPorProyecto(proyectoId) {
 
           selectPresupuesto.append(
             `<option value="${presupuesto.id_presupuesto}">
-              Presupuesto ${presupuesto.id_presupuesto} - ${fechaFormateada} - ${montoFormateado}
-            </option>`
+                            Presupuesto ${presupuesto.id_presupuesto} - ${fechaFormateada} - ${montoFormateado}
+                        </option>`
           );
         });
 
@@ -108,15 +107,10 @@ function cargarPresupuestosPorProyecto(proyectoId) {
             cargarCapitulosDelPresupuesto(idPresupuesto);
           }
         });
-
-        console.log(
-          `${res.data.length} presupuestos cargados para el proyecto`
-        );
       } else {
         selectPresupuesto.append(
           '<option value="">No hay presupuestos para este proyecto</option>'
         );
-        console.log("ℹNo hay presupuestos para este proyecto");
       }
     },
     error: function (xhr, status, error) {
@@ -152,7 +146,6 @@ function cargarMultiplicadores() {
               break;
           }
         });
-        console.log("Multiplicadores cargados:", multiplicadores);
       }
     },
     error: function () {
@@ -179,14 +172,14 @@ function cargarMaterialesEnSelect(materialSeleccionado = "") {
         );
         res.data.forEach((m) => {
           selectMaterial.append(`
-            <option value="${m.cod_material}" 
-                data-id_material="${m.id_material}"
-                data-id_mat_precio="${m.id_mat_precio}"
-                data-precio="${m.precio_actual}"
-                data-unidad="${m.unidad}">
-                ${m.cod_material} - ${m.nombre_material}
-            </option>
-          `);
+                        <option value="${m.cod_material}" 
+                            data-id_material="${m.id_material}"
+                            data-id_mat_precio="${m.id_mat_precio}"
+                            data-precio="${m.precio_actual}"
+                            data-unidad="${m.unidad}">
+                            ${m.cod_material} - ${m.nombre_material}
+                        </option>
+                    `);
         });
 
         if (materialSeleccionado) {
@@ -233,26 +226,21 @@ function cargarCapitulosDelPresupuesto(
           '<option value="">Seleccione un capítulo</option>'
         );
 
-        // 🔴 IMPORTANTE: Los capítulos ya vienen ordenados del servidor con números ordinales
         res.data.forEach((capitulo) => {
           const numeroCapitulo =
-            capitulo.numero_ordinal || res.data.indexOf(capitulo) + 1; // Fallback por si no viene el número ordinal
+            capitulo.numero_ordinal || res.data.indexOf(capitulo) + 1;
 
           selectCapitulo.append(
             `<option value="${capitulo.id_capitulo}" 
-                     data-numero-ordinal="${numeroCapitulo}">
-              Capítulo ${numeroCapitulo} - ${capitulo.nombre_cap}
-            </option>`
+                                 data-numero-ordinal="${numeroCapitulo}">
+                            Capítulo ${numeroCapitulo} - ${capitulo.nombre_cap}
+                        </option>`
           );
         });
 
         if (capituloSeleccionado) {
           selectCapitulo.val(capituloSeleccionado);
         }
-
-        console.log(
-          `${res.data.length} capítulos cargados (ordenados por fecha)`
-        );
       } else {
         selectCapitulo.append(
           '<option value="">No hay capítulos disponibles</option>'
@@ -303,11 +291,13 @@ function renderTablaComoPDF() {
     html += `<th width="10%">Precio</th>`;
     html += `<th width="12%">Total</th>`;
     html += `<th width="6%">Elim.</th>`;
-    html += `<th width="5%">Mod.</th>`;
+    html += `<th width="6%">Mod.</th>`;
+    html += `<th width="5%">Det.</th>`;
     html += `</tr>`;
     html += `</thead>`;
     html += `<tbody>`;
-    html += `<tr class="table-primary fw-bold"><td colspan="9">${proyecto}</td></tr>`;
+
+    html += `<tr class="table-primary fw-bold"><td colspan="10">${proyecto}</td></tr>`;
 
     Object.keys(datosAgrupados[proyecto])
       .sort()
@@ -332,17 +322,20 @@ function renderTablaComoPDF() {
           html += `<td class="text-end">${formatNumber(cantidad)}</td>`;
           html += `<td class="text-end">${formatCurrency(precio)}</td>`;
           html += `<td class="text-end fw-bold">${formatCurrency(total)}</td>`;
-          html += `<td class="text-center">`;
-          html += `<button class="btn btn-danger btn-sm btn-eliminar" data-index="${item.indexOriginal}">X</button>`;
-          html += `</td>`;
-          html += `<td class="text-center">`;
-          html += `<button class="btn btn-warning btn-sm btn-editar" data-index="${item.indexOriginal}" data-proyecto="${proyecto}" data-cap="${cap}">✎</button>`;
-          html += `</td>`;
+          html += `<td class="text-center">
+                        <button class="btn btn-danger btn-sm btn-eliminar" data-index="${item.indexOriginal}">X</button>
+                    </td>`;
+          html += `<td class="text-center">
+                        <button class="btn btn-warning btn-sm btn-editar" data-index="${item.indexOriginal}" data-proyecto="${proyecto}" data-cap="${cap}">Editar</button>
+                    </td>`;
+          html += `<td class="text-center">
+                        <button class="btn btn-info btn-sm btn-ver-item" data-index="${item.indexOriginal}">Detalles</button>
+                    </td>`;
           html += `</tr>`;
 
           if (!item.ok && item.errores && item.errores.length > 0) {
             html += `<tr class="table-danger">`;
-            html += `<td colspan="9" class="small text-danger">`;
+            html += `<td colspan="10" class="small text-danger">`;
             html += `<strong>Errores:</strong> ${item.errores.join(", ")}`;
             html += `</td>`;
             html += `</tr>`;
@@ -350,7 +343,7 @@ function renderTablaComoPDF() {
         });
 
         html += `<tr class="table-secondary">`;
-        html += `<td colspan="6" class="text-end fw-bold">Subtotal Capítulo ${cap}</td>`;
+        html += `<td colspan="7" class="text-end fw-bold">Subtotal Capítulo ${cap}</td>`;
         html += `<td class="text-end fw-bold">${formatCurrency(
           subtotalCapitulo
         )}</td>`;
@@ -359,7 +352,7 @@ function renderTablaComoPDF() {
       });
 
     html += `<tr class="table-success fw-bold">`;
-    html += `<td colspan="6" class="text-end">Subtotal ${proyecto}</td>`;
+    html += `<td colspan="7" class="text-end">Subtotal ${proyecto}</td>`;
     html += `<td class="text-end">${formatCurrency(subtotalProyecto)}</td>`;
     html += `<td colspan="2"></td>`;
     html += `</tr>`;
@@ -472,7 +465,9 @@ $("#btnActualizarPresupuesto").on("click", function () {
   actualizarPresupuesto();
 });
 
-$("#btnCargarBD").on("click", function () {
+$("#btnCargarBD").on("click", function (e) {
+  e.preventDefault();
+  e.stopPropagation();
   guardarEnBaseDatos();
 });
 
@@ -493,7 +488,6 @@ $(document).on("click", ".btn-editar", function () {
     idPresupuestoSeleccionado,
     fila.id_capitulo || ""
   );
-
   cargarMaterialesEnSelect(fila.material_codigo);
 
   $("#unidad").val(fila.unidad);
@@ -574,10 +568,8 @@ function importarExcel() {
         proyecto: $("#id_proyecto option:selected").text(),
         id_proyecto: proyectoSeleccionado,
         id_presupuesto: presupuestoSeleccionado,
+        id_item: fila.id_item || null,
       }));
-
-      console.log("DATOS CARGADOS DESDE EXCEL - listaPresupuestos:");
-      mostrarListaPresupuestosEnConsola();
 
       $("#totalFilas").text(data.resumen.total_filas);
       $("#filasValidas").text(data.resumen.filas_validas);
@@ -608,10 +600,7 @@ function actualizarPresupuesto() {
   const materialSeleccionado = $("#material option:selected");
   const capituloSeleccionado = $("#capituloSelect").val();
 
-  // Obtener el texto del capítulo seleccionado
   const capituloTexto = $("#capituloSelect option:selected").text();
-
-  // Obtener el número ordinal del capítulo seleccionado
   const numeroOrdinal = $("#capituloSelect option:selected").data(
     "numero-ordinal"
   );
@@ -626,7 +615,6 @@ function actualizarPresupuesto() {
     return;
   }
 
-  // Actualizar datos del material
   listaPresupuestos[index].material_codigo = materialSeleccionado.val();
   listaPresupuestos[index].material_nombre =
     materialSeleccionado.text().split(" - ")[1] || materialSeleccionado.text();
@@ -636,23 +624,18 @@ function actualizarPresupuesto() {
   listaPresupuestos[index].precio_unitario =
     materialSeleccionado.data("precio") || $("#precio").val();
 
-  // Actualizar datos del capítulo
   listaPresupuestos[index].id_capitulo = capituloSeleccionado;
   listaPresupuestos[index].capitulo = capituloTexto;
 
-  // Guardar también el número ordinal si está disponible
   if (numeroOrdinal) {
     listaPresupuestos[index].numero_ordinal_original = numeroOrdinal;
   }
 
-  // Limpiar errores relacionados con capítulo
   const erroresSinCapitulo = listaPresupuestos[index].errores.filter(
     (error) => !error.includes("capítulo") && !error.includes("capitulo")
   );
   listaPresupuestos[index].errores = erroresSinCapitulo;
   listaPresupuestos[index].ok = erroresSinCapitulo.length === 0;
-
-  console.log("ITEM ACTUALIZADO:", listaPresupuestos[index]);
 
   $("#modalPresupuesto").modal("hide");
   agruparDatosPorCapitulo();
@@ -660,7 +643,13 @@ function actualizarPresupuesto() {
 }
 
 function guardarEnBaseDatos() {
-  const btn = $(this);
+  // 🔴 VERIFICAR SI YA SE ESTÁ GUARDANDO
+  if (guardando) {
+    alert("La importación ya está en proceso. Por favor espere...");
+    return;
+  }
+
+  const btn = $("#btnCargarBD");
   const idPresupuesto = $("#id_presupuesto").val();
 
   if (!idPresupuesto) {
@@ -675,15 +664,20 @@ function guardarEnBaseDatos() {
     return;
   }
 
-  console.log("GUARDANDO EN BD:");
-  console.log("ID Presupuesto:", idPresupuesto);
-  console.log("Items válidos:", itemsValidos.length);
+  // 🔴 MARCAR COMO GUARDANDO
+  guardando = true;
 
   btn
     .prop("disabled", true)
     .html(
       '<span class="spinner-border spinner-border-sm" role="status"></span> Guardando...'
     );
+
+  // 🔴 AGREGAR TIMEOSTAMP PARA DEBUG
+  console.log("=== INICIANDO GUARDADO ===");
+  console.log("ID Presupuesto:", idPresupuesto);
+  console.log("Items válidos:", itemsValidos.length);
+  console.log("Timestamp:", new Date().toISOString());
 
   $.ajax({
     url: API_PRESUPUESTOS + "?action=guardarPresupuestos",
@@ -694,69 +688,39 @@ function guardarEnBaseDatos() {
     },
     dataType: "json",
     success: function (data) {
+      console.log("=== RESPUESTA DEL SERVIDOR ===");
+      console.log("Respuesta:", data);
+
       if (data.ok) {
-        alert("Presupuestos guardados correctamente");
-        console.log("Guardado exitoso:", data);
-        location.reload();
+        alert("✅ Presupuestos guardados correctamente");
+        console.log("✅ Guardado exitoso - Total filas:", data.total_filas);
+
+        // 🔴 LIMPIAR TODO DESPUÉS DEL GUARDADO EXITOSO
+        setTimeout(() => {
+          location.reload();
+        }, 1000);
       } else {
-        alert("Error: " + (data.mensaje || "No se pudieron guardar los datos"));
-        console.error("Error al guardar:", data);
+        alert(
+          "❌ Error: " + (data.mensaje || "No se pudieron guardar los datos")
+        );
+        console.error("❌ Error en guardado:", data.mensaje);
       }
     },
     error: function (xhr, status, error) {
-      alert("Error al guardar: " + error);
-      console.error("Error en la petición:", error);
+      console.error("❌ Error en la petición:", error);
+      console.error("Detalles:", xhr.responseText);
+      alert("❌ Error al guardar: " + error);
     },
     complete: function () {
+      // 🔴 RESTABLECER ESTADO DE GUARDADO
+      guardando = false;
       btn.prop("disabled", false).html("Guardar Presupuestos");
+      console.log("=== GUARDADO COMPLETADO ===");
     },
   });
 }
 
 function mostrarListaPresupuestosEnConsola() {
-  console.log("=== LISTA COMPLETA DE PRESUPUESTOS ===");
-  console.log("Total de items:", listaPresupuestos.length);
-
-  console.log("=== DETALLE COMPLETO POR ITEM ===");
-  listaPresupuestos.forEach((item, index) => {
-    console.log(`\n--- ITEM ${index} ---`);
-
-    console.log("DATOS PARA MOSTRAR:");
-    console.log("  • presupuesto:", item.presupuesto);
-    console.log("  • capitulo:", item.capitulo);
-    console.log("  • material_codigo:", item.material_codigo);
-    console.log("  • material_nombre:", item.material_nombre);
-    console.log("  • tipo_material:", item.tipo_material);
-    console.log("  • unidad:", item.unidad);
-    console.log("  • cantidad:", item.cantidad);
-    console.log("  • precio_unitario:", item.precio_unitario);
-    console.log("  • valor_total:", item.valor_total);
-    console.log("  • fecha:", item.fecha);
-    console.log("  • numero_ordinal_original:", item.numero_ordinal_original);
-
-    console.log("DATOS PARA BD:");
-    console.log("  • id_det_presupuesto:", item.id_det_presupuesto);
-    console.log("  • id_presupuesto:", item.id_presupuesto);
-    console.log("  • id_proyecto:", item.id_proyecto);
-    console.log("  • id_material:", item.id_material);
-    console.log("  • id_capitulo:", item.id_capitulo);
-    console.log("  • id_mat_precio:", item.id_mat_precio);
-    console.log("  • idestado:", item.idestado);
-    console.log("  • idusuario:", item.idusuario);
-    console.log("  • fechareg:", item.fechareg);
-    console.log("  • fechaupdate:", item.fechaupdate);
-
-    console.log("DATOS ADICIONALES:");
-    console.log("  • precio_actual:", item.precio_actual);
-    console.log("  • valor_total_calculado:", item.valor_total_calculado);
-    console.log("  • proyecto:", item.proyecto);
-    console.log("  • indexOriginal:", item.indexOriginal);
-
-    console.log("ESTADO DE VALIDACIÓN:");
-    console.log("  • ok:", item.ok);
-    console.log("  • errores:", item.errores);
-  });
-
   const validos = listaPresupuestos.filter((item) => item.ok).length;
   const conErrores = listaPresupuestos.filter((item) => !item.ok).length;
   const valorTotal = listaPresupuestos.reduce(
@@ -769,10 +733,177 @@ function mostrarListaPresupuestosEnConsola() {
   console.log(`Con errores: ${conErrores}`);
   console.log(`Valor total: ${formatCurrency(valorTotal)}`);
   console.log(`Total items: ${listaPresupuestos.length}`);
-
-  console.log("=== ESTRUCTURA COMPLETA (objeto) ===");
-  console.log(listaPresupuestos);
-
-  console.log("=== JSON PARA ENVIAR A BD ===");
-  console.log(JSON.stringify(listaPresupuestos, null, 2));
 }
+
+function cargarInfoItemPorCodigo(codigoMaterial) {
+  if (!codigoMaterial) return;
+
+  const url =
+    API_PRESUPUESTOS +
+    "?action=getItemDetailsByCode&codigo_material=" +
+    encodeURIComponent(codigoMaterial);
+
+  $.ajax({
+    url: url,
+    method: "GET",
+    dataType: "json",
+    success: function (res) {
+      if (res.success && res.data) {
+        const item = res.data.item;
+        const componentesOrganizados = res.data.componentes_organizados;
+        const resumenTotales = res.data.resumen_totales;
+
+        const totalGeneral = Object.values(resumenTotales).reduce(
+          (sum, valor) => sum + valor,
+          0
+        );
+
+        $("#modalItemTitulo").text(item.nombre_item || "Detalle del Ítem");
+        $("#modalItemCodigo").text(item.codigo_item || codigoMaterial);
+        $("#modalItemUnidad").text(item.unidad || "");
+        $("#modalItemPrecio").text(formatCurrency(item.precio_unitario || 0));
+        $("#modalItemDescripcion").text(item.descripcion || "Sin descripción");
+
+        let htmlComp = "";
+
+        function renderizarSeccion(tipo, titulo) {
+          const seccion = componentesOrganizados[tipo];
+          if (!seccion || seccion.items.length === 0) return "";
+
+          let html = `
+                        <tr class="table-info">
+                            <td colspan="7" class="fw-bold">
+                                ${titulo} - Total: ${formatCurrency(
+            seccion.total
+          )}
+                            </td>
+                        </tr>
+                    `;
+
+          seccion.items.forEach((comp, idx) => {
+            html += `
+                            <tr>
+                                <td class="text-center">${idx + 1}</td>
+                                <td class="text-center">
+                                    <span class="badge ${getBadgeClass(
+                                      comp.tipo_componente
+                                    )}">
+                                        ${comp.tipo_componente}
+                                    </span>
+                                </td>
+                                <td>${comp.descripcion}</td>
+                                <td class="text-center">${comp.unidad}</td>
+                                <td class="text-end">${formatNumber(
+                                  parseFloat(comp.cantidad)
+                                )}</td>
+                                <td class="text-end">${formatCurrency(
+                                  parseFloat(comp.precio_unitario)
+                                )}</td>
+                                <td class="text-end fw-bold">${formatCurrency(
+                                  parseFloat(comp.subtotal)
+                                )}</td>
+                            </tr>
+                        `;
+          });
+
+          return html;
+        }
+
+        function getBadgeClass(tipo) {
+          const classes = {
+            material: "bg-primary",
+            mano_obra: "bg-success",
+            equipo: "bg-warning text-dark",
+            transporte: "bg-info",
+            otro: "bg-secondary",
+          };
+          return classes[tipo] || "bg-secondary";
+        }
+
+        htmlComp += renderizarSeccion("material", "MATERIALES");
+        htmlComp += renderizarSeccion("mano_obra", "MANO DE OBRA");
+        htmlComp += renderizarSeccion("equipo", "EQUIPOS Y HERRAMIENTAS");
+        htmlComp += renderizarSeccion("transporte", "TRANSPORTE");
+        htmlComp += renderizarSeccion("otro", "OTROS COSTOS");
+
+        htmlComp += `
+                    <tr class="table-secondary">
+                        <td colspan="7" class="text-center fw-bold">RESUMEN DE COSTOS</td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" class="text-end fw-bold">Materiales:</td>
+                        <td colspan="2" class="text-end">${formatCurrency(
+                          resumenTotales.material
+                        )}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" class="text-end fw-bold">Mano de Obra:</td>
+                        <td colspan="2" class="text-end">${formatCurrency(
+                          resumenTotales.mano_obra
+                        )}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" class="text-end fw-bold">Equipos:</td>
+                        <td colspan="2" class="text-end">${formatCurrency(
+                          resumenTotales.equipo
+                        )}</td>
+                    </tr>
+                `;
+
+        if (resumenTotales.transporte > 0) {
+          htmlComp += `
+                        <tr>
+                            <td colspan="5" class="text-end fw-bold">Transporte:</td>
+                            <td colspan="2" class="text-end">${formatCurrency(
+                              resumenTotales.transporte
+                            )}</td>
+                        </tr>
+                    `;
+        }
+
+        if (resumenTotales.otro > 0) {
+          htmlComp += `
+                        <tr>
+                            <td colspan="5" class="text-end fw-bold">Otros:</td>
+                            <td colspan="2" class="text-end">${formatCurrency(
+                              resumenTotales.otro
+                            )}</td>
+                        </tr>
+                    `;
+        }
+
+        htmlComp += `
+                    <tr class="table-success">
+                        <td colspan="5" class="text-end fw-bold fs-6">TOTAL GENERAL DEL ÍTEM:</td>
+                        <td colspan="2" class="text-end fw-bold fs-6">${formatCurrency(
+                          totalGeneral
+                        )}</td>
+                    </tr>
+                `;
+
+        $("#modalTablaComponentes tbody").html(htmlComp);
+        $("#modalItem").modal("show");
+      } else {
+        alert(
+          "No se pudo obtener la información del ítem con código: " +
+            codigoMaterial
+        );
+      }
+    },
+    error: function (xhr, status, error) {
+      console.error("Error al cargar info del ítem:", error);
+      alert("Error al cargar información del ítem: " + error);
+    },
+  });
+}
+
+$(document).on("click", ".btn-ver-item", function () {
+  const index = $(this).data("index");
+  const fila = listaPresupuestos[index];
+
+  if (fila && fila.material_codigo) {
+    cargarInfoItemPorCodigo(fila.material_codigo);
+  } else {
+    alert("No se encontró el código del material para mostrar detalles.");
+  }
+});

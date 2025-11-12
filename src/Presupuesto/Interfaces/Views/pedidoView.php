@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Proyectos y Materiales</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+    <div class="container-fluid py-4">
+        <!-- Card Principal Única -->
+        <div class="card shadow-lg">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0">Sistema de Gestión de Materiales y Pedidos</h4>
+            </div>
+            <div class="card-body">
+                <!-- Sección de Selección -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5 class="text-info mb-3">Configuración del Proyecto</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Proyecto</label>
+                                <select class="form-select" id="selectProyecto" onchange="cargarPresupuestos()">
+                                    <option value="">-- Seleccionar Proyecto --</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Presupuesto</label>
+                                <select class="form-select" id="selectPresupuesto" onchange="cargarItems()" disabled>
+                                    <option value="">-- Primero seleccione un proyecto --</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Información del Proyecto -->
+                        <div class="mt-4" id="projectInfo" style="display: none;">
+                            <div class="alert alert-info">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <strong>Proyecto:</strong><br>
+                                        <span id="infoNombre">-</span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Presupuesto:</strong><br>
+                                        <span id="infoPresupuesto">-</span>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <strong>Total:</strong><br>
+                                        <span id="infoTotal">-</span>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <strong>Items:</strong><br>
+                                        <span id="infoItems">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- Sección de Gestión de Materiales -->
+                <div class="row">
+                    <div class="col-12">
+                        <h5 class="text-success mb-3">Gestión de Materiales y Pedidos</h5>
+                        <small id="currentSelectionInfo" class="text-muted fst-italic mb-3 d-block">
+                            Seleccione un proyecto y presupuesto para comenzar
+                        </small>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-8">
+                                <button class="btn btn-primary" onclick="mostrarModalNuevoItem()" id="btnAgregarExtra" disabled>
+                                    <i class="bi bi-plus-circle"></i> Agregar Material Extra
+                                </button>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" placeholder="Buscar material..." id="searchMaterial" onkeyup="filtrarMateriales()">
+                                    <button class="btn btn-outline-secondary" type="button">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Sidebar con Filtros y Estadísticas -->
+                            <div class="col-md-3">
+                                <div class="card shadow-sm">
+                                    <div class="card-header bg-info text-white">
+                                        <h6 class="mb-0">Filtros</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Estado del Material</label>
+                                            <select class="form-select" id="filterEstado" onchange="filtrarMateriales()">
+                                                <option value="">Todos</option>
+                                                <option value="disponible">Disponible</option>
+                                                <option value="agotado">Agotado</option>
+                                                <option value="pedido">En pedido</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label class="form-label">Capítulo</label>
+                                            <select class="form-select" id="filterCapitulo" onchange="filtrarMateriales()">
+                                                <option value="">Todos los capítulos</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Tipo de Material</label>
+                                            <select class="form-select" id="filterTipo" onchange="filtrarMateriales()">
+                                                <option value="">Todos los tipos</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Estadísticas -->
+                                <div class="card shadow-sm mt-3">
+                                    <div class="card-header bg-success text-white">
+                                        <h6 class="mb-0">Resumen del Pedido</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Materiales en carrito:</span>
+                                            <strong id="statSeleccionados">0</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Total items:</span>
+                                            <strong id="statTotalItems">0</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Valor total:</span>
+                                            <strong id="statValorTotal">$0</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Materiales extra:</span>
+                                            <strong id="statExtras">0</strong>
+                                        </div>
+                                        <hr>
+                                        <button class="btn btn-success w-100" onclick="confirmarPedido()" id="btnConfirmarPedido" disabled>
+                                            <i class="bi bi-check-circle"></i> Confirmar Pedido
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Contenido Principal - Materiales y Carrito -->
+                            <div class="col-md-9">
+                                <!-- TABLA 1: Materiales del Presupuesto -->
+                                <div class="card shadow-sm mb-4">
+                                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-box-seam"></i> Materiales del Presupuesto
+                                        </h6>
+                                        <span class="badge bg-light text-dark" id="contadorMateriales">0 materiales</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="materialesList">
+                                            <div class="text-center text-muted py-5">
+                                                <i class="bi bi-inbox display-4"></i>
+                                                <p class="mt-3">Seleccione un proyecto y presupuesto para ver los materiales</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- TABLA 2: Carrito de Pedidos -->
+                                <div class="card shadow-sm" id="cardCarrito" style="display: none;">
+                                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-cart-check"></i> Carrito de Pedidos
+                                        </h6>
+                                        <span class="badge bg-light text-dark" id="contadorCarrito">0 items</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="carritoList">
+                                            <div class="text-center text-muted py-4">
+                                                <i class="bi bi-cart display-4"></i>
+                                                <p class="mt-3">Agregue materiales del presupuesto para verlos aquí</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Materiales Extra -->
+                                <div class="card shadow-sm mt-3" id="cardExtras" style="display: none;">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-plus-circle"></i> Materiales Extra (Fuera de Presupuesto)
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="materialesExtraList">
+                                            <!-- Los materiales extra se cargarán aquí -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Agregar Material Extra -->
+    <div class="modal fade" id="modalNuevoItem" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">Agregar Material Extra</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formNuevoItem">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Código del Material *</label>
+                                    <input type="text" class="form-control" id="codigoMaterial" placeholder="Ej: EXT-001" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Unidad de Medida *</label>
+                                    <select class="form-select" id="unidadMaterial" required>
+                                        <option value="">Seleccionar...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descripción del Material *</label>
+                            <input type="text" class="form-control" id="descripcionMaterial" placeholder="Nombre y especificaciones del material" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Cantidad Requerida *</label>
+                                    <input type="number" class="form-control" id="cantidadMaterial" placeholder="0" min="1" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Precio Unitario Estimado</label>
+                                    <input type="number" class="form-control" id="precioMaterial" placeholder="0" min="0" step="0.01">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Tipo de Material</label>
+                                    <select class="form-select" id="tipoMaterial">
+                                        <option value="2">Material</option>
+                                        <option value="1">Mano de Obra</option>
+                                        <option value="3">Equipo</option>
+                                        <option value="4">Otros</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Justificación *</label>
+                            <textarea class="form-control" id="justificacionMaterial" rows="3" placeholder="Explique por qué necesita este material fuera del presupuesto original..." required></textarea>
+                        </div>
+                        <div class="alert alert-warning">
+                            <small>Este material requerirá aprobación antes de ser incluido en el pedido.</small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="solicitarMaterialExtra()">Solicitar Aprobación</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_PRESUPUESTOS = '/workspace/constructora-app/src/Presupuesto/Interfaces/PresupuestoController.php';
+    </script>
+</body>
+</html>

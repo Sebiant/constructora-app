@@ -133,6 +133,60 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
   </div>
 </div>
 
+<div class="modal fade" id="modalItem" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="modalItemTitulo">Detalle del Ítem</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <strong>Código:</strong> <span id="modalItemCodigo">-</span>
+          </div>
+          <div class="col-md-3">
+            <strong>Unidad:</strong> <span id="modalItemUnidad">-</span>
+          </div>
+          <div class="col-md-3">
+            <strong>Precio Unitario:</strong> <span id="modalItemPrecio">-</span>
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-12">
+            <strong>Descripción:</strong> 
+            <div id="modalItemDescripcion" class="border p-2 bg-light">-</div>
+          </div>
+        </div>
+        
+        <h6 class="mt-4 mb-3">Composición del Ítem (APU)</h6>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm" id="modalTablaComponentes">
+            <thead class="table-dark">
+              <tr>
+                <th width="5%">#</th>
+                <th width="15%">Tipo</th>
+                <th width="35%">Descripción / Material</th>
+                <th width="10%">Unidad</th>
+                <th width="10%">Cantidad</th>
+                <th width="12%">Precio Unit.</th>
+                <th width="13%">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Los componentes se insertarán aquí dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <?php
 include_once __DIR__ . '/../../../Shared/Components/footer.php';
 ?>

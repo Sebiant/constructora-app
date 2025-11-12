@@ -169,6 +169,25 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
         return $result ?: [];
     }
 
+    public function getItemsConPrecios(): array {
+        $query = "SELECT 
+                    i.id_item,
+                    i.codigo_item,
+                    i.nombre_item,
+                    i.unidad,
+                    i.descripcion,
+                    i.precio_unitario
+                FROM items i
+                WHERE i.idestado = 1
+                ORDER BY i.codigo_item";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result ?: [];
+    }
+
     public function validarPresupuestoParaProyecto(int $idPresupuesto, int $idProyecto): ?array {
         $query = "SELECT 
                     id_presupuesto, 
@@ -219,10 +238,11 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
             throw new Exception("El presupuesto seleccionado no pertenece al proyecto");
         }
 
-        $materiales = $this->getMaterialesConPrecios();
-        $materialesMap = [];
-        foreach ($materiales as $material) {
-            $materialesMap[$material['cod_material']] = $material;
+        // SOLO ITEMS - Eliminamos la lógica de materiales
+        $items = $this->getItemsConPrecios();
+        $itemsMap = [];
+        foreach ($items as $item) {
+            $itemsMap[$item['codigo_item']] = $item;
         }
 
         $capitulosOrdenados = $this->getCapitulosOrdenadosPorPresupuesto($idPresupuesto);
@@ -254,7 +274,7 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
             if (empty($numeroCapitulo)) {
                 $errores[] = 'Número de capítulo requerido';
             } elseif (!is_numeric($numeroCapitulo)) {
-                $errores[] = 'Número de capítulo debe ser numérico (1, 2, 3...)';
+                $errores[] = 'Número de capítulo debe ser numérico';
             } else {
                 $numeroCapitulo = (int)$numeroCapitulo;
                 if (!isset($capitulosMap[$numeroCapitulo])) {
@@ -268,9 +288,9 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
             }
 
             if (empty($codigoMaterial)) {
-                $errores[] = 'Código de material requerido';
-            } elseif (!isset($materialesMap[$codigoMaterial])) {
-                $errores[] = 'Material no encontrado en base de datos';
+                $errores[] = 'Código de ítem requerido';
+            } elseif (!isset($itemsMap[$codigoMaterial])) {
+                $errores[] = 'Ítem no encontrado en base de datos';
             }
 
             if (empty($cantidad)) {
@@ -282,18 +302,18 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
             $nombreMaterial = 'No encontrado';
             $precioUnitario = 0;
             $unidad = 'N/A';
-            $tipoMaterial = 'N/A';
+            $tipoMaterial = 'APU'; // Siempre APU para presupuestos
             $idMaterial = null;
             $idMatPrecio = null;
-            
-            if (isset($materialesMap[$codigoMaterial])) {
-                $material = $materialesMap[$codigoMaterial];
-                $nombreMaterial = $material['nombre_material'];
-                $precioUnitario = (float)$material['precio_actual'];
-                $unidad = $material['unidad'];
-                $tipoMaterial = $material['tipo_material'];
-                $idMaterial = $material['id_material'];
-                $idMatPrecio = $material['id_mat_precio'];
+            $idItem = null;
+
+            // SOLO ITEMS - Eliminada la lógica de materiales
+            if (isset($itemsMap[$codigoMaterial])) {
+                $itemData = $itemsMap[$codigoMaterial];
+                $nombreMaterial = $itemData['nombre_item'];
+                $precioUnitario = (float)$itemData['precio_unitario'];
+                $unidad = $itemData['unidad'];
+                $idItem = $itemData['id_item'];
             }
 
             $valorTotal = $precioUnitario * (float)$cantidad;
@@ -316,6 +336,7 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
                 'id_material' => $idMaterial,
                 'id_capitulo' => $idCapitulo,
                 'id_mat_precio' => $idMatPrecio,
+                'id_item' => $idItem,
                 'idestado' => 1,
                 'idusuario' => 1,
                 'fechareg' => date('Y-m-d H:i:s'),
@@ -347,45 +368,29 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
             $this->conn->beginTransaction();
 
             foreach ($presupuestosData as $item) {
-                if (empty($item['id_material']) || empty($item['id_capitulo']) || empty($item['cantidad'])) {
+                // VALIDACIÓN SIMPLIFICADA - Solo items son obligatorios
+                if (empty($item['id_capitulo']) || empty($item['cantidad']) || empty($item['id_item'])) {
                     throw new Exception('Datos incompletos: ' . json_encode($item));
                 }
 
-                $stmtPrecio = $this->conn->prepare("
-                    SELECT id_mat_precio 
-                    FROM material_precio 
-                    WHERE id_material = ? AND estado = 1 
-                    ORDER BY fecha DESC 
-                    LIMIT 1
-                ");
-                $stmtPrecio->execute([$item['id_material']]);
-                $precioData = $stmtPrecio->fetch(PDO::FETCH_ASSOC);
-
-                if (!$precioData) {
-                    throw new Exception('No se encontró precio para el material ID: ' . $item['id_material']);
-                }
-
-                $idMatPrecio = $precioData['id_mat_precio'];
-
+                // INSERT SIMPLIFICADO - Solo para items (APUs)
                 $stmt = $this->conn->prepare("
                     INSERT INTO det_presupuesto (
                         id_presupuesto, 
-                        id_material, 
+                        id_item,
                         id_capitulo, 
-                        id_mat_precio, 
-                        cantidad, 
+                        cantidad,
                         idestado, 
                         idusuario, 
                         fechareg, 
                         fechaupdate
-                    ) VALUES (?, ?, ?, ?, ?, 1, ?, NOW(), NOW())
+                    ) VALUES (?, ?, ?, ?, 1, ?, NOW(), NOW())
                 ");
 
                 $stmt->execute([
                     $idPresupuesto,
-                    $item['id_material'],
+                    $item['id_item'],
                     $item['id_capitulo'],
-                    $idMatPrecio,
                     $item['cantidad'],
                     $idUsuario
                 ]);
@@ -445,23 +450,21 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
         $query = "SELECT 
                     dp.id_det_presupuesto,
                     dp.id_presupuesto,
-                    dp.id_material,
-                    m.cod_material,
-                    CAST(m.nombremat AS CHAR) AS nombre_material,
+                    dp.id_item,
+                    i.codigo_item,
+                    i.nombre_item,
                     dp.id_capitulo,
                     c.nombre_cap,
                     dp.cantidad,
-                    mp.valor AS precio_unitario,
-                    (dp.cantidad * mp.valor) AS valor_total,
-                    u.unidesc AS unidad
+                    i.precio_unitario,
+                    (dp.cantidad * i.precio_unitario) AS valor_total,
+                    i.unidad
                 FROM det_presupuesto dp
-                INNER JOIN materiales m ON dp.id_material = m.id_material
+                INNER JOIN items i ON dp.id_item = i.id_item
                 INNER JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
-                INNER JOIN material_precio mp ON dp.id_mat_precio = mp.id_mat_precio
-                INNER JOIN gr_unidad u ON m.idunidad = u.idunidad
                 WHERE dp.id_presupuesto = :id_presupuesto
                 AND dp.idestado = 1
-                ORDER BY c.nombre_cap, m.cod_material";
+                ORDER BY c.nombre_cap, i.codigo_item";
 
         $stmt = $this->conn->prepare($query);
         $stmt->execute(['id_presupuesto' => $idPresupuesto]);
