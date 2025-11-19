@@ -1,443 +1,813 @@
 let proyectosData = [];
-let itemsData = [];
+let itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
 let materialesExtra = [];
 let pedidosFueraPresupuesto = [];
 let seleccionActual = null;
 
-document.addEventListener("DOMContentLoaded", function () {
-  cargarProyectos();
-  cargarUnidades();
-  cargarTiposMaterial();
-});
-
-async function cargarProyectos() {
-  try {
-    const response = await fetch(API_PRESUPUESTOS + "?action=getProyectos");
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.error);
-    }
-
-    const selectProyecto = document.getElementById("selectProyecto");
-    selectProyecto.innerHTML =
-      '<option value="">-- Seleccionar Proyecto --</option>';
-
-    result.data.forEach((proyecto) => {
-      const option = document.createElement("option");
-      option.value = proyecto.id_proyecto;
-      option.textContent = proyecto.nombre;
-      selectProyecto.appendChild(option);
-    });
-
-    proyectosData = result.data;
-  } catch (error) {
-    console.error("Error cargando proyectos:", error);
-    alert("Error al cargar los proyectos: " + error.message);
+class PaginadorPresupuestos {
+  constructor() {
+    this.elementosPorPagina = 10;
+    this.paginaActual = 1;
+    this.itemsFiltrados = [];
+    this.totalPaginas = 1;
   }
-}
 
-async function cargarPresupuestos() {
-  const proyectoId = document.getElementById("selectProyecto").value;
-  const selectPresupuesto = document.getElementById("selectPresupuesto");
-  const projectInfo = document.getElementById("projectInfo");
-
-  selectPresupuesto.innerHTML =
-    '<option value="">-- Seleccionar Presupuesto --</option>';
-  selectPresupuesto.disabled = true;
-  projectInfo.style.display = "none";
-  resetarGestion();
-
-  if (proyectoId) {
-    try {
-      const formData = new FormData();
-      formData.append("proyecto_id", proyectoId);
-
-      const response = await fetch(
-        API_PRESUPUESTOS + "?action=getPresupuestosByProyecto",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-
-      selectPresupuesto.disabled = false;
-
-      result.data.forEach((presupuesto) => {
-        const option = document.createElement("option");
-        option.value = presupuesto.id_presupuesto;
-        option.textContent = `${
-          presupuesto.nombre_proyecto || presupuesto.nombre
-        } - $${parseFloat(presupuesto.monto_total || 0).toLocaleString()}`;
-        option.setAttribute("data-presupuesto", JSON.stringify(presupuesto));
-        selectPresupuesto.appendChild(option);
-      });
-    } catch (error) {
-      console.error("Error cargando presupuestos:", error);
-      alert("Error al cargar los presupuestos: " + error.message);
-    }
+  inicializar() {
+    this.crearControlesPaginacion();
+    this.actualizarPaginacion();
   }
-}
 
-async function cargarItems() {
-  const presupuestoId = document.getElementById("selectPresupuesto").value;
-  const selectedOption =
-    document.getElementById("selectPresupuesto").selectedOptions[0];
-
-  if (presupuestoId && selectedOption) {
-    try {
-      document.getElementById("materialesList").innerHTML = `
-        <div class="text-center py-5">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Cargando items...</span>
-          </div>
-          <p class="mt-3">Cargando items del presupuesto...</p>
+  crearControlesPaginacion() {
+    const materialesList = document.getElementById("materialesList");
+    const contenedorPaginacion = document.createElement("div");
+    contenedorPaginacion.id = "paginacionContainer";
+    contenedorPaginacion.className =
+      "row align-items-center mt-4 p-3 bg-light rounded";
+    contenedorPaginacion.innerHTML = `
+      <div class="col-md-4">
+        <div class="text-muted small">
+          Mostrando <span class="fw-bold text-primary" id="paginacionDesde">0</span>-<span class="fw-bold text-primary" id="paginacionHasta">0</span> de
+          <span class="fw-bold text-dark" id="paginacionTotal">0</span> componentes
         </div>
-      `;
-
-      const presupuesto = JSON.parse(
-        selectedOption.getAttribute("data-presupuesto")
-      );
-      const proyectoId = document.getElementById("selectProyecto").value;
-      const proyecto = proyectosData.find((p) => p.id_proyecto == proyectoId);
-
-      const items = await cargarItemsPresupuesto(presupuestoId);
-      await cargarCapitulosParaFiltro(presupuestoId);
-
-      itemsData = items;
-      seleccionActual = {
-        proyecto: proyecto.nombre,
-        presupuesto: presupuesto.nombre_proyecto || presupuesto.nombre,
-        capitulo: "Todos los capítulos",
-        datos: {
-          proyectoId,
-          presupuestoId,
-          capituloId: null,
-          presupuesto,
-        },
-      };
-
-      document.getElementById(
-        "currentSelectionInfo"
-      ).textContent = `${proyecto.nombre} - ${seleccionActual.presupuesto}`;
-      document.getElementById("btnAgregarExtra").disabled = false;
-      document.getElementById("filterCapitulo").disabled = false;
-
-      mostrarItemsConComponentes(items);
-      actualizarEstadisticas();
-      mostrarInformacionProyecto(proyecto, presupuesto);
-    } catch (error) {
-      console.error("Error cargando items:", error);
-      mostrarErrorItems();
-    }
-  }
-}
-
-async function cargarCapitulosParaFiltro(presupuestoId) {
-  try {
-    const capitulos = await cargarCapitulosReales(presupuestoId);
-    const filterCapitulo = document.getElementById("filterCapitulo");
-    filterCapitulo.innerHTML = '<option value="">Todos los capítulos</option>';
-
-    capitulos.forEach((cap) => {
-      const option = document.createElement("option");
-      option.value = cap.id_capitulo;
-      option.textContent = cap.nombre_cap;
-      filterCapitulo.appendChild(option);
-    });
-  } catch (error) {
-    console.error("Error cargando capítulos para filtro:", error);
-    document.getElementById("filterCapitulo").innerHTML =
-      '<option value="">Todos los capítulos</option>';
-  }
-}
-
-async function cargarCapitulosReales(presupuestoId) {
-  try {
-    const formData = new FormData();
-    formData.append("id_presupuesto", presupuestoId);
-
-    const response = await fetch(
-      API_PRESUPUESTOS + "?action=getCapitulosByPresupuesto",
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
-
-    const result = await response.json();
-
-    if (result.success) {
-      return result.data;
-    } else {
-      throw new Error(result.error || "No se pudieron cargar los capítulos");
-    }
-  } catch (error) {
-    console.error("Error cargando capítulos:", error);
-    throw error;
-  }
-}
-
-async function cargarItemsPresupuesto(presupuestoId, capituloId = null) {
-  try {
-    const items = await obtenerItemsReales(presupuestoId, capituloId);
-    return items;
-  } catch (error) {
-    console.error("Error cargando items:", error);
-    mostrarErrorItems();
-    return [];
-  }
-}
-
-async function obtenerItemsReales(presupuestoId, capituloId = null) {
-  try {
-    const formData = new FormData();
-    formData.append("presupuesto_id", presupuestoId);
-    if (capituloId) {
-      formData.append("capitulo_id", capituloId);
-    }
-
-    const response = await fetch(
-      API_PRESUPUESTOS + "?action=getItemsByPresupuesto",
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Error en la respuesta del servidor");
-    }
-
-    const result = await response.json();
-
-    if (result.success) {
-      return result.data.map((item) => ({
-        id_item: item.id_item,
-        codigo_item: item.codigo_item,
-        nombre_item: item.nombre_item,
-        id_capitulo: item.id_capitulo,
-        nombre_capitulo: item.nombre_capitulo,
-        unidad: item.unidad,
-        precio_unitario: parseFloat(item.precio_unitario) || 0,
-        cantidad: parseFloat(item.cantidad) || 0,
-        pedido: parseInt(item.pedido) || 0,
-        subtotal:
-          (parseFloat(item.cantidad) || 0) *
-          (parseFloat(item.precio_unitario) || 0),
-        componentes: item.componentes || [],
-        id_det_presupuesto: item.id_det_presupuesto,
-        disponible:
-          parseFloat(item.disponible) || parseFloat(item.cantidad) || 0,
-      }));
-    } else {
-      throw new Error(result.error || "No se pudieron cargar los items");
-    }
-  } catch (error) {
-    console.error("Error cargando items reales:", error);
-    throw error;
-  }
-}
-
-function mostrarErrorItems() {
-  const container = document.getElementById("materialesList");
-  container.innerHTML = `
-    <div class="text-center text-danger py-5">
-      <div class="spinner-border text-danger" role="status"></div>
-      <p class="mt-3">Error al cargar los items del presupuesto</p>
-      <button class="btn btn-warning" onclick="reintentarCargaItems()">
-        Reintentar
-      </button>
-    </div>
-  `;
-}
-
-function reintentarCargaItems() {
-  const presupuestoId = document.getElementById("selectPresupuesto").value;
-  if (presupuestoId) {
-    cargarItems();
-  }
-}
-
-function mostrarItemsConComponentes(items) {
-  const container = document.getElementById("materialesList");
-
-  if (!items || items.length === 0) {
-    container.innerHTML = `
-      <div class="text-center text-muted py-5">
-        <div class="spinner-border text-muted" role="status"></div>
-        <p class="mt-3">No hay items en este presupuesto/capítulo</p>
+      </div>
+      <div class="col-md-4 text-center">
+        <nav aria-label="Paginación de presupuestos">
+          <ul class="pagination pagination-sm justify-content-center mb-0">
+            <li class="page-item" id="btnPaginaAnterior">
+              <a class="page-link" href="#" aria-label="Anterior">
+                <span aria-hidden="true">&laquo;</span>
+              </a>
+            </li>
+            <div id="numerosPagina" class="d-flex"></div>
+            <li class="page-item" id="btnPaginaSiguiente">
+              <a class="page-link" href="#" aria-label="Siguiente">
+                <span aria-hidden="true">&raquo;</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+      <div class="col-md-4 text-end">
+        <div class="d-flex align-items-center justify-content-end">
+          <label class="form-label mb-0 me-2 small text-muted">Componentes por página:</label>
+          <select class="form-select form-select-sm w-auto" id="selectItemsPorPagina">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
+        </div>
       </div>
     `;
-    document.getElementById("contadorMateriales").textContent = "0 items";
-    return;
+
+    materialesList.parentNode.insertBefore(
+      contenedorPaginacion,
+      materialesList.nextSibling
+    );
+
+    document
+      .getElementById("btnPaginaAnterior")
+      .addEventListener("click", (e) => {
+        e.preventDefault();
+        this.paginaAnterior();
+      });
+
+    document
+      .getElementById("btnPaginaSiguiente")
+      .addEventListener("click", (e) => {
+        e.preventDefault();
+        this.paginaSiguiente();
+      });
+
+    document
+      .getElementById("selectItemsPorPagina")
+      .addEventListener("change", (e) => {
+        this.cambiarElementosPorPagina(parseInt(e.target.value));
+      });
   }
 
-  let html = "";
+  configurar(items) {
+    this.itemsFiltrados = items;
+    this.totalPaginas = Math.ceil(items.length / this.elementosPorPagina);
+    this.paginaActual = 1;
+    this.actualizarPaginacion();
+    this.mostrarPaginaActual();
+  }
 
-  items.forEach((item) => {
-    const disponible = item.disponible || item.cantidad - (item.pedido || 0);
-    const porcentajeUsado =
-      item.cantidad > 0 ? ((item.pedido || 0) / item.cantidad) * 100 : 0;
-    const { colorClass, colorText } = obtenerColorProgreso(porcentajeUsado);
+  obtenerItemsPaginaActual() {
+    const inicio = (this.paginaActual - 1) * this.elementosPorPagina;
+    const fin = inicio + this.elementosPorPagina;
+    return this.itemsFiltrados.slice(inicio, fin);
+  }
 
-    const buttonClass = (item.pedido || 0) > 0 ? "btn-warning" : "btn-primary";
-    const buttonText =
-      (item.pedido || 0) > 0 ? "En carrito" : "Agregar al carrito";
-    const subtotal = ((item.pedido || 0) * item.precio_unitario).toFixed(2);
-
-    // Verificar si ya existe un pedido extra para este item
-    const tienePedidoExtra = pedidosFueraPresupuesto.some(
-      (pedido) => pedido.id_item === item.id_item
+  actualizarPaginacion() {
+    const totalItems = this.itemsFiltrados.length;
+    const inicio = (this.paginaActual - 1) * this.elementosPorPagina + 1;
+    const fin = Math.min(
+      this.paginaActual * this.elementosPorPagina,
+      totalItems
     );
-    const mostrarBotonPedidoExtra = porcentajeUsado >= 100 || tienePedidoExtra;
 
-    const componentesPorTipo = organizarComponentesPorTipo(item.componentes);
+    if (totalItems > 0) {
+      document.getElementById("paginacionDesde").textContent = inicio;
+      document.getElementById("paginacionHasta").textContent = fin;
+    } else {
+      document.getElementById("paginacionDesde").textContent = "0";
+      document.getElementById("paginacionHasta").textContent = "0";
+    }
+    document.getElementById("paginacionTotal").textContent = totalItems;
 
-    html += `
-      <div class="card mb-3 item-presupuesto" data-item-id="${
-        item.id_item
-      }" data-capitulo="${item.id_capitulo}">
+    this.actualizarBotonesPaginacion();
+    this.actualizarNumerosPagina();
+  }
+
+  actualizarBotonesPaginacion() {
+    const btnAnterior = document.getElementById("btnPaginaAnterior");
+    const btnSiguiente = document.getElementById("btnPaginaSiguiente");
+    btnAnterior.classList.toggle("disabled", this.paginaActual === 1);
+    btnSiguiente.classList.toggle(
+      "disabled",
+      this.paginaActual === this.totalPaginas
+    );
+  }
+
+  actualizarNumerosPagina() {
+    const numerosPagina = document.getElementById("numerosPagina");
+    numerosPagina.innerHTML = "";
+
+    if (this.totalPaginas <= 1) return;
+
+    let inicio = Math.max(1, this.paginaActual - 2);
+    let fin = Math.min(this.totalPaginas, this.paginaActual + 2);
+
+    if (fin - inicio < 4) {
+      if (this.paginaActual <= 3) {
+        fin = Math.min(5, this.totalPaginas);
+      } else {
+        inicio = Math.max(1, this.totalPaginas - 4);
+      }
+    }
+
+    if (inicio > 1) {
+      const li = document.createElement("li");
+      li.className = "page-item";
+      li.innerHTML = `<a class="page-link" href="#">1</a>`;
+      li.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.irAPagina(1);
+      });
+      numerosPagina.appendChild(li);
+
+      if (inicio > 2) {
+        const ellipsis = document.createElement("li");
+        ellipsis.className = "page-item disabled";
+        ellipsis.innerHTML = `<span class="page-link">...</span>`;
+        numerosPagina.appendChild(ellipsis);
+      }
+    }
+
+    for (let i = inicio; i <= fin; i++) {
+      const li = document.createElement("li");
+      li.className = `page-item ${i === this.paginaActual ? "active" : ""}`;
+      li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+      li.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.irAPagina(i);
+      });
+      numerosPagina.appendChild(li);
+    }
+
+    if (fin < this.totalPaginas) {
+      if (fin < this.totalPaginas - 1) {
+        const ellipsis = document.createElement("li");
+        ellipsis.className = "page-item disabled";
+        ellipsis.innerHTML = `<span class="page-link">...</span>`;
+        numerosPagina.appendChild(ellipsis);
+      }
+
+      const li = document.createElement("li");
+      li.className = "page-item";
+      li.innerHTML = `<a class="page-link" href="#">${this.totalPaginas}</a>`;
+      li.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.irAPagina(this.totalPaginas);
+      });
+      numerosPagina.appendChild(li);
+    }
+  }
+
+  irAPagina(pagina) {
+    if (
+      pagina >= 1 &&
+      pagina <= this.totalPaginas &&
+      pagina !== this.paginaActual
+    ) {
+      this.paginaActual = pagina;
+      this.mostrarPaginaActual();
+    }
+  }
+
+  paginaAnterior() {
+    if (this.paginaActual > 1) {
+      this.paginaActual--;
+      this.mostrarPaginaActual();
+    }
+  }
+
+  paginaSiguiente() {
+    if (this.paginaActual < this.totalPaginas) {
+      this.paginaActual++;
+      this.mostrarPaginaActual();
+    }
+  }
+
+  cambiarElementosPorPagina(cantidad) {
+    this.elementosPorPagina = cantidad;
+    this.totalPaginas = Math.ceil(
+      this.itemsFiltrados.length / this.elementosPorPagina
+    );
+    this.paginaActual = 1;
+    this.mostrarPaginaActual();
+  }
+
+  mostrarPaginaActual() {
+    const itemsPagina = this.obtenerItemsPaginaActual();
+    this.mostrarItemsEnVista(itemsPagina);
+    this.actualizarPaginacion();
+
+    const materialesList = document.getElementById("materialesList");
+    if (materialesList) {
+      materialesList.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  mostrarItemsEnVista(items) {
+    const container = document.getElementById("materialesList");
+
+    if (!items || items.length === 0) {
+      container.innerHTML = `
+      <div class="text-center text-muted py-5">
+        <div class="spinner-border text-muted" role="status"></div>
+        <p class="mt-3">No hay componentes en esta página</p>
+      </div>
+    `;
+      return;
+    }
+
+    let html = `
+    <div class="alert alert-info mb-3">
+      <strong>Vista de Resumen:</strong>
+      Los componentes están agrupados. Use los filtros laterales para filtrar por tipo. Haga clic en "Desglose" para ver detalles.
+    </div>
+  `;
+
+    items.forEach((comp) => {
+      const unidad = comp.unidad_componente || "UND";
+      const cantidadTotal = comp.total_necesario || 0;
+      const yaPedido = comp.ya_pedido || 0; // NUEVO CAMPO
+      const cantidadPedido = comp.pedido || 0;
+      const subtotal = cantidadPedido * comp.precio_unitario;
+
+      // Calcular porcentajes
+      const porcentajeYaPedido =
+        cantidadTotal > 0 ? (yaPedido / cantidadTotal) * 100 : 0;
+      const porcentajePedidoActual =
+        cantidadTotal > 0 ? (cantidadPedido / cantidadTotal) * 100 : 0;
+      const porcentajeTotal = Math.min(
+        porcentajeYaPedido + porcentajePedidoActual,
+        100
+      );
+
+      const { colorClass, colorText } = obtenerColorProgreso(porcentajeTotal);
+      const iconoTipo = obtenerIconoTipoComponente(comp.tipo_componente);
+      const nombreTipo = obtenerNombreTipoComponente(comp.tipo_componente);
+      const badgeClass = obtenerClaseBadgeTipo(comp.tipo_componente);
+
+      const capitulos = [
+        ...new Set(
+          comp.items_que_usan
+            .map((item) => item.nombre_capitulo)
+            .filter((c) => c)
+        ),
+      ];
+      const capitulosTexto =
+        capitulos.length > 0 ? capitulos.join(", ") : "N/A";
+
+      const componenteId = comp.id_componente || comp.id_componente_unico;
+
+      html += `
+      <div class="card mb-3 shadow-sm componente-card"
+           data-tipo="${comp.tipo_componente}"
+           data-id="${componenteId}">
         <div class="card-header bg-light d-flex justify-content-between align-items-center">
-          <h6 class="mb-0 text-primary">${item.codigo_item} - ${
-      item.nombre_item
-    }</h6>
           <div>
-            <span class="badge bg-info">${item.unidad}</span>
+            <h6 class="mb-0">
+              <strong>${comp.nombre_componente}</strong>
+            </h6>
+            <small class="text-muted">${nombreTipo} | Capítulo(s): ${capitulosTexto}</small>
+          </div>
+          <div>
+            <span class="badge ${badgeClass}">${unidad}</span>
             <span class="badge ${colorClass} ms-1">${colorText}</span>
-            <button class="btn btn-sm btn-outline-primary ms-2" onclick="toggleDesglose(${
-              item.id_item
-            })">
+            <button class="btn btn-sm btn-outline-info ms-2" onclick="toggleDesgloseComponente('${componenteId}')">
               Desglose
             </button>
           </div>
         </div>
         <div class="card-body">
           <div class="row mb-3">
-            <div class="col-md-4">
-              <strong>Capítulo:</strong> ${item.nombre_capitulo}
+            <div class="col-md-3">
+              <small class="text-muted">Cantidad Total Necesaria</small>
+              <div><strong>${parseFloat(cantidadTotal).toFixed(
+                4
+              )} ${unidad}</strong></div>
+              <!-- NUEVO: Información de Ya Pedido -->
+              <div class="mt-1">
+                <small class="text-muted">
+                  <i class="bi bi-check-circle text-success"></i> Ya pedido: 
+                  <strong class="text-success">${parseFloat(yaPedido).toFixed(
+                    4
+                  )} ${unidad}</strong>
+                  (${porcentajeYaPedido.toFixed(1)}%)
+                </small>
+              </div>
             </div>
-            <div class="col-md-4">
-              <strong>Precio Unitario:</strong> $${formatCurrency(
-                item.precio_unitario
-              )}
+            <div class="col-md-2">
+              <small class="text-muted">Precio Unitario</small>
+              <div><strong>$${formatCurrency(
+                comp.precio_unitario
+              )}</strong></div>
             </div>
-            <div class="col-md-4">
-              <strong>Subtotal:</strong> $${formatCurrency(item.subtotal)}
+            <div class="col-md-3">
+              <small class="text-muted">Cantidad a Pedir</small>
+              <div>
+                <input type="number"
+                       class="form-control form-control-sm cantidad-componente-agrupado"
+                       value="${cantidadPedido}"
+                       min="0"
+                       max="${Math.max(0, cantidadTotal - yaPedido)}"
+                       step="0.0001"
+                       data-tipo="${comp.tipo_componente}"
+                       data-componente-id="${componenteId}"
+                       data-descripcion="${comp.nombre_componente}"
+                       data-precio="${comp.precio_unitario}"
+                       data-unidad="${unidad}"
+                       data-ya-pedido="${yaPedido}"
+                       style="width: 120px;">
+                <small class="text-muted">Máx: ${parseFloat(
+                  cantidadTotal - yaPedido
+                ).toFixed(4)}</small>
+              </div>
+            </div>
+            <div class="col-md-2">
+              <small class="text-muted">Subtotal</small>
+              <div><strong class="text-success">$${formatCurrency(
+                subtotal
+              )}</strong></div>
             </div>
           </div>
-          
-          <div class="mb-3">
+
+          <div class="mb-2">
             <div class="d-flex justify-content-between align-items-center mb-1">
               <small class="text-muted">Progreso del pedido</small>
-              <small class="text-muted">${Math.round(
-                porcentajeUsado
-              )}% usado</small>
+              <small class="text-muted">
+                ${porcentajeYaPedido.toFixed(1)}% ya pedido + 
+                ${porcentajePedidoActual.toFixed(1)}% nuevo = 
+                ${porcentajeTotal.toFixed(1)}% total
+              </small>
             </div>
-            <div class="progress" style="height: 8px;">
-              <div class="progress-bar ${colorClass}" role="progressbar" 
-                   style="width: ${Math.min(porcentajeUsado, 100)}%" 
-                   aria-valuenow="${porcentajeUsado}" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress" style="height: 12px;">
+              <!-- Barra de progreso para lo ya pedido -->
+              <div class="progress-bar bg-success" role="progressbar"
+                   style="width: ${porcentajeYaPedido}%"
+                   aria-valuenow="${porcentajeYaPedido}" aria-valuemin="0" aria-valuemax="100"
+                   title="Ya pedido: ${porcentajeYaPedido.toFixed(1)}%">
               </div>
-            </div>
-            <div class="d-flex justify-content-between mt-1">
-              <small>Pedido: ${item.pedido || 0} ${item.unidad}</small>
-              <small>Presupuestado: ${item.cantidad} ${item.unidad}</small>
+              <!-- Barra de progreso para el nuevo pedido -->
+              <div class="progress-bar ${colorClass}" role="progressbar"
+                   style="width: ${porcentajePedidoActual}%"
+                   aria-valuenow="${porcentajePedidoActual}" aria-valuemin="0" aria-valuemax="100"
+                   title="Nuevo pedido: ${porcentajePedidoActual.toFixed(1)}%">
+              </div>
             </div>
           </div>
-          
-          <div class="row align-items-center mb-3">
-            <div class="col-md-8">
-              <div class="input-group input-group-sm">
-                <input type="number" class="form-control cantidad-input" 
-                       value="${item.pedido || 0}" 
-                       min="0" max="${item.cantidad}"
-                       data-item-id="${item.id_item}"
-                       onchange="actualizarCantidadItem(${
-                         item.id_item
-                       }, this.value)">
-                <span class="input-group-text">/ ${item.cantidad}</span>
-                <button class="btn ${buttonClass} btn-sm" onclick="agregarItemAlCarrito(${
-      item.id_item
-    })">
-                  ${buttonText}
-                </button>
-              </div>
+
+          <div id="desglose-comp-${componenteId}" style="display: none;" class="mt-3">
+            <hr>
+            <h6 class="text-primary mb-3">Desglose Detallado</h6>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                  <tr>
+                    <th>Código Item</th>
+                    <th>Nombre del Item</th>
+                    <th>Capítulo</th>
+                    <th class="text-end">Cantidad Necesaria</th>
+                    <th class="text-end">Precio Unit.</th>
+                    <th class="text-end">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${comp.items_que_usan
+                    .map(
+                      (item) => `
+                    <tr>
+                      <td><strong>${item.codigo_item}</strong></td>
+                      <td>${item.nombre_item}</td>
+                      <td><small class="text-muted">${
+                        item.nombre_capitulo || "N/A"
+                      }</small></td>
+                      <td class="text-end">${parseFloat(
+                        item.cantidad_componente || 0
+                      ).toFixed(4)} ${unidad}</td>
+                      <td class="text-end">$${formatCurrency(
+                        comp.precio_unitario
+                      )}</td>
+                      <td class="text-end">$${formatCurrency(
+                        parseFloat(item.cantidad_componente || 0) *
+                          comp.precio_unitario
+                      )}</td>
+                    </tr>
+                  `
+                    )
+                    .join("")}
+                </tbody>
+                <tfoot class="table-light">
+                  <tr>
+                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                    <td class="text-end"><strong>${parseFloat(
+                      cantidadTotal
+                    ).toFixed(4)} ${unidad}</strong></td>
+                    <td></td>
+                    <td class="text-end"><strong>$${formatCurrency(
+                      cantidadTotal * comp.precio_unitario
+                    )}</strong></td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
-            <div class="col-md-4 text-end">
-              <div class="mt-1">
-                <small class="text-info">Subtotal: $<span class="subtotal">${subtotal}</span></small>
-              </div>
-              <!-- EL BOTÓN "PEDIR MÁS" SE CREARÁ DINÁMICAMENTE EN actualizarInterfazItem -->
+            <div class="alert alert-info mt-2 mb-0">
+              <small>
+                <strong>Usado en ${
+                  comp.items_que_usan.length
+                } item(s)</strong> del presupuesto
+              </small>
             </div>
-          </div>
-          
-          <div id="desglose-${
-            item.id_item
-          }" class="desglose-componentes" style="display: none;">
-            <h6 class="text-success mb-3">Composición del Ítem (APU):</h6>
-            ${generarDesgloseComponentes(componentesPorTipo)}
           </div>
         </div>
       </div>
     `;
-  });
+    });
 
-  container.innerHTML = html;
-  document.getElementById(
-    "contadorMateriales"
-  ).textContent = `${items.length} items`;
+    container.innerHTML = html;
 
-  items.forEach((item) => {
-    actualizarInterfazItem(item.id_item);
-  });
+    document
+      .querySelectorAll(".cantidad-componente-agrupado")
+      .forEach((input) => {
+        input.addEventListener("change", function () {
+          actualizarCantidadComponenteAgrupado(this);
+        });
+      });
+  }
 }
 
-function obtenerColorProgreso(porcentaje) {
-  if (porcentaje === 0)
-    return { colorClass: "bg-secondary", colorText: "Sin uso" };
-  if (porcentaje <= 80)
-    return { colorClass: "bg-success", colorText: "Dentro del presupuesto" };
-  if (porcentaje <= 95)
-    return { colorClass: "bg-warning", colorText: "Cerca del límite" };
-  if (porcentaje <= 100)
-    return { colorClass: "bg-danger", colorText: "Límite alcanzado" };
-  return { colorClass: "bg-dark", colorText: "Excedido" };
-}
+const paginador = new PaginadorPresupuestos();
 
-function organizarComponentesPorTipo(componentes) {
-  const porTipo = {
-    material: { items: [], total: 0 },
-    mano_obra: { items: [], total: 0 },
-    equipo: { items: [], total: 0 },
-    transporte: { items: [], total: 0 },
-    otro: { items: [], total: 0 },
-  };
+function toggleDesglose(itemId) {
+  const desglose = document.getElementById(`desglose-${itemId}`);
+  const button = document.querySelector(
+    `[onclick="toggleDesglose(${itemId})"]`
+  );
 
-  componentes.forEach((comp) => {
-    const tipo = comp.tipo_componente;
-    const subtotal = parseFloat(comp.subtotal) || 0;
+  if (desglose.style.display === "none") {
+    desglose.style.display = "block";
+    button.textContent = "Ocultar";
 
-    if (porTipo[tipo]) {
-      porTipo[tipo].items.push(comp);
-      porTipo[tipo].total += subtotal;
-    } else {
-      porTipo.otro.items.push(comp);
-      porTipo.otro.total += subtotal;
+    const item = itemsData.find((m) => m.id_item == itemId);
+    if (item && item.componentes) {
+      cargarComponentesParaPedido(itemId);
     }
-  });
-
-  return porTipo;
+  } else {
+    desglose.style.display = "none";
+    const componentesConPedido = item.componentes
+      ? item.componentes.filter((comp) => (comp.pedido || 0) > 0).length
+      : 0;
+    button.textContent =
+      componentesConPedido > 0
+        ? `En carrito (${componentesConPedido})`
+        : "Desglose para pedir";
+  }
 }
 
-function generarDesgloseComponentes(componentesPorTipo) {
-  let html = "";
+function cargarComponentesParaPedido(itemId) {
+  const item = itemsData.find((m) => m.id_item == itemId);
+  if (!item || !item.componentes) return;
+
+  const desgloseContainer = document.getElementById(`desglose-${itemId}`);
+  let componentesSection = desgloseContainer.querySelector(
+    ".componentes-pedido-section"
+  );
+
+  if (!componentesSection) {
+    componentesSection = document.createElement("div");
+    componentesSection.className = "componentes-pedido-section mt-4";
+    componentesSection.innerHTML = `
+      <h6 class="text-success mb-3">
+        <i class="bi bi-cart-plus"></i> Pedir Componentes Individualmente
+      </h6>
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered">
+          <thead class="table-light">
+            <tr>
+              <th>Tipo</th>
+              <th>Descripción</th>
+              <th>Unidad</th>
+              <th>Cantidad por Item</th>
+              <th>Precio Unitario</th>
+              <th>Cantidad a Pedir</th>
+              <th>Subtotal</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="componentes-pedido-${itemId}">
+          </tbody>
+          <tfoot>
+            <tr class="table-info">
+              <td colspan="6" class="text-end"><strong>Total Componentes:</strong></td>
+              <td><strong id="total-componentes-${itemId}">$0.00</strong></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="alert alert-info mt-2">
+        <small><i class="bi bi-info-circle"></i> Seleccione las cantidades de cada componente que desea pedir</small>
+      </div>
+    `;
+
+    desgloseContainer.appendChild(componentesSection);
+  }
+
+  const tbody = document.getElementById(`componentes-pedido-${itemId}`);
+  tbody.innerHTML = "";
+
+  let totalComponentes = 0;
+
+  item.componentes.forEach((componente) => {
+    const cantidadMaxima = componente.cantidad * item.cantidad;
+    const cantidadActual = componente.pedido || 0;
+    const subtotal = (cantidadActual * componente.precio_unitario).toFixed(2);
+    totalComponentes += parseFloat(subtotal);
+
+    const icono = obtenerIconoTipoComponente(componente.tipo_componente);
+    const badgeClass = obtenerClaseBadgeTipo(componente.tipo_componente);
+    const nombreTipo = obtenerNombreTipoComponente(componente.tipo_componente);
+
+    const pedidoExtra = pedidosFueraPresupuesto.find(
+      (p) =>
+        p.id_componente === componente.id_componente && p.id_item === itemId
+    );
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>
+        <span class="badge ${badgeClass}">
+          <i class="${icono} me-1"></i>${nombreTipo}
+        </span>
+      </td>
+      <td>
+        ${componente.descripcion}
+        ${
+          pedidoExtra
+            ? `
+          <div class="mt-1">
+            <span class="badge bg-warning text-dark">
+              <i class="bi bi-exclamation-triangle"></i> +${pedidoExtra.cantidad_extra.toFixed(
+                4
+              )} pendiente
+            </span>
+          </div>
+        `
+            : ""
+        }
+      </td>
+      <td>${componente.unidad}</td>
+      <td>${parseFloat(componente.cantidad).toFixed(4)}</td>
+      <td>$${formatCurrency(componente.precio_unitario)}</td>
+      <td>
+        <div class="input-group input-group-sm" style="width: 150px;">
+          <input type="number"
+                 class="form-control form-control-sm cantidad-componente ${
+                   pedidoExtra ? "border-warning" : ""
+                 }"
+                 value="${cantidadActual}"
+                 min="0"
+                 step="0.0001"
+                 data-componente-id="${componente.id_componente}"
+                 data-item-id="${itemId}"
+                 title="${
+                   pedidoExtra
+                     ? "Tiene un pedido extra pendiente de aprobación"
+                     : "Ingrese la cantidad a pedir"
+                 }">
+          <span class="input-group-text">${componente.unidad}</span>
+        </div>
+        <small class="text-muted">Máx: ${cantidadMaxima.toFixed(4)}</small>
+        ${
+          pedidoExtra
+            ? `
+          <div class="mt-1">
+            <small class="text-warning">
+              <i class="bi bi-info-circle"></i> Exceder solicitará autorización
+            </small>
+          </div>
+        `
+            : ""
+        }
+      </td>
+      <td class="subtotal-componente">$${subtotal}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-success" onclick="agregarTodoComponente(${
+          componente.id_componente
+        }, ${itemId})" title="Agregar cantidad máxima">
+          <i class="bi bi-plus-circle"></i> Máx
+        </button>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  document.getElementById(
+    `total-componentes-${itemId}`
+  ).textContent = `$${totalComponentes.toFixed(2)}`;
+
+  tbody.querySelectorAll(".cantidad-componente").forEach((input) => {
+    input.addEventListener("change", function () {
+      actualizarCantidadComponenteDesdeInput(this);
+    });
+  });
+}
+
+function actualizarCantidadComponenteDesdeInput(input) {
+  const componenteId = input.getAttribute("data-componente-id");
+  const itemId = input.getAttribute("data-item-id");
+  const cantidad = parseFloat(input.value) || 0;
+
+  actualizarCantidadComponente(componenteId, cantidad, itemId);
+}
+
+function actualizarCantidadComponente(componenteId, cantidad, itemId) {
+  const item = itemsData.find((m) => m.id_item == itemId);
+  if (!item || !item.componentes) return;
+
+  const componente = item.componentes.find(
+    (comp) => comp.id_componente == componenteId
+  );
+  if (!componente) return;
+
+  const cantidadMaxima = componente.cantidad * item.cantidad;
+
+  if (cantidad > cantidadMaxima) {
+    solicitarJustificacionPedidoExtra(
+      componente,
+      item,
+      cantidad,
+      cantidadMaxima
+    );
+    const input = document.querySelector(
+      `input[data-componente-id="${componenteId}"]`
+    );
+    if (input) {
+      input.value = componente.pedido || 0;
+    }
+    return;
+  } else {
+    componente.pedido = cantidad;
+  }
+
+  const row = document
+    .querySelector(`input[data-componente-id="${componenteId}"]`)
+    .closest("tr");
+  const subtotalElement = row.querySelector(".subtotal-componente");
+  subtotalElement.textContent = `$${(
+    componente.pedido * componente.precio_unitario
+  ).toFixed(2)}`;
+
+  actualizarTotalComponentesItem(itemId);
+  actualizarEstadisticas();
+  actualizarCarrito();
+  actualizarBotonDesglose(itemId);
+}
+
+function agregarTodoComponente(componenteId, itemId) {
+  const item = itemsData.find((m) => m.id_item == itemId);
+  if (!item || !item.componentes) return;
+
+  const componente = item.componentes.find(
+    (comp) => comp.id_componente == componenteId
+  );
+  if (!componente) return;
+
+  const cantidadMaxima = componente.cantidad * item.cantidad;
+
+  const input = document.querySelector(
+    `input[data-componente-id="${componenteId}"]`
+  );
+  input.value = cantidadMaxima;
+
+  actualizarCantidadComponente(componenteId, cantidadMaxima, itemId);
+}
+
+function actualizarTotalComponentesItem(itemId) {
+  const item = itemsData.find((m) => m.id_item == itemId);
+  if (!item || !item.componentes) return;
+
+  let total = 0;
+  item.componentes.forEach((comp) => {
+    total += (comp.pedido || 0) * comp.precio_unitario;
+  });
+
+  const totalElement = document.getElementById(`total-componentes-${itemId}`);
+  if (totalElement) {
+    totalElement.textContent = `$${total.toFixed(2)}`;
+  }
+}
+
+function actualizarBotonDesglose(itemId) {
+  const item = itemsData.find((m) => m.id_item == itemId);
+  if (!item) return;
+
+  const componentesConPedido = item.componentes
+    ? item.componentes.filter((comp) => (comp.pedido || 0) > 0).length
+    : 0;
+  const button = document.querySelector(
+    `[onclick="toggleDesglose(${itemId})"]`
+  );
+
+  if (button) {
+    if (componentesConPedido > 0) {
+      button.classList.remove("btn-outline-primary");
+      button.classList.add("btn-warning");
+      button.textContent = `En carrito (${componentesConPedido})`;
+    } else {
+      button.classList.remove("btn-warning");
+      button.classList.add("btn-outline-primary");
+      button.textContent = "Desglose para pedir";
+    }
+  }
+}
+
+function obtenerIconoTipoComponente(tipo) {
+  switch (tipo) {
+    case "material":
+      return "bi bi-box-seam";
+    case "mano_obra":
+      return "bi bi-person-gear";
+    case "equipo":
+      return "bi bi-tools";
+    case "transporte":
+      return "bi bi-truck";
+    default:
+      return "bi bi-puzzle";
+  }
+}
+
+function obtenerClaseBadgeTipo(tipo) {
+  switch (tipo) {
+    case "material":
+      return "bg-primary";
+    case "mano_obra":
+      return "bg-success";
+    case "equipo":
+      return "bg-warning";
+    case "transporte":
+      return "bg-info";
+    default:
+      return "bg-secondary";
+  }
+}
+
+function obtenerNombreTipoComponente(tipo) {
+  switch (tipo) {
+    case "material":
+      return "MATERIAL";
+    case "mano_obra":
+      return "MANO OBRA";
+    case "equipo":
+      return "EQUIPO";
+    case "transporte":
+      return "TRANSPORTE";
+    default:
+      return "OTRO";
+  }
+}
+
+function generarDesgloseComponentesParaPedido(item) {
+  const componentesPorTipo = organizarComponentesPorTipo(item.componentes);
+  let html = `
+    <div class="desglose-existente">
+      <h6 class="text-success mb-3">Composición del Ítem (APU):</h6>
+  `;
 
   const nombresTipo = {
     material: "Materiales",
@@ -490,469 +860,342 @@ function generarDesgloseComponentes(componentesPorTipo) {
     }
   });
 
+  html += `</div>`;
   return html;
 }
 
-function formatCurrency(amount) {
-  return parseFloat(amount || 0)
-    .toFixed(2)
-    .replace(/\d(?=(\d{3})+\.)/g, "$&,");
-}
+document.addEventListener("DOMContentLoaded", function () {
+  cargarProyectos();
+  cargarUnidades();
+  cargarTiposMaterial();
 
-function toggleDesglose(itemId) {
-  const desglose = document.getElementById(`desglose-${itemId}`);
-  const button = document.querySelector(
-    `[onclick="toggleDesglose(${itemId})"]`
-  );
-
-  if (desglose.style.display === "none") {
-    desglose.style.display = "block";
-    button.textContent = "Ocultar";
-  } else {
-    desglose.style.display = "none";
-    button.textContent = "Desglose";
-  }
-}
-
-function actualizarCantidadItem(itemId, cantidad) {
-  const item = itemsData.find((m) => m.id_item == itemId);
-  if (item) {
-    const cantidadNumerica = parseInt(cantidad) || 0;
-
-    // No permitir cantidades mayores al presupuestado
-    if (cantidadNumerica > item.cantidad) {
-      alert(
-        `No puede pedir más de ${item.cantidad} ${item.unidad} en el pedido normal. Use el botón "Pedir más" para solicitar cantidades adicionales.`
-      );
-      item.pedido = item.cantidad;
-    } else {
-      item.pedido = cantidadNumerica;
+  setTimeout(() => {
+    paginador.inicializar();
+    const paginacionContainer = document.getElementById("paginacionContainer");
+    if (paginacionContainer) {
+      paginacionContainer.style.display = "none";
     }
+  }, 100);
+});
 
-    actualizarInterfazItem(itemId);
-    actualizarEstadisticas();
-    actualizarCarrito();
-  }
-}
+async function cargarProyectos() {
+  try {
+    const response = await fetch(API_PRESUPUESTOS + "?action=getProyectos");
+    const result = await response.json();
 
-function actualizarInterfazItem(itemId) {
-  const item = itemsData.find((m) => m.id_item == itemId);
-  if (!item) return;
+    if (!result.success) throw new Error(result.error);
 
-  const card = document.querySelector(`[data-item-id="${itemId}"]`);
-  if (card) {
-    const subtotalElement = card.querySelector(".subtotal");
-    subtotalElement.textContent = (item.pedido * item.precio_unitario).toFixed(
-      2
-    );
+    const selectProyecto = document.getElementById("selectProyecto");
+    selectProyecto.innerHTML =
+      '<option value="">-- Seleccionar Proyecto --</option>';
 
-    const input = card.querySelector(".cantidad-input");
-    input.value = item.pedido;
-
-    const botonAgregarCarrito = card.querySelector(".input-group .btn-sm");
-    if (botonAgregarCarrito) {
-      if (item.pedido > 0) {
-        botonAgregarCarrito.classList.remove("btn-primary");
-        botonAgregarCarrito.classList.add("btn-warning");
-        botonAgregarCarrito.textContent = "En carrito";
-      } else {
-        botonAgregarCarrito.classList.remove("btn-warning");
-        botonAgregarCarrito.classList.add("btn-primary");
-        botonAgregarCarrito.textContent = "Agregar al carrito";
-      }
-    }
-
-    const porcentajeUsado =
-      item.cantidad > 0 ? (item.pedido / item.cantidad) * 100 : 0;
-    const { colorClass, colorText } = obtenerColorProgreso(porcentajeUsado);
-
-    const progressBar = card.querySelector(".progress-bar");
-    const badge = card.querySelector(
-      ".badge.bg-success, .badge.bg-warning, .badge.bg-danger, .badge.bg-secondary, .badge.bg-dark"
-    );
-    const porcentajeText = card.querySelector(".text-muted:last-child");
-
-    if (progressBar) {
-      progressBar.className = `progress-bar ${colorClass}`;
-      progressBar.style.width = `${Math.min(porcentajeUsado, 100)}%`;
-    }
-    if (badge) {
-      badge.className = `badge ${colorClass} ms-1`;
-      badge.textContent = colorText;
-    }
-    if (porcentajeText) {
-      porcentajeText.textContent = `${Math.round(porcentajeUsado)}% usado`;
-    }
-
-    const cantidades = card.querySelectorAll("small");
-    cantidades.forEach((small) => {
-      if (small.textContent.includes("Pedido:")) {
-        small.textContent = `Pedido: ${item.pedido} ${item.unidad}`;
-      }
+    result.data.forEach((proyecto) => {
+      const option = document.createElement("option");
+      option.value = proyecto.id_proyecto;
+      option.textContent = proyecto.nombre;
+      selectProyecto.appendChild(option);
     });
 
-    const tienePedidoExtra = pedidosFueraPresupuesto.some(
-      (pedido) => pedido.id_item === item.id_item
+    proyectosData = result.data;
+  } catch (error) {
+    console.error("Error cargando proyectos:", error);
+    alert("Error al cargar los proyectos: " + error.message);
+  }
+}
+
+async function cargarPresupuestos() {
+  const proyectoId = document.getElementById("selectProyecto").value;
+  const selectPresupuesto = document.getElementById("selectPresupuesto");
+  const projectInfo = document.getElementById("projectInfo");
+
+  selectPresupuesto.innerHTML =
+    '<option value="">-- Seleccionar Presupuesto --</option>';
+  selectPresupuesto.disabled = true;
+  projectInfo.style.display = "none";
+  resetarGestion();
+
+  if (proyectoId) {
+    try {
+      const formData = new FormData();
+      formData.append("proyecto_id", proyectoId);
+
+      const response = await fetch(
+        API_PRESUPUESTOS + "?action=getPresupuestosByProyecto",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error);
+
+      selectPresupuesto.disabled = false;
+      result.data.forEach((presupuesto) => {
+        const option = document.createElement("option");
+        option.value = presupuesto.id_presupuesto;
+        option.textContent = `${
+          presupuesto.nombre_proyecto || presupuesto.nombre
+        } - $${parseFloat(presupuesto.monto_total || 0).toLocaleString()}`;
+        option.setAttribute("data-presupuesto", JSON.stringify(presupuesto));
+        selectPresupuesto.appendChild(option);
+      });
+    } catch (error) {
+      console.error("Error cargando presupuestos:", error);
+      alert("Error al cargar los presupuestos: " + error.message);
+    }
+  }
+}
+
+async function cargarItems() {
+  const presupuestoId = document.getElementById("selectPresupuesto").value;
+  const selectedOption =
+    document.getElementById("selectPresupuesto").selectedOptions[0];
+
+  if (presupuestoId && selectedOption) {
+    try {
+      document.getElementById("materialesList").innerHTML = `
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando items...</span>
+          </div>
+          <p class="mt-3">Cargando items del presupuesto...</p>
+        </div>
+      `;
+
+      const presupuesto = JSON.parse(
+        selectedOption.getAttribute("data-presupuesto")
+      );
+      const proyectoId = document.getElementById("selectProyecto").value;
+      const proyecto = proyectosData.find((p) => p.id_proyecto == proyectoId);
+
+      const items = await cargarItemsPresupuesto(presupuestoId);
+      await cargarCapitulosParaFiltro(presupuestoId);
+
+      itemsData = items;
+      seleccionActual = {
+        proyecto: proyecto.nombre,
+        presupuesto: presupuesto.nombre_proyecto || presupuesto.nombre,
+        capitulo: "Todos los capítulos",
+        datos: { proyectoId, presupuestoId, capituloId: null, presupuesto },
+      };
+
+      document.getElementById(
+        "currentSelectionInfo"
+      ).textContent = `${proyecto.nombre} - ${seleccionActual.presupuesto}`;
+      document.getElementById("btnAgregarExtra").disabled = false;
+      document.getElementById("filterCapitulo").disabled = false;
+
+      mostrarItemsConComponentes(items);
+      actualizarEstadisticas();
+      mostrarInformacionProyecto(proyecto, presupuesto);
+    } catch (error) {
+      console.error("Error cargando items:", error);
+      mostrarErrorItems();
+    }
+  }
+}
+
+async function cargarCapitulosParaFiltro(presupuestoId) {
+  try {
+    const capitulos = await cargarCapitulosReales(presupuestoId);
+    const filterCapitulo = document.getElementById("filterCapitulo");
+    filterCapitulo.innerHTML = '<option value="">Todos los capítulos</option>';
+
+    capitulos.forEach((cap) => {
+      const option = document.createElement("option");
+      option.value = cap.id_capitulo;
+      option.textContent = cap.nombre_cap;
+      filterCapitulo.appendChild(option);
+    });
+  } catch (error) {
+    console.error("Error cargando capítulos para filtro:", error);
+    document.getElementById("filterCapitulo").innerHTML =
+      '<option value="">Todos los capítulos</option>';
+  }
+}
+
+async function cargarCapitulosReales(presupuestoId) {
+  try {
+    const formData = new FormData();
+    formData.append("id_presupuesto", presupuestoId);
+
+    const response = await fetch(
+      API_PRESUPUESTOS + "?action=getCapitulosByPresupuesto",
+      {
+        method: "POST",
+        body: formData,
+      }
     );
-    const mostrarBotonPedidoExtra = porcentajeUsado >= 100 || tienePedidoExtra;
 
-    const botonContainer = card.querySelector(".col-md-4.text-end");
-    let botonPedirMas = botonContainer.querySelector(".btn-outline-warning");
+    const result = await response.json();
+    if (result.success) return result.data;
+    throw new Error(result.error || "No se pudieron cargar los capítulos");
+  } catch (error) {
+    console.error("Error cargando capítulos:", error);
+    throw error;
+  }
+}
 
-    if (mostrarBotonPedidoExtra) {
-      if (!botonPedirMas) {
-        botonPedirMas = document.createElement("button");
-        botonPedirMas.className = "btn btn-sm btn-outline-warning mt-1";
-        botonPedirMas.textContent = "Pedir más";
-        botonPedirMas.onclick = function () {
-          solicitarPedidoExtra(itemId);
+async function cargarItemsPresupuesto(presupuestoId, capituloId = null) {
+  try {
+    const componentesAgrupados = await obtenerComponentesAgrupados(
+      presupuestoId,
+      capituloId
+    );
+
+    const items = await obtenerItemsReales(presupuestoId, capituloId);
+
+    return {
+      componentesAgrupados: componentesAgrupados,
+      itemsIndividuales: items,
+    };
+  } catch (error) {
+    console.error("Error cargando datos del presupuesto:", error);
+    mostrarErrorItems();
+    return { componentesAgrupados: [], itemsIndividuales: [] };
+  }
+}
+
+async function obtenerComponentesAgrupados(presupuestoId, capituloId = null) {
+  try {
+    const formData = new FormData();
+    formData.append("presupuesto_id", presupuestoId);
+
+    const response = await fetch(
+      API_PRESUPUESTOS + "?action=getComponentesParaPedido",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    if (!response.ok) throw new Error("Error en la respuesta del servidor");
+
+    const result = await response.json();
+    console.log("Datos recibidos de componentes:", result.data);
+
+    if (result.success) {
+      return result.data.map((comp) => {
+        const unidad = comp.unidad_componente?.trim() || "UND";
+        const cantidadTotal = parseFloat(comp.total_necesario) || 0;
+
+        return {
+          id_componente: comp.id_componente,
+          id_componente_unico: comp.id_componente,
+          nombre_componente: comp.nombre_componente || "Sin nombre",
+          tipo_componente: comp.tipo_componente || "material",
+          unidad_componente: unidad,
+          precio_unitario: parseFloat(comp.precio_unitario) || 0,
+          total_necesario: cantidadTotal,
+          disponible: parseFloat(comp.disponible) || 0,
+          ya_pedido: parseFloat(comp.ya_pedido) || 0,
+          capitulos: comp.capitulos || [],
+          cantidad_items: comp.cantidad_items || 0,
+          cantidad_capitulos: comp.cantidad_capitulos || 0,
+          pedido: 0,
+          items_que_usan: parseDetalleSerializado(comp.detalle_serializado),
         };
-        botonContainer.appendChild(botonPedirMas);
-      }
-    } else {
-      if (botonPedirMas) {
-        botonPedirMas.remove();
-      }
+      });
     }
+    throw new Error(
+      result.error || "No se pudieron cargar los componentes agrupados"
+    );
+  } catch (error) {
+    console.error("Error cargando componentes agrupados:", error);
+    throw error;
   }
 }
 
-function agregarItemAlCarrito(itemId) {
-  const item = itemsData.find((m) => m.id_item == itemId);
-  if (item) {
-    item.pedido = item.cantidad;
-    actualizarCantidadItem(itemId, item.cantidad);
+function parseDetalleSerializado(detalleSerializado) {
+  if (!detalleSerializado) return [];
+
+  try {
+    const items = detalleSerializado.split("||");
+    return items
+      .map((itemStr) => {
+        if (!itemStr.trim()) return null;
+
+        const partes = itemStr.split("|");
+
+        if (partes.length < 8) {
+          console.warn("Detalle serializado incompleto:", partes);
+          return null;
+        }
+
+        return {
+          codigo_item: partes[0]?.trim() || "N/A",
+          nombre_item: partes[1]?.trim() || "N/A",
+          nombre_capitulo: partes[2]?.trim() || "N/A",
+          cantidad_por_unidad: parseFloat(partes[3]) || 0,
+          unidad_componente: partes[4]?.trim() || "UND",
+          unidad_item: partes[5]?.trim() || "UND",
+          cantidad_item_presupuesto: parseFloat(partes[6]) || 0,
+          cantidad_componente: parseFloat(partes[7]) || 0,
+        };
+      })
+      .filter((item) => item !== null);
+  } catch (error) {
+    console.error("Error parseando detalle serializado:", error);
+    return [];
   }
 }
 
-function solicitarPedidoExtra(itemId) {
-  const item = itemsData.find((m) => m.id_item == itemId);
-  if (!item) return;
+function obtenerUnidadSegura(componente) {
+  return componente.unidad_componente || "UND";
+}
 
-  // Verificar si ya existe un pedido extra para este item
-  const pedidoExistente = pedidosFueraPresupuesto.find(
-    (pedido) => pedido.id_item === item.id_item
+function obtenerCantidadTotalSegura(componente) {
+  return parseFloat(
+    componente.cantidad_total || componente.total_necesario || 0
   );
+}
 
-  if (pedidoExistente) {
-    if (
-      confirm(
-        `Ya existe un pedido adicional de ${pedidoExistente.cantidad_extra} ${item.unidad} para este item. ¿Desea modificarlo?`
-      )
-    ) {
-      eliminarPedidoExtra(pedidosFueraPresupuesto.indexOf(pedidoExistente));
-    } else {
-      return;
-    }
-  }
+async function obtenerItemsReales(presupuestoId, capituloId = null) {
+  try {
+    const formData = new FormData();
+    formData.append("presupuesto_id", presupuestoId);
+    if (capituloId) formData.append("capitulo_id", capituloId);
 
-  const cantidadExtra = prompt(
-    `¿Cuántas ${item.unidad} adicionales desea solicitar para ${item.codigo_item}?`,
-    "1"
-  );
-  if (cantidadExtra && !isNaN(cantidadExtra) && parseInt(cantidadExtra) > 0) {
-    const justificacion = prompt(
-      "Justifique por qué necesita esta cantidad adicional:",
-      ""
+    const response = await fetch(
+      API_PRESUPUESTOS + "?action=getItemsByPresupuesto",
+      {
+        method: "POST",
+        body: formData,
+      }
     );
 
-    if (justificacion) {
-      const pedidoExtra = {
+    if (!response.ok) throw new Error("Error en la respuesta del servidor");
+
+    const result = await response.json();
+    if (result.success) {
+      return result.data.map((item) => ({
         id_item: item.id_item,
         codigo_item: item.codigo_item,
         nombre_item: item.nombre_item,
+        id_capitulo: item.id_capitulo,
+        nombre_capitulo: item.nombre_capitulo,
         unidad: item.unidad,
-        cantidad_presupuestada: item.cantidad,
-        cantidad_solicitada: parseInt(cantidadExtra),
-        cantidad_extra: parseInt(cantidadExtra),
-        precio_unitario: item.precio_unitario,
-        justificacion: justificacion,
-        estado: "pendiente",
-        fecha: new Date().toISOString().split("T")[0],
-      };
-
-      pedidosFueraPresupuesto.push(pedidoExtra);
-      mostrarPedidosExtra();
-      actualizarEstadisticas();
-      actualizarInterfazItem(itemId);
-
-      alert("Pedido adicional solicitado. Estará pendiente de aprobación.");
+        precio_unitario: parseFloat(item.precio_unitario) || 0,
+        cantidad: parseFloat(item.cantidad) || 0,
+        pedido: 0,
+        subtotal:
+          (parseFloat(item.cantidad) || 0) *
+          (parseFloat(item.precio_unitario) || 0),
+        componentes: (item.componentes || []).map((comp) => ({
+          ...comp,
+          pedido: 0,
+        })),
+        id_det_presupuesto: item.id_det_presupuesto,
+        disponible:
+          parseFloat(item.disponible) || parseFloat(item.cantidad) || 0,
+      }));
     }
+    throw new Error(result.error || "No se pudieron cargar los items");
+  } catch (error) {
+    console.error("Error cargando items reales:", error);
+    throw error;
   }
-}
-
-function mostrarPedidosExtra() {
-  const container = document.getElementById("materialesExtraList");
-  const cardExtras = document.getElementById("cardExtras");
-
-  if (pedidosFueraPresupuesto.length === 0 && materialesExtra.length === 0) {
-    cardExtras.style.display = "none";
-    return;
-  }
-
-  cardExtras.style.display = "block";
-
-  let html = "";
-
-  if (pedidosFueraPresupuesto.length > 0) {
-    html += `<h6 class="text-warning mb-3">Pedidos Fuera de Presupuesto</h6>`;
-
-    pedidosFueraPresupuesto.forEach((pedido, index) => {
-      html += `
-        <div class="card mb-2 border-warning">
-          <div class="card-body py-2">
-            <div class="row align-items-center">
-              <div class="col-md-5">
-                <strong class="text-warning">${pedido.codigo_item}</strong>
-                <p class="mb-0 small">${pedido.nombre_item}</p>
-                <small class="text-muted">Justificación: ${
-                  pedido.justificacion
-                }</small>
-              </div>
-              <div class="col-md-3">
-                <span class="badge bg-warning">Por aprobar</span>
-                <div class="mt-1">
-                  <small>+${pedido.cantidad_extra} ${pedido.unidad} (Total: ${
-        pedido.cantidad_solicitada
-      })</small>
-                </div>
-              </div>
-              <div class="col-md-2">
-                <small>$${formatCurrency(pedido.precio_unitario)}</small>
-              </div>
-              <div class="col-md-2 text-end">
-                <button class="btn btn-sm btn-outline-danger" onclick="eliminarPedidoExtra(${index})">
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    });
-  }
-
-  if (materialesExtra.length > 0) {
-    html += `<h6 class="text-info mb-3 mt-4">Materiales Extra</h6>`;
-
-    materialesExtra.forEach((material, index) => {
-      html += `
-        <div class="card mb-2">
-          <div class="card-body py-2">
-            <div class="row align-items-center">
-              <div class="col-md-5">
-                <strong class="text-info">${material.codigo}</strong>
-                <p class="mb-0 small">${material.descripcion}</p>
-                <small class="text-muted">Justificación: ${
-                  material.justificacion
-                }</small>
-              </div>
-              <div class="col-md-3">
-                <span class="badge bg-info">Por aprobar</span>
-                <div class="mt-1">
-                  <small>${material.cantidad} ${material.unidad}</small>
-                </div>
-              </div>
-              <div class="col-md-2">
-                <small>$${material.precio.toFixed(2)}</small>
-              </div>
-              <div class="col-md-2 text-end">
-                <button class="btn btn-sm btn-outline-danger" onclick="eliminarMaterialExtra(${index})">
-                  Eliminar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    });
-  }
-
-  container.innerHTML = html;
-}
-
-function eliminarPedidoExtra(index) {
-  if (confirm("¿Está seguro de cancelar este pedido adicional?")) {
-    const pedidoEliminado = pedidosFueraPresupuesto[index];
-    pedidosFueraPresupuesto.splice(index, 1);
-    mostrarPedidosExtra();
-    actualizarEstadisticas();
-
-    if (pedidoEliminado && pedidoEliminado.id_item) {
-      actualizarInterfazItem(pedidoEliminado.id_item);
-    }
-  }
-}
-
-function actualizarCarrito() {
-  const itemsEnCarrito = itemsData.filter((m) => (m.pedido || 0) > 0);
-  const container = document.getElementById("carritoList");
-  const cardCarrito = document.getElementById("cardCarrito");
-
-  if (
-    itemsEnCarrito.length === 0 &&
-    pedidosFueraPresupuesto.length === 0 &&
-    materialesExtra.length === 0
-  ) {
-    container.innerHTML = `
-      <div class="text-center text-muted py-4">
-        <div class="spinner-border text-muted" role="status"></div>
-        <p class="mt-3">Agregue items del presupuesto para verlos aquí</p>
-      </div>
-    `;
-    cardCarrito.style.display = "none";
-    return;
-  }
-
-  cardCarrito.style.display = "block";
-
-  let html = "";
-  let totalGeneral = 0;
-
-  itemsEnCarrito.forEach((item) => {
-    const subtotal = item.pedido * item.precio_unitario;
-    totalGeneral += subtotal;
-
-    html += `
-      <div class="card mb-2">
-        <div class="card-body py-2">
-          <div class="row align-items-center">
-            <div class="col-md-4">
-              <strong class="text-primary">${item.codigo_item}</strong>
-              <p class="mb-0 small">${item.nombre_item}</p>
-              <small class="text-muted">${item.nombre_capitulo} | ${
-      item.unidad
-    }</small>
-            </div>
-            <div class="col-md-2 text-center">
-              <span class="badge bg-success">${item.pedido} ${
-      item.unidad
-    }</span>
-            </div>
-            <div class="col-md-2">
-              <small>$${formatCurrency(item.precio_unitario)} c/u</small>
-            </div>
-            <div class="col-md-2">
-              <strong class="text-success">$${formatCurrency(subtotal)}</strong>
-            </div>
-            <div class="col-md-2 text-end">
-              <button class="btn btn-sm btn-outline-danger" onclick="quitarItemDelCarrito(${
-                item.id_item
-              })">
-                Quitar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  });
-
-  if (pedidosFueraPresupuesto.length > 0) {
-    html += `
-      <div class="mt-3 pt-3 border-top">
-        <h6 class="text-warning">Pedidos Adicionales (Pendientes)</h6>
-    `;
-
-    pedidosFueraPresupuesto.forEach((pedido, index) => {
-      html += `
-        <div class="card mb-2 border-warning">
-          <div class="card-body py-2">
-            <div class="row align-items-center">
-              <div class="col-md-4">
-                <strong class="text-warning">${
-                  pedido.codigo_item
-                } (+EXTRA)</strong>
-                <p class="mb-0 small">${pedido.nombre_item}</p>
-                <small class="text-muted">${
-                  pedido.unidad
-                } | Pendiente de aprobación</small>
-              </div>
-              <div class="col-md-2 text-center">
-                <span class="badge bg-warning">+${pedido.cantidad_extra}</span>
-              </div>
-              <div class="col-md-2">
-                <small>$${formatCurrency(pedido.precio_unitario)} c/u</small>
-              </div>
-              <div class="col-md-2">
-                <strong class="text-warning">Pendiente</strong>
-              </div>
-              <div class="col-md-2 text-end">
-                <button class="btn btn-sm btn-outline-danger" onclick="eliminarPedidoExtra(${index})">
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    });
-
-    html += `</div>`;
-  }
-
-  html += `
-    <div class="mt-3 pt-3 border-top">
-      <div class="row">
-        <div class="col-md-8">
-          <strong class="text-dark">TOTAL DEL CARRITO:</strong>
-        </div>
-        <div class="col-md-4 text-end">
-          <h5 class="text-success">$${formatCurrency(totalGeneral)}</h5>
-        </div>
-      </div>
-      ${
-        pedidosFueraPresupuesto.length > 0
-          ? `
-      <div class="row mt-2">
-        <div class="col-md-8">
-          <small class="text-warning">Los pedidos adicionales requieren aprobación</small>
-        </div>
-      </div>
-      `
-          : ""
-      }
-    </div>
-  `;
-
-  container.innerHTML = html;
-  document.getElementById(
-    "contadorCarrito"
-  ).textContent = `${itemsEnCarrito.length} items`;
-}
-
-function quitarItemDelCarrito(itemId) {
-  const item = itemsData.find((m) => m.id_item == itemId);
-  if (item) {
-    item.pedido = 0;
-    actualizarCantidadItem(itemId, 0);
-  }
-}
-
-function actualizarEstadisticas() {
-  const itemsSeleccionados = itemsData.filter((m) => (m.pedido || 0) > 0);
-  const totalItems = itemsSeleccionados.reduce(
-    (sum, m) => sum + (m.pedido || 0),
-    0
-  );
-  const valorTotal = itemsSeleccionados.reduce(
-    (sum, m) => sum + (m.pedido || 0) * m.precio_unitario,
-    0
-  );
-
-  document.getElementById("statSeleccionados").textContent =
-    itemsSeleccionados.length;
-  document.getElementById("statTotalItems").textContent = totalItems;
-  document.getElementById(
-    "statValorTotal"
-  ).textContent = `$${valorTotal.toFixed(2)}`;
-  document.getElementById("statExtras").textContent =
-    materialesExtra.length + pedidosFueraPresupuesto.length;
-
-  document.getElementById("btnConfirmarPedido").disabled =
-    itemsSeleccionados.length === 0 &&
-    materialesExtra.length === 0 &&
-    pedidosFueraPresupuesto.length === 0;
 }
 
 async function cargarUnidades() {
@@ -976,21 +1219,64 @@ async function cargarUnidades() {
 
 async function cargarTiposMaterial() {
   try {
-    const response = await fetch(API_PRESUPUESTOS + "?action=getTiposMaterial");
-    const result = await response.json();
+    const filterTipo = document.getElementById("filterTipo");
+    const tiposComponentes = [
+      { value: "material", text: "Material" },
+      { value: "mano_obra", text: "Mano de Obra" },
+      { value: "equipo", text: "Equipo" },
+      { value: "transporte", text: "Transporte" },
+      { value: "otro", text: "Otro" },
+    ];
 
-    if (result.success) {
-      const filterTipo = document.getElementById("filterTipo");
-      result.data.forEach((tipo) => {
-        const option = document.createElement("option");
-        option.value = tipo.id_tipo_material;
-        option.textContent = tipo.desc_tipo;
-        filterTipo.appendChild(option);
-      });
-    }
+    tiposComponentes.forEach((tipo) => {
+      const option = document.createElement("option");
+      option.value = tipo.value;
+      option.textContent = tipo.text;
+      filterTipo.appendChild(option);
+    });
   } catch (error) {
-    console.error("Error cargando tipos de material:", error);
+    console.error("Error cargando tipos de componentes:", error);
   }
+}
+
+function mostrarItemsConComponentes(datos) {
+  const container = document.getElementById("materialesList");
+
+  const componentesAgrupados = datos.componentesAgrupados || [];
+  const itemsIndividuales = datos.itemsIndividuales || [];
+
+  if (componentesAgrupados.length === 0 && itemsIndividuales.length === 0) {
+    container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <div class="spinner-border text-muted" role="status"></div>
+                <p class="mt-3">No hay componentes en este presupuesto/capítulo</p>
+            </div>
+        `;
+    document.getElementById("contadorMateriales").textContent = "0 componentes";
+
+    const paginacionContainer = document.getElementById("paginacionContainer");
+    if (paginacionContainer) paginacionContainer.style.display = "none";
+    return;
+  }
+
+  paginador.configurar(componentesAgrupados);
+  const paginacionContainer = document.getElementById("paginacionContainer");
+  if (paginacionContainer) paginacionContainer.style.display = "flex";
+
+  document.getElementById(
+    "contadorMateriales"
+  ).textContent = `${componentesAgrupados.length} componentes`;
+}
+
+function mostrarErrorItems() {
+  const container = document.getElementById("materialesList");
+  container.innerHTML = `
+    <div class="text-center text-danger py-5">
+      <div class="spinner-border text-danger" role="status"></div>
+      <p class="mt-3">Error al cargar los items del presupuesto</p>
+      <button class="btn btn-warning" onclick="reintentarCargaItems()">Reintentar</button>
+    </div>
+  `;
 }
 
 function mostrarInformacionProyecto(proyecto, presupuesto) {
@@ -1001,26 +1287,327 @@ function mostrarInformacionProyecto(proyecto, presupuesto) {
     presupuesto.monto_total || 0
   ).toLocaleString()}`;
   document.getElementById("infoItems").textContent = itemsData.length;
-
   document.getElementById("projectInfo").style.display = "block";
 }
 
+function obtenerColorProgreso(porcentaje) {
+  if (porcentaje === 0)
+    return { colorClass: "bg-secondary", colorText: "Sin uso" };
+  if (porcentaje <= 80)
+    return { colorClass: "bg-success", colorText: "Dentro del presupuesto" };
+  if (porcentaje <= 95)
+    return { colorClass: "bg-warning", colorText: "Cerca del límite" };
+  if (porcentaje <= 100)
+    return { colorClass: "bg-danger", colorText: "Límite alcanzado" };
+  return { colorClass: "bg-dark", colorText: "Excedido" };
+}
+
+function organizarComponentesPorTipo(componentes) {
+  const porTipo = {
+    material: { items: [], total: 0 },
+    mano_obra: { items: [], total: 0 },
+    equipo: { items: [], total: 0 },
+    transporte: { items: [], total: 0 },
+    otro: { items: [], total: 0 },
+  };
+
+  componentes.forEach((comp) => {
+    const tipo = comp.tipo_componente;
+    const subtotal = parseFloat(comp.subtotal) || 0;
+    if (porTipo[tipo]) {
+      porTipo[tipo].items.push(comp);
+      porTipo[tipo].total += subtotal;
+    } else {
+      porTipo.otro.items.push(comp);
+      porTipo.otro.total += subtotal;
+    }
+  });
+
+  return porTipo;
+}
+
+function formatCurrency(amount) {
+  return parseFloat(amount || 0)
+    .toFixed(2)
+    .replace(/\d(?=(\d{3})+\.)/g, "$&,");
+}
+
+function actualizarEstadisticas() {
+  let componentesSeleccionados = 0;
+  let totalCantidad = 0;
+  let valorTotal = 0;
+
+  if (itemsData.componentesAgrupados) {
+    itemsData.componentesAgrupados.forEach((componente) => {
+      if (componente.pedido > 0) {
+        componentesSeleccionados++;
+        totalCantidad += componente.pedido;
+        valorTotal += componente.pedido * componente.precio_unitario;
+      }
+    });
+  }
+
+  document.getElementById("statSeleccionados").textContent =
+    componentesSeleccionados;
+  document.getElementById("statTotalItems").textContent =
+    totalCantidad.toFixed(2);
+  document.getElementById(
+    "statValorTotal"
+  ).textContent = `$${valorTotal.toFixed(2)}`;
+  document.getElementById("statExtras").textContent = materialesExtra.length;
+
+  const alertPendientes = document.getElementById(
+    "alertPendientesAutorizacion"
+  );
+  const statPendientes = document.getElementById("statPendientesAutorizacion");
+
+  if (pedidosFueraPresupuesto.length > 0) {
+    alertPendientes.style.display = "block";
+    statPendientes.textContent = pedidosFueraPresupuesto.length;
+  } else {
+    alertPendientes.style.display = "none";
+  }
+
+  document.getElementById("btnConfirmarPedido").disabled =
+    componentesSeleccionados === 0 &&
+    materialesExtra.length === 0 &&
+    pedidosFueraPresupuesto.length === 0;
+}
+
+function actualizarCarrito() {
+  const componentesEnCarrito = [];
+
+  if (itemsData.componentesAgrupados) {
+    itemsData.componentesAgrupados.forEach((componente) => {
+      if (componente.pedido > 0) {
+        componentesEnCarrito.push({
+          id_componente: componente.id_componente,
+          descripcion: componente.nombre_componente,
+          tipo_componente: componente.tipo_componente,
+          unidad: componente.unidad_componente,
+          pedido: componente.pedido,
+          precio_unitario: componente.precio_unitario,
+          codigo_item_padre: "Varios items",
+          nombre_item_padre: `Usado en ${componente.cantidad_items} item(s)`,
+          capitulos: componente.capitulos,
+        });
+      }
+    });
+  }
+
+  const container = document.getElementById("carritoList");
+  const cardCarrito = document.getElementById("cardCarrito");
+
+  if (
+    componentesEnCarrito.length === 0 &&
+    pedidosFueraPresupuesto.length === 0 &&
+    materialesExtra.length === 0
+  ) {
+    container.innerHTML = `
+      <div class="text-center text-muted py-4">
+        <div class="spinner-border text-muted" role="status"></div>
+        <p class="mt-3">Agregue componentes del presupuesto para verlos aquí</p>
+      </div>
+    `;
+    cardCarrito.style.display = "none";
+    return;
+  }
+
+  cardCarrito.style.display = "block";
+
+  let html = "";
+  let totalGeneral = 0;
+
+  if (componentesEnCarrito.length > 0) {
+    componentesEnCarrito.forEach((componente) => {
+      const subtotal = componente.pedido * componente.precio_unitario;
+      totalGeneral += subtotal;
+
+      const icono = obtenerIconoTipoComponente(componente.tipo_componente);
+      const badgeClass = obtenerClaseBadgeTipo(componente.tipo_componente);
+      const nombreTipo = obtenerNombreTipoComponente(
+        componente.tipo_componente
+      );
+
+      html += `
+        <div class="card mb-2 border-info">
+          <div class="card-body py-2">
+            <div class="row align-items-center">
+              <div class="col-md-4">
+                <div class="d-flex align-items-center">
+                  <i class="${icono} me-2 text-muted"></i>
+                  <div>
+                    <strong class="text-info">${componente.descripcion}</strong>
+                    <p class="mb-0 small">
+                      <span class="badge ${badgeClass} me-1">${nombreTipo}</span>
+                      De: ${componente.codigo_item_padre}
+                    </p>
+                    <small class="text-muted">${componente.unidad}</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2 text-center">
+                <span class="badge bg-info">${componente.pedido} ${
+        componente.unidad
+      }</span>
+              </div>
+              <div class="col-md-2">
+                <small>$${formatCurrency(
+                  componente.precio_unitario
+                )} c/u</small>
+              </div>
+              <div class="col-md-2">
+                <strong class="text-info">$${formatCurrency(subtotal)}</strong>
+              </div>
+              <div class="col-md-2 text-end">
+                <button class="btn btn-sm btn-outline-danger" onclick="quitarComponenteDelCarrito(${
+                  componente.id_componente
+                }, ${componente.id_item_padre})">
+                  Quitar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  if (pedidosFueraPresupuesto.length > 0) {
+    html += `
+      <div class="mt-4 pt-3 border-top border-warning">
+        <div class="alert alert-warning mb-3">
+          <h6 class="text-warning mb-2">
+            <i class="bi bi-exclamation-triangle-fill"></i> Pedidos Fuera de Presupuesto (Pendientes de Autorización)
+          </h6>
+          <small>Estos pedidos están separados del carrito principal y requieren aprobación antes de ser procesados.</small>
+        </div>
+    `;
+
+    let totalPendiente = 0;
+    pedidosFueraPresupuesto.forEach((pedido, index) => {
+      const subtotalExtra = pedido.cantidad_extra * pedido.precio_unitario;
+      totalPendiente += subtotalExtra;
+
+      const icono = obtenerIconoTipoComponente(pedido.tipo_componente);
+      const badgeClass = obtenerClaseBadgeTipo(pedido.tipo_componente);
+      const nombreTipo = obtenerNombreTipoComponente(pedido.tipo_componente);
+
+      html += `
+        <div class="card mb-2 border-warning bg-light">
+          <div class="card-body py-2">
+            <div class="row align-items-center">
+              <div class="col-md-4">
+                <div class="d-flex align-items-center">
+                  <i class="${icono} me-2 text-warning"></i>
+                  <div>
+                    <strong class="text-warning">${
+                      pedido.descripcion_componente
+                    }</strong>
+                    <p class="mb-0 small">
+                      <span class="badge ${badgeClass} me-1">${nombreTipo}</span>
+                      De: ${pedido.codigo_item}
+                    </p>
+                    <small class="text-muted">${pedido.unidad}</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2 text-center">
+                <span class="badge bg-warning text-dark">
+                  <i class="bi bi-hourglass-split"></i> Pendiente
+                </span>
+                <div class="mt-1">
+                  <small class="d-block">Extra: +${pedido.cantidad_extra.toFixed(
+                    4
+                  )}</small>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <small>$${formatCurrency(pedido.precio_unitario)} c/u</small>
+              </div>
+              <div class="col-md-2">
+                <strong class="text-warning">$${formatCurrency(
+                  subtotalExtra
+                )}</strong>
+                <small class="d-block text-muted">(solo extra)</small>
+              </div>
+              <div class="col-md-2 text-end">
+                <button class="btn btn-sm btn-outline-danger" onclick="eliminarPedidoExtra(${index})" title="Cancelar pedido extra">
+                  <i class="bi bi-x-circle"></i> Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+        <div class="alert alert-info mt-2">
+          <div class="row">
+            <div class="col-md-8">
+              <small><strong>Total adicional pendiente de aprobación:</strong></small>
+            </div>
+            <div class="col-md-4 text-end">
+              <strong class="text-warning">$${formatCurrency(
+                totalPendiente
+              )}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  html += `
+    <div class="mt-3 pt-3 border-top">
+      <div class="row">
+        <div class="col-md-8"><strong class="text-dark">TOTAL DEL CARRITO:</strong></div>
+        <div class="col-md-4 text-end"><h5 class="text-success">$${formatCurrency(
+          totalGeneral
+        )}</h5></div>
+      </div>
+      ${
+        pedidosFueraPresupuesto.length > 0
+          ? `
+      <div class="row mt-2">
+        <div class="col-md-8"><small class="text-warning">Los pedidos adicionales requieren aprobación</small></div>
+      </div>
+      `
+          : ""
+      }
+    </div>
+  `;
+
+  container.innerHTML = html;
+  document.getElementById(
+    "contadorCarrito"
+  ).textContent = `${componentesEnCarrito.length} componentes`;
+}
+
+function quitarComponenteDelCarrito(componenteId, itemId) {
+  actualizarCantidadComponente(componenteId, 0, itemId);
+}
+
 function resetarGestion() {
-  itemsData = [];
+  itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
   materialesExtra = [];
   pedidosFueraPresupuesto = [];
+
   document.getElementById("materialesList").innerHTML = `
-    <div class="text-center text-muted py-5">
-      <div class="spinner-border text-muted" role="status"></div>
-      <p class="mt-3">Seleccione un proyecto y presupuesto para ver los items</p>
-    </div>
-  `;
+        <div class="text-center text-muted py-5">
+            <div class="spinner-border text-muted" role="status"></div>
+            <p class="mt-3">Seleccione un proyecto y presupuesto para ver los componentes</p>
+        </div>
+    `;
+
   document.getElementById("carritoList").innerHTML = `
-    <div class="text-center text-muted py-4">
-      <div class="spinner-border text-muted" role="status"></div>
-      <p class="mt-3">Agregue items del presupuesto para verlos aquí</p>
-    </div>
-  `;
+        <div class="text-center text-muted py-4">
+            <div class="spinner-border text-muted" role="status"></div>
+            <p class="mt-3">Agregue componentes del presupuesto para verlos aquí</p>
+        </div>
+    `;
+
   document.getElementById("currentSelectionInfo").textContent =
     "Seleccione un proyecto y presupuesto para comenzar";
   document.getElementById("btnAgregarExtra").disabled = true;
@@ -1028,7 +1615,70 @@ function resetarGestion() {
   document.getElementById("filterCapitulo").disabled = true;
   document.getElementById("cardCarrito").style.display = "none";
   document.getElementById("cardExtras").style.display = "none";
+
+  const paginacionContainer = document.getElementById("paginacionContainer");
+  if (paginacionContainer) paginacionContainer.style.display = "none";
+
   actualizarEstadisticas();
+}
+
+function reintentarCargaItems() {
+  const presupuestoId = document.getElementById("selectPresupuesto").value;
+  if (presupuestoId) cargarItems();
+}
+
+function filtrarMateriales() {
+  const filtroEstado = document.getElementById("filterEstado").value;
+  const filtroCapitulo = document.getElementById("filterCapitulo").value;
+  const filtroTipo = document.getElementById("filterTipo").value;
+  const searchTerm = document
+    .getElementById("searchMaterial")
+    .value.toLowerCase();
+
+  // Usar componentesAgrupados para filtrar
+  const componentesAgrupados = itemsData.componentesAgrupados || [];
+
+  const componentesFiltrados = componentesAgrupados.filter((componente) => {
+    const coincideEstado =
+      !filtroEstado ||
+      (filtroEstado === "disponible" && componente.disponible > 0) ||
+      (filtroEstado === "agotado" && componente.disponible <= 0) ||
+      (filtroEstado === "pedido" && (componente.pedido || 0) > 0);
+
+    const coincideCapitulo =
+      !filtroCapitulo ||
+      (componente.capitulos && componente.capitulos.includes(filtroCapitulo));
+
+    const coincideTipo =
+      !filtroTipo || componente.tipo_componente === filtroTipo;
+
+    const coincideBusqueda =
+      !searchTerm ||
+      componente.nombre_componente.toLowerCase().includes(searchTerm) ||
+      (componente.descripcion &&
+        componente.descripcion.toLowerCase().includes(searchTerm));
+
+    return (
+      coincideEstado && coincideCapitulo && coincideTipo && coincideBusqueda
+    );
+  });
+
+  mostrarItemsConComponentes({ componentesAgrupados: componentesFiltrados });
+
+  if (filtroTipo) {
+    document.querySelectorAll(".componente-card").forEach((card) => {
+      const tipoCard = card.dataset.tipo;
+      if (tipoCard === filtroTipo) {
+        card.style.display = "block";
+      } else {
+        card.style.display = "none";
+      }
+    });
+  } else {
+    document.querySelectorAll(".componente-card").forEach((card) => {
+      card.style.display = "block";
+    });
+  }
 }
 
 function mostrarModalNuevoItem() {
@@ -1065,63 +1715,175 @@ function solicitarMaterialExtra() {
   };
 
   materialesExtra.push(materialExtra);
-  mostrarPedidosExtra();
   actualizarEstadisticas();
 
   const modal = bootstrap.Modal.getInstance(
     document.getElementById("modalNuevoItem")
   );
   modal.hide();
-
   alert("Material extra solicitado para aprobación");
 }
 
 function eliminarMaterialExtra(index) {
   if (confirm("¿Está seguro de eliminar este material extra?")) {
     materialesExtra.splice(index, 1);
-    mostrarPedidosExtra();
     actualizarEstadisticas();
+    actualizarCarrito();
   }
 }
 
-function filtrarMateriales() {
-  const filtroEstado = document.getElementById("filterEstado").value;
-  const filtroCapitulo = document.getElementById("filterCapitulo").value;
-  const searchTerm = document
-    .getElementById("searchMaterial")
-    .value.toLowerCase();
+function eliminarPedidoExtra(index) {
+  if (confirm("¿Está seguro de cancelar este pedido fuera de presupuesto?")) {
+    pedidosFueraPresupuesto.splice(index, 1);
+    actualizarEstadisticas();
+    actualizarCarrito();
+  }
+}
 
-  const itemsFiltrados = itemsData.filter((item) => {
-    const coincideEstado =
-      !filtroEstado ||
-      (filtroEstado === "disponible" &&
-        (item.disponible || item.cantidad - (item.pedido || 0) > 0)) ||
-      (filtroEstado === "agotado" &&
-        (item.disponible || item.cantidad - (item.pedido || 0) <= 0)) ||
-      (filtroEstado === "pedido" && (item.pedido || 0) > 0);
+function solicitarJustificacionPedidoExtra(
+  componente,
+  item,
+  cantidadSolicitada,
+  cantidadMaxima
+) {
+  window.pedidoExtraTemp = {
+    componente,
+    item,
+    cantidadSolicitada,
+    cantidadMaxima,
+  };
 
-    const coincideCapitulo =
-      !filtroCapitulo || item.id_capitulo == filtroCapitulo;
-    const coincideBusqueda =
-      !searchTerm ||
-      item.codigo_item.toLowerCase().includes(searchTerm) ||
-      item.nombre_item.toLowerCase().includes(searchTerm);
+  document.getElementById("infoComponenteExtra").innerHTML = `
+    <div class="alert alert-warning">
+      <h6><i class="bi bi-exclamation-triangle"></i> Pedido Fuera de Presupuesto</h6>
+      <p class="mb-1"><strong>Componente:</strong> ${componente.descripcion}</p>
+      <p class="mb-1"><strong>Item:</strong> ${item.codigo_item} - ${
+    item.nombre_item
+  }</p>
+      <p class="mb-1"><strong>Cantidad máxima permitida:</strong> ${cantidadMaxima.toFixed(
+        4
+      )} ${componente.unidad}</p>
+      <p class="mb-1"><strong>Cantidad solicitada:</strong> ${cantidadSolicitada.toFixed(
+        4
+      )} ${componente.unidad}</p>
+      <p class="mb-0"><strong>Cantidad extra:</strong> <span class="text-danger">+${(
+        cantidadSolicitada - cantidadMaxima
+      ).toFixed(4)} ${componente.unidad}</span></p>
+    </div>
+  `;
 
-    return coincideEstado && coincideCapitulo && coincideBusqueda;
-  });
+  document.getElementById("justificacionPedidoExtra").value = "";
 
-  mostrarItemsConComponentes(itemsFiltrados);
+  const modal = new bootstrap.Modal(
+    document.getElementById("modalJustificacionExtra")
+  );
+  modal.show();
+}
+
+function confirmarPedidoExtra() {
+  const justificacion = document
+    .getElementById("justificacionPedidoExtra")
+    .value.trim();
+
+  if (!justificacion) {
+    alert(
+      "Debe proporcionar una justificación para el pedido fuera de presupuesto"
+    );
+    return;
+  }
+
+  const { componente, item, cantidadSolicitada, cantidadMaxima } =
+    window.pedidoExtraTemp;
+
+  const pedidoExtra = {
+    id_componente: componente.id_componente,
+    id_item: item.id_item,
+    codigo_item: item.codigo_item,
+    nombre_item: item.nombre_item,
+    descripcion_componente: componente.descripcion,
+    tipo_componente: componente.tipo_componente,
+    unidad: componente.unidad,
+    cantidad_maxima: cantidadMaxima,
+    cantidad_solicitada: cantidadSolicitada,
+    cantidad_extra: cantidadSolicitada - cantidadMaxima,
+    precio_unitario: componente.precio_unitario,
+    justificacion: justificacion,
+    estado: "pendiente_aprobacion",
+    fecha: new Date().toISOString(),
+  };
+
+  const indexExistente = pedidosFueraPresupuesto.findIndex(
+    (p) =>
+      p.id_componente === componente.id_componente && p.id_item === item.id_item
+  );
+
+  if (indexExistente >= 0) {
+    pedidosFueraPresupuesto[indexExistente] = pedidoExtra;
+  } else {
+    pedidosFueraPresupuesto.push(pedidoExtra);
+  }
+
+  componente.pedido = cantidadMaxima;
+
+  actualizarEstadisticas();
+  actualizarCarrito();
+  actualizarBotonDesglose(item.id_item);
+
+  const input = document.querySelector(
+    `input[data-componente-id="${componente.id_componente}"]`
+  );
+  if (input) {
+    input.value = cantidadMaxima;
+  }
+
+  const row = input?.closest("tr");
+  if (row) {
+    const subtotalElement = row.querySelector(".subtotal-componente");
+    if (subtotalElement) {
+      subtotalElement.textContent = `$${(
+        cantidadMaxima * componente.precio_unitario
+      ).toFixed(2)}`;
+    }
+  }
+
+  actualizarTotalComponentesItem(item.id_item);
+
+  const modal = bootstrap.Modal.getInstance(
+    document.getElementById("modalJustificacionExtra")
+  );
+  modal.hide();
+
+  delete window.pedidoExtraTemp;
+
+  alert("Pedido fuera de presupuesto agregado. Requiere aprobación.");
 }
 
 async function confirmarPedido() {
-  const itemsPedido = itemsData.filter((m) => (m.pedido || 0) > 0);
+  const componentesConPedido = [];
+
+  if (itemsData.componentesAgrupados) {
+    itemsData.componentesAgrupados.forEach((componente) => {
+      if (componente.pedido > 0) {
+        componentesConPedido.push({
+          id_componente: componente.id_componente,
+          nombre_componente: componente.nombre_componente,
+          tipo_componente: componente.tipo_componente,
+          unidad_componente: componente.unidad_componente,
+          precio_unitario: componente.precio_unitario,
+          pedido: componente.pedido,
+          total_necesario: componente.total_necesario,
+          capitulos: componente.capitulos,
+        });
+      }
+    });
+  }
 
   if (
-    itemsPedido.length === 0 &&
+    componentesConPedido.length === 0 &&
     materialesExtra.length === 0 &&
     pedidosFueraPresupuesto.length === 0
   ) {
-    alert("No hay items seleccionados para el pedido");
+    alert("No hay componentes seleccionados para el pedido");
     return;
   }
 
@@ -1129,11 +1891,11 @@ async function confirmarPedido() {
     try {
       const pedidoData = {
         seleccionActual,
-        items: itemsPedido,
+        componentes: componentesConPedido,
         materialesExtra,
         pedidosFueraPresupuesto,
-        total: itemsPedido.reduce(
-          (sum, m) => sum + (m.pedido || 0) * m.precio_unitario,
+        total: componentesConPedido.reduce(
+          (sum, comp) => sum + (comp.pedido || 0) * comp.precio_unitario,
           0
         ),
         fecha: new Date().toISOString(),
@@ -1148,7 +1910,6 @@ async function confirmarPedido() {
       });
 
       const result = await response.json();
-
       if (result.success) {
         alert(
           "Pedido confirmado exitosamente. ID del pedido: " + result.id_pedido
@@ -1162,4 +1923,328 @@ async function confirmarPedido() {
       alert("Error al confirmar el pedido");
     }
   }
+}
+
+function agruparComponentesPorDescripcion(items) {
+  const mapaComponentes = {};
+
+  items.forEach((item) => {
+    if (!item.componentes) return;
+
+    item.componentes.forEach((comp) => {
+      const tipo = comp.tipo_componente || "otro";
+      const clave = `${comp.descripcion}_${comp.precio_unitario}_${comp.unidad}`;
+
+      if (!mapaComponentes[clave]) {
+        mapaComponentes[clave] = {
+          id_componente_unico: comp.id_componente,
+          tipo_componente: tipo,
+          descripcion: comp.descripcion,
+          unidad: comp.unidad,
+          precio_unitario: parseFloat(comp.precio_unitario),
+          cantidad_total: 0,
+          pedido: 0,
+          items_que_usan: [],
+        };
+      }
+
+      const cantidadEnItem =
+        parseFloat(comp.cantidad) * parseFloat(item.cantidad);
+      mapaComponentes[clave].cantidad_total += cantidadEnItem;
+
+      if (comp.pedido) {
+        mapaComponentes[clave].pedido += parseFloat(comp.pedido);
+      }
+
+      mapaComponentes[clave].items_que_usan.push({
+        id_item: item.id_item,
+        codigo_item: item.codigo_item,
+        nombre_item: item.nombre_item,
+        nombre_capitulo: item.nombre_capitulo,
+        cantidad_componente: parseFloat(comp.cantidad).toFixed(4),
+      });
+    });
+  });
+
+  return Object.values(mapaComponentes);
+}
+
+function toggleDesgloseComponente(idComponente) {
+  const desglose = document.getElementById(`desglose-comp-${idComponente}`);
+  if (desglose) {
+    desglose.style.display =
+      desglose.style.display === "none" ? "block" : "none";
+  }
+}
+
+function actualizarCantidadComponenteAgrupado(input) {
+  const cantidadTotal = parseFloat(input.value) || 0;
+  const componenteId = input.dataset.componenteId;
+  const maxCantidad = parseFloat(input.max);
+
+  if (cantidadTotal > maxCantidad) {
+    const componente = itemsData.componentesAgrupados.find(
+      (comp) => comp.id_componente == componenteId
+    );
+
+    if (componente) {
+      solicitarJustificacionPedidoExtra(componente, cantidadTotal, maxCantidad);
+      input.value = componente.pedido || 0;
+    }
+    return;
+  }
+
+  if (itemsData.componentesAgrupados) {
+    const componente = itemsData.componentesAgrupados.find(
+      (comp) => comp.id_componente == componenteId
+    );
+
+    if (componente) {
+      componente.pedido = cantidadTotal;
+    }
+  }
+
+  actualizarCarrito();
+  actualizarEstadisticas();
+
+  const card = input.closest(".card");
+  if (card) {
+    const subtotalElement = card.querySelector(
+      ".col-md-3:last-child .text-success"
+    );
+    if (subtotalElement) {
+      const precioUnitario = parseFloat(input.dataset.precio);
+      const subtotal = cantidadTotal * precioUnitario;
+      subtotalElement.textContent = `$${formatCurrency(subtotal)}`;
+    }
+
+    const cantidadTotalNecesaria = maxCantidad;
+    const porcentaje =
+      cantidadTotalNecesaria > 0
+        ? (cantidadTotal / cantidadTotalNecesaria) * 100
+        : 0;
+    const progressBar = card.querySelector(".progress-bar");
+    const progressText = card
+      .querySelector(".progress")
+      .previousElementSibling.querySelector("small:last-child");
+
+    if (progressBar) {
+      progressBar.style.width = `${Math.min(porcentaje, 100)}%`;
+      progressBar.setAttribute("aria-valuenow", porcentaje);
+
+      const { colorClass } = obtenerColorProgreso(porcentaje);
+      progressBar.className = `progress-bar ${colorClass}`;
+    }
+
+    if (progressText) {
+      progressText.textContent = `${Math.round(porcentaje)}% solicitado`;
+    }
+
+    const badge = card.querySelector(".card-header .badge.ms-1");
+    if (badge) {
+      const { colorClass, colorText } = obtenerColorProgreso(porcentaje);
+      badge.className = `badge ${colorClass} ms-1`;
+      badge.textContent = colorText;
+    }
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  cargarProyectos();
+});
+
+function solicitarJustificacionPedidoExtra(
+  componente,
+  cantidadSolicitada,
+  cantidadMaxima
+) {
+  window.pedidoExtraTemp = {
+    componente: componente,
+    cantidadSolicitada: cantidadSolicitada,
+    cantidadMaxima: cantidadMaxima,
+  };
+
+  document.getElementById("infoComponenteExtra").innerHTML = `
+    <div class="alert alert-warning">
+      <h6><i class="bi bi-exclamation-triangle"></i> Pedido Fuera de Presupuesto</h6>
+      <p class="mb-1"><strong>Componente:</strong> ${
+        componente.nombre_componente
+      }</p>
+      <p class="mb-1"><strong>Cantidad máxima permitida:</strong> ${cantidadMaxima.toFixed(
+        4
+      )} ${componente.unidad_componente}</p>
+      <p class="mb-1"><strong>Cantidad solicitada:</strong> ${cantidadSolicitada.toFixed(
+        4
+      )} ${componente.unidad_componente}</p>
+      <p class="mb-0"><strong>Cantidad extra:</strong> <span class="text-danger">+${(
+        cantidadSolicitada - cantidadMaxima
+      ).toFixed(4)} ${componente.unidad_componente}</span></p>
+    </div>
+  `;
+
+  document.getElementById("justificacionPedidoExtra").value = "";
+
+  const modal = new bootstrap.Modal(
+    document.getElementById("modalJustificacionExtra")
+  );
+  modal.show();
+}
+
+function confirmarPedidoExtra() {
+  const justificacion = document
+    .getElementById("justificacionPedidoExtra")
+    .value.trim();
+
+  if (!justificacion) {
+    alert(
+      "Debe proporcionar una justificación para el pedido fuera de presupuesto"
+    );
+    return;
+  }
+
+  const { componente, cantidadSolicitada, cantidadMaxima } =
+    window.pedidoExtraTemp;
+
+  const pedidoExtra = {
+    id_componente: componente.id_componente,
+    nombre_componente: componente.nombre_componente,
+    tipo_componente: componente.tipo_componente,
+    unidad: componente.unidad_componente,
+    cantidad_maxima: cantidadMaxima,
+    cantidad_solicitada: cantidadSolicitada,
+    cantidad_extra: cantidadSolicitada - cantidadMaxima,
+    precio_unitario: componente.precio_unitario,
+    justificacion: justificacion,
+    estado: "pendiente_aprobacion",
+    fecha: new Date().toISOString(),
+  };
+
+  const indexExistente = pedidosFueraPresupuesto.findIndex(
+    (p) => p.id_componente === componente.id_componente
+  );
+
+  if (indexExistente >= 0) {
+    pedidosFueraPresupuesto[indexExistente] = pedidoExtra;
+  } else {
+    pedidosFueraPresupuesto.push(pedidoExtra);
+  }
+
+  componente.pedido = cantidadMaxima;
+
+  actualizarEstadisticas();
+  actualizarCarrito();
+
+  const input = document.querySelector(
+    `input[data-componente-id="${componente.id_componente}"]`
+  );
+  if (input) {
+    input.value = cantidadMaxima;
+  }
+
+  const modal = bootstrap.Modal.getInstance(
+    document.getElementById("modalJustificacionExtra")
+  );
+  modal.hide();
+
+  delete window.pedidoExtraTemp;
+
+  alert("Pedido fuera de presupuesto agregado. Requiere aprobación.");
+}
+
+function solicitarJustificacionPedidoExtra(
+  componente,
+  cantidadSolicitada,
+  cantidadMaxima
+) {
+  window.pedidoExtraTemp = {
+    componente: componente,
+    cantidadSolicitada: cantidadSolicitada,
+    cantidadMaxima: cantidadMaxima,
+  };
+
+  document.getElementById("infoComponenteExtra").innerHTML = `
+    <div class="alert alert-warning">
+      <h6><i class="bi bi-exclamation-triangle"></i> Pedido Fuera de Presupuesto</h6>
+      <p class="mb-1"><strong>Componente:</strong> ${
+        componente.nombre_componente
+      }</p>
+      <p class="mb-1"><strong>Cantidad máxima permitida:</strong> ${cantidadMaxima.toFixed(
+        4
+      )} ${componente.unidad_componente}</p>
+      <p class="mb-1"><strong>Cantidad solicitada:</strong> ${cantidadSolicitada.toFixed(
+        4
+      )} ${componente.unidad_componente}</p>
+      <p class="mb-0"><strong>Cantidad extra:</strong> <span class="text-danger">+${(
+        cantidadSolicitada - cantidadMaxima
+      ).toFixed(4)} ${componente.unidad_componente}</span></p>
+    </div>
+  `;
+
+  document.getElementById("justificacionPedidoExtra").value = "";
+
+  const modal = new bootstrap.Modal(
+    document.getElementById("modalJustificacionExtra")
+  );
+  modal.show();
+}
+
+function confirmarPedidoExtra() {
+  const justificacion = document
+    .getElementById("justificacionPedidoExtra")
+    .value.trim();
+
+  if (!justificacion) {
+    alert(
+      "Debe proporcionar una justificación para el pedido fuera de presupuesto"
+    );
+    return;
+  }
+
+  const { componente, cantidadSolicitada, cantidadMaxima } =
+    window.pedidoExtraTemp;
+
+  const pedidoExtra = {
+    id_componente: componente.id_componente,
+    nombre_componente: componente.nombre_componente,
+    tipo_componente: componente.tipo_componente,
+    unidad: componente.unidad_componente,
+    cantidad_maxima: cantidadMaxima,
+    cantidad_solicitada: cantidadSolicitada,
+    cantidad_extra: cantidadSolicitada - cantidadMaxima,
+    precio_unitario: componente.precio_unitario,
+    justificacion: justificacion,
+    estado: "pendiente_aprobacion",
+    fecha: new Date().toISOString(),
+  };
+
+  const indexExistente = pedidosFueraPresupuesto.findIndex(
+    (p) => p.id_componente === componente.id_componente
+  );
+
+  if (indexExistente >= 0) {
+    pedidosFueraPresupuesto[indexExistente] = pedidoExtra;
+  } else {
+    pedidosFueraPresupuesto.push(pedidoExtra);
+  }
+
+  componente.pedido = cantidadMaxima;
+
+  actualizarEstadisticas();
+  actualizarCarrito();
+
+  const input = document.querySelector(
+    `input[data-componente-id="${componente.id_componente}"]`
+  );
+  if (input) {
+    input.value = cantidadMaxima;
+  }
+
+  const modal = bootstrap.Modal.getInstance(
+    document.getElementById("modalJustificacionExtra")
+  );
+  modal.hide();
+
+  delete window.pedidoExtraTemp;
+
+  alert("Pedido fuera de presupuesto agregado. Requiere aprobación.");
 }

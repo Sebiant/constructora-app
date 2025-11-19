@@ -570,61 +570,235 @@ try {
 
         case 'guardarPedido':
             try {
-                $pedidoData = json_decode($_POST['pedido_data'], true);
-                
+                // 1. VALIDAR Y DECODIFICAR DATOS DE ENTRADA
+                $pedidoData = json_decode($_POST['pedido_data'] ?? '', true);
+
                 if (!$pedidoData) {
-                    throw new \Exception('Datos del pedido no válidos');
+                    throw new \Exception('Datos del pedido no válidos o vacíos');
                 }
-                
-                // Iniciar transacción
+
+                // Validar datos requeridos
+                if (empty($pedidoData['seleccionActual']['datos']['presupuestoId'])) {
+                    throw new \Exception('ID de presupuesto requerido');
+                }
+
+                if (empty($pedidoData['seleccionActual']['datos']['proyectoId'])) {
+                    throw new \Exception('ID de proyecto requerido');
+                }
+
+                $idPresupuesto = (int)$pedidoData['seleccionActual']['datos']['presupuestoId'];
+                $idProyecto = (int)$pedidoData['seleccionActual']['datos']['proyectoId'];
+                $componentes = $pedidoData['componentes'] ?? [];
+                $materialesExtra = $pedidoData['materialesExtra'] ?? [];
+                $pedidosFueraPresupuesto = $pedidoData['pedidosFueraPresupuesto'] ?? [];
+
+                // Validar que el presupuesto existe y pertenece al proyecto
+                $stmtValidar = $connection->prepare(
+                    "SELECT id_presupuesto FROM presupuestos
+                     WHERE id_presupuesto = ? AND id_proyecto = ? AND idestado = 1"
+                );
+                $stmtValidar->execute([$idPresupuesto, $idProyecto]);
+                if (!$stmtValidar->fetch()) {
+                    throw new \Exception('El presupuesto no existe o no pertenece al proyecto seleccionado');
+                }
+
+                // 2. DETERMINAR ESTADO DEL PEDIDO
+                // Si hay pedidos fuera de presupuesto → estado: pendiente (1)
+                // Si solo hay pedidos normales → estado: aprobado (2)
+                $tienePedidosAdicionales = count($pedidosFueraPresupuesto) > 0;
+                $idEstadoPedido = $tienePedidosAdicionales ? 1 : 2; // 1=Pendiente, 2=Aprobado
+                $estadoTexto = $tienePedidosAdicionales ? 'pendiente' : 'aprobado';
+
+                // 3. CALCULAR TOTALES
+                $totalComponentesNormales = 0;
+                foreach ($componentes as $comp) {
+                    $cantidad = (float)($comp['pedido'] ?? 0);
+                    $precio = (float)($comp['precio_unitario'] ?? 0);
+                    $totalComponentesNormales += $cantidad * $precio;
+                }
+
+                $totalMaterialesExtra = 0;
+                foreach ($materialesExtra as $extra) {
+                    $cantidad = (float)($extra['cantidad'] ?? 0);
+                    $precio = (float)($extra['precio_unitario'] ?? 0);
+                    $totalMaterialesExtra += $cantidad * $precio;
+                }
+
+                $totalPedidosAdicionales = 0;
+                foreach ($pedidosFueraPresupuesto as $adicional) {
+                    $cantidadExtra = (float)($adicional['cantidad_extra'] ?? 0);
+                    $precio = (float)($adicional['precio_unitario'] ?? 0);
+                    $totalPedidosAdicionales += $cantidadExtra * $precio;
+                }
+
+                $totalGeneral = $totalComponentesNormales + $totalMaterialesExtra + $totalPedidosAdicionales;
+
+                // 4. CONSTRUIR OBSERVACIONES
+                $observaciones = [];
+                if ($tienePedidosAdicionales) {
+                    $observaciones[] = "Pedido con " . count($pedidosFueraPresupuesto) . " componente(s) fuera de presupuesto";
+                    $observaciones[] = "Total adicional: $" . number_format($totalPedidosAdicionales, 2);
+                }
+                if (count($materialesExtra) > 0) {
+                    $observaciones[] = "Incluye " . count($materialesExtra) . " material(es) extra";
+                }
+                if (count($componentes) > 0) {
+                    $observaciones[] = "Total componentes normales: " . count($componentes);
+                }
+
+                $observacionesTexto = implode(" | ", $observaciones);
+
+                // Obtener ID de usuario de sesión (ajustar según tu sistema de autenticación)
+                session_start();
+                $idUsuario = $_SESSION['u_id'] ?? 1; // Default a 1 si no hay sesión
+
+                // 5. INICIAR TRANSACCIÓN
                 $connection->beginTransaction();
-                
+
                 try {
-                    // 1. Crear el pedido principal (ajusta según tu estructura real)
-                    $sqlPedido = "INSERT INTO pedidos (id_presupuesto, fecha_pedido, estado, total) 
-                                 VALUES (?, NOW(), 'pendiente', ?)";
-                    $stmt = $connection->prepare($sqlPedido);
-                    $stmt->execute([
-                        $pedidoData['presupuestoId'] ?? 0,
-                        $pedidoData['total'] ?? 0
+                    // 6. INSERTAR PEDIDO PRINCIPAL
+                    $sqlPedido = "INSERT INTO pedidos
+                                  (id_presupuesto, fecha_pedido, estado, total, observaciones, idusuario, fechareg, fechaupdate)
+                                  VALUES (?, NOW(), ?, ?, ?, ?, NOW(), NOW())";
+
+                    $stmtPedido = $connection->prepare($sqlPedido);
+                    $stmtPedido->execute([
+                        $idPresupuesto,
+                        $estadoTexto,
+                        $totalGeneral,
+                        $observacionesTexto,
+                        $idUsuario
                     ]);
-                    
+
                     $idPedido = $connection->lastInsertId();
-                    
-                    // 2. Guardar detalles del pedido (ajusta según tu estructura)
-                    $sqlDetalle = "INSERT INTO pedidos_detalle 
-                                  (id_pedido, id_det_presupuesto, cantidad, precio_unitario, subtotal) 
-                                  VALUES (?, ?, ?, ?, ?)";
-                    $stmtDetalle = $connection->prepare($sqlDetalle);
-                    
-                    foreach ($pedidoData['materiales'] ?? [] as $material) {
-                        if ($material['pedido'] > 0) {
-                            $stmtDetalle->execute([
-                                $idPedido,
-                                $material['id_det_presupuesto'] ?? 0,
-                                $material['pedido'] ?? 0,
-                                $material['precio'] ?? 0,
-                                ($material['pedido'] ?? 0) * ($material['precio'] ?? 0)
-                            ]);
-                        }
+
+                    if (!$idPedido) {
+                        throw new \Exception('Error al crear el pedido principal');
                     }
-                    
-                    // Confirmar transacción
+
+                    // 7. INSERTAR DETALLES DE COMPONENTES NORMALES
+                    $sqlDetalle = "INSERT INTO pedidos_detalle
+                                   (id_pedido, id_componente, tipo_componente, id_item, cantidad, precio_unitario, subtotal, fechareg)
+                                   VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
+
+                    $stmtDetalle = $connection->prepare($sqlDetalle);
+                    $detallesInsertados = 0;
+
+                    foreach ($componentes as $comp) {
+                        $cantidad = (float)($comp['pedido'] ?? 0);
+                        if ($cantidad <= 0) continue;
+
+                        $idComponente = (int)($comp['id_componente'] ?? 0);
+                        $tipoComponente = $comp['tipo_componente'] ?? 'material';
+                        // Si id_item es 0 o no existe, usar NULL para evitar error de foreign key
+                        $idItem = isset($comp['id_item']) && $comp['id_item'] > 0 ? (int)$comp['id_item'] : null;
+                        $precioUnitario = (float)($comp['precio_unitario'] ?? 0);
+                        $subtotal = $cantidad * $precioUnitario;
+
+                        $stmtDetalle->execute([
+                            $idPedido,
+                            $idComponente,
+                            $tipoComponente,
+                            $idItem,
+                            $cantidad,
+                            $precioUnitario,
+                            $subtotal
+                        ]);
+
+                        $detallesInsertados++;
+                    }
+
+                    // 8. INSERTAR MATERIALES EXTRA (si existen)
+                    foreach ($materialesExtra as $extra) {
+                        $cantidad = (float)($extra['cantidad'] ?? 0);
+                        if ($cantidad <= 0) continue;
+
+                        $idComponente = (int)($extra['id_componente'] ?? 0);
+                        $tipoComponente = $extra['tipo_componente'] ?? 'material';
+                        // Si id_item es 0 o no existe, usar NULL para evitar error de foreign key
+                        $idItem = isset($extra['id_item']) && $extra['id_item'] > 0 ? (int)$extra['id_item'] : null;
+                        $precioUnitario = (float)($extra['precio_unitario'] ?? 0);
+                        $subtotal = $cantidad * $precioUnitario;
+
+                        $stmtDetalle->execute([
+                            $idPedido,
+                            $idComponente,
+                            $tipoComponente,
+                            $idItem,
+                            $cantidad,
+                            $precioUnitario,
+                            $subtotal
+                        ]);
+
+                        $detallesInsertados++;
+                    }
+
+                    // 9. INSERTAR PEDIDOS FUERA DE PRESUPUESTO
+                    // Estos se guardan en pedidos_detalle pero con una observación especial
+                    // o podrías crear una tabla separada pedidos_adicionales
+                    foreach ($pedidosFueraPresupuesto as $adicional) {
+                        $cantidadExtra = (float)($adicional['cantidad_extra'] ?? 0);
+                        if ($cantidadExtra <= 0) continue;
+
+                        $idComponente = (int)($adicional['id_componente'] ?? 0);
+                        $tipoComponente = $adicional['tipo_componente'] ?? 'material';
+                        // Si id_item es 0 o no existe, usar NULL para evitar error de foreign key
+                        $idItem = isset($adicional['id_item']) && $adicional['id_item'] > 0 ? (int)$adicional['id_item'] : null;
+                        $precioUnitario = (float)($adicional['precio_unitario'] ?? 0);
+                        $subtotal = $cantidadExtra * $precioUnitario;
+
+                        // Insertar el detalle con la cantidad extra
+                        $stmtDetalle->execute([
+                            $idPedido,
+                            $idComponente,
+                            $tipoComponente,
+                            $idItem,
+                            $cantidadExtra,
+                            $precioUnitario,
+                            $subtotal
+                        ]);
+
+                        $detallesInsertados++;
+                    }
+
+                    // 10. VALIDAR QUE SE INSERTARON DETALLES
+                    if ($detallesInsertados === 0) {
+                        throw new \Exception('No se insertaron detalles del pedido. Verifique las cantidades.');
+                    }
+
+                    // 11. CONFIRMAR TRANSACCIÓN
                     $connection->commit();
-                    
+
+                    // 12. PREPARAR RESPUESTA
+                    $mensaje = $tienePedidosAdicionales
+                        ? "Pedido guardado con " . count($pedidosFueraPresupuesto) . " componente(s) adicional(es) pendiente(s) de autorización"
+                        : "Pedido guardado y aprobado correctamente";
+
                     echo json_encode([
                         'success' => true,
-                        'message' => 'Pedido guardado correctamente',
-                        'id_pedido' => $idPedido
+                        'id_pedido' => $idPedido,
+                        'estado' => $estadoTexto,
+                        'tiene_adicionales' => $tienePedidosAdicionales,
+                        'message' => $mensaje,
+                        'detalles' => [
+                            'componentes_normales' => count($componentes),
+                            'materiales_extra' => count($materialesExtra),
+                            'pedidos_adicionales' => count($pedidosFueraPresupuesto),
+                            'total_detalles_insertados' => $detallesInsertados,
+                            'total_pedido' => $totalGeneral,
+                            'total_adicional' => $totalPedidosAdicionales
+                        ]
                     ]);
-                    
+
                 } catch (\Exception $e) {
-                    // Revertir transacción en caso de error
+                    // REVERTIR TRANSACCIÓN EN CASO DE ERROR
                     $connection->rollBack();
-                    throw $e;
+                    throw new \Exception('Error en transacción: ' . $e->getMessage());
                 }
-                
+
             } catch (\Exception $e) {
+                error_log("ERROR en guardarPedido: " . $e->getMessage());
+                http_response_code(400);
                 echo json_encode([
                     'success' => false,
                     'error' => $e->getMessage()
@@ -634,33 +808,70 @@ try {
 
         case 'getPedidosByPresupuesto':
             try {
-                $presupuestoId = $_POST['presupuesto_id'] ?? null;
-                
+                $presupuestoId = $_POST['presupuesto_id'] ?? $_GET['presupuesto_id'] ?? null;
+
                 if (!$presupuestoId) {
                     throw new \Exception('ID de presupuesto requerido');
                 }
-                
-                $sql = "SELECT 
+
+                // Consulta mejorada con información de estado de autorización
+                $sql = "SELECT
                             p.id_pedido,
                             p.fecha_pedido,
                             p.estado,
                             p.total,
-                            COUNT(pd.id_det_pedido) as total_items
+                            p.observaciones,
+                            p.idusuario,
+                            ep.desc_estado as estado_descripcion,
+                            ep.color as estado_color,
+                            COUNT(pd.id_det_pedido) as total_items,
+                            u.u_nombre as nombre_usuario
                         FROM pedidos p
                         LEFT JOIN pedidos_detalle pd ON p.id_pedido = pd.id_pedido
+                        LEFT JOIN estado_pedido ep ON p.estado = LOWER(ep.desc_estado)
+                        LEFT JOIN gr_usuarios u ON p.idusuario = u.u_id
                         WHERE p.id_presupuesto = ?
-                        GROUP BY p.id_pedido, p.fecha_pedido, p.estado, p.total
+                        GROUP BY p.id_pedido, p.fecha_pedido, p.estado, p.total, p.observaciones,
+                                 p.idusuario, ep.desc_estado, ep.color, u.u_nombre
                         ORDER BY p.fecha_pedido DESC";
-                
+
                 $stmt = $connection->prepare($sql);
                 $stmt->execute([$presupuestoId]);
                 $pedidos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-                
+
+                // Para cada pedido, obtener detalles adicionales
+                foreach ($pedidos as &$pedido) {
+                    // Obtener detalles del pedido
+                    $sqlDetalles = "SELECT
+                                        pd.id_det_pedido,
+                                        pd.id_componente,
+                                        pd.tipo_componente,
+                                        pd.cantidad,
+                                        pd.precio_unitario,
+                                        pd.subtotal,
+                                        i.codigo_item,
+                                        i.nombre_item,
+                                        ic.descripcion as descripcion_componente
+                                    FROM pedidos_detalle pd
+                                    LEFT JOIN items i ON pd.id_item = i.id_item
+                                    LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
+                                    WHERE pd.id_pedido = ?
+                                    ORDER BY pd.id_det_pedido";
+
+                    $stmtDet = $connection->prepare($sqlDetalles);
+                    $stmtDet->execute([$pedido['id_pedido']]);
+                    $pedido['detalles'] = $stmtDet->fetchAll(\PDO::FETCH_ASSOC);
+
+                    // Determinar si tiene pedidos adicionales basado en observaciones
+                    $pedido['tiene_adicionales'] = strpos($pedido['observaciones'] ?? '', 'fuera de presupuesto') !== false;
+                }
+
                 echo json_encode([
                     'success' => true,
-                    'data' => $pedidos
+                    'data' => $pedidos,
+                    'total_pedidos' => count($pedidos)
                 ]);
-                
+
             } catch (\Exception $e) {
                 echo json_encode([
                     'success' => false,
@@ -669,6 +880,192 @@ try {
             }
             break;
 
+        case 'actualizarEstadoPedido':
+            try {
+                // Endpoint para aprobar o rechazar pedidos
+                $idPedido = $_POST['id_pedido'] ?? null;
+                $nuevoEstado = $_POST['estado'] ?? null; // 'aprobado', 'rechazado', etc.
+                $observacion = $_POST['observacion'] ?? '';
+
+                if (!$idPedido) {
+                    throw new \Exception('ID de pedido requerido');
+                }
+
+                if (!$nuevoEstado) {
+                    throw new \Exception('Estado requerido');
+                }
+
+                // Validar que el estado existe en la tabla estado_pedido
+                $stmtValidarEstado = $connection->prepare(
+                    "SELECT id_estado_pedido, desc_estado, color
+                     FROM estado_pedido
+                     WHERE LOWER(desc_estado) = LOWER(?) AND id_estado = 1"
+                );
+                $stmtValidarEstado->execute([$nuevoEstado]);
+                $estadoInfo = $stmtValidarEstado->fetch(\PDO::FETCH_ASSOC);
+
+                if (!$estadoInfo) {
+                    throw new \Exception('Estado no válido: ' . $nuevoEstado);
+                }
+
+                // Obtener información actual del pedido
+                $stmtPedido = $connection->prepare(
+                    "SELECT id_pedido, estado, observaciones FROM pedidos WHERE id_pedido = ?"
+                );
+                $stmtPedido->execute([$idPedido]);
+                $pedidoActual = $stmtPedido->fetch(\PDO::FETCH_ASSOC);
+
+                if (!$pedidoActual) {
+                    throw new \Exception('Pedido no encontrado');
+                }
+
+                // Actualizar observaciones agregando la nueva
+                $observacionesActuales = $pedidoActual['observaciones'] ?? '';
+                $nuevaObservacion = $observacion
+                    ? $observacionesActuales . " | " . $observacion
+                    : $observacionesActuales;
+
+                // Actualizar estado del pedido
+                $sqlUpdate = "UPDATE pedidos
+                              SET estado = ?, observaciones = ?, fechaupdate = NOW()
+                              WHERE id_pedido = ?";
+
+                $stmtUpdate = $connection->prepare($sqlUpdate);
+                $stmtUpdate->execute([
+                    strtolower($estadoInfo['desc_estado']),
+                    $nuevaObservacion,
+                    $idPedido
+                ]);
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Estado del pedido actualizado correctamente',
+                    'id_pedido' => $idPedido,
+                    'estado_anterior' => $pedidoActual['estado'],
+                    'estado_nuevo' => strtolower($estadoInfo['desc_estado']),
+                    'color' => $estadoInfo['color']
+                ]);
+
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getDetallePedido':
+            try {
+                // Endpoint para obtener detalles completos de un pedido específico
+                $idPedido = $_GET['id_pedido'] ?? $_POST['id_pedido'] ?? null;
+
+                if (!$idPedido) {
+                    throw new \Exception('ID de pedido requerido');
+                }
+
+                // Obtener información del pedido
+                $sqlPedido = "SELECT
+                                p.id_pedido,
+                                p.id_presupuesto,
+                                p.fecha_pedido,
+                                p.estado,
+                                p.total,
+                                p.observaciones,
+                                p.idusuario,
+                                p.fechareg,
+                                p.fechaupdate,
+                                ep.desc_estado as estado_descripcion,
+                                ep.color as estado_color,
+                                u.u_nombre as nombre_usuario,
+                                pr.nombre as nombre_proyecto,
+                                pres.monto_total as presupuesto_total
+                            FROM pedidos p
+                            LEFT JOIN estado_pedido ep ON p.estado = LOWER(ep.desc_estado)
+                            LEFT JOIN gr_usuarios u ON p.idusuario = u.u_id
+                            LEFT JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
+                            LEFT JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
+                            WHERE p.id_pedido = ?";
+
+                $stmt = $connection->prepare($sqlPedido);
+                $stmt->execute([$idPedido]);
+                $pedido = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+                if (!$pedido) {
+                    throw new \Exception('Pedido no encontrado');
+                }
+
+                // Obtener detalles del pedido agrupados por tipo
+                $sqlDetalles = "SELECT
+                                    pd.id_det_pedido,
+                                    pd.id_componente,
+                                    pd.tipo_componente,
+                                    pd.id_item,
+                                    pd.cantidad,
+                                    pd.precio_unitario,
+                                    pd.subtotal,
+                                    pd.fechareg,
+                                    i.codigo_item,
+                                    i.nombre_item,
+                                    i.unidad as unidad_item,
+                                    ic.descripcion as descripcion_componente,
+                                    ic.unidad as unidad_componente
+                                FROM pedidos_detalle pd
+                                LEFT JOIN items i ON pd.id_item = i.id_item
+                                LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
+                                WHERE pd.id_pedido = ?
+                                ORDER BY pd.tipo_componente, pd.id_det_pedido";
+
+                $stmtDet = $connection->prepare($sqlDetalles);
+                $stmtDet->execute([$idPedido]);
+                $detalles = $stmtDet->fetchAll(\PDO::FETCH_ASSOC);
+
+                // Agrupar detalles por tipo de componente
+                $detallesPorTipo = [
+                    'material' => [],
+                    'mano_obra' => [],
+                    'equipo' => [],
+                    'transporte' => [],
+                    'otro' => []
+                ];
+
+                $totalesPorTipo = [
+                    'material' => 0,
+                    'mano_obra' => 0,
+                    'equipo' => 0,
+                    'transporte' => 0,
+                    'otro' => 0
+                ];
+
+                foreach ($detalles as $detalle) {
+                    $tipo = $detalle['tipo_componente'];
+                    if (isset($detallesPorTipo[$tipo])) {
+                        $detallesPorTipo[$tipo][] = $detalle;
+                        $totalesPorTipo[$tipo] += (float)$detalle['subtotal'];
+                    } else {
+                        $detallesPorTipo['otro'][] = $detalle;
+                        $totalesPorTipo['otro'] += (float)$detalle['subtotal'];
+                    }
+                }
+
+                echo json_encode([
+                    'success' => true,
+                    'data' => [
+                        'pedido' => $pedido,
+                        'detalles' => $detalles,
+                        'detalles_por_tipo' => $detallesPorTipo,
+                        'totales_por_tipo' => $totalesPorTipo,
+                        'total_items' => count($detalles),
+                        'tiene_adicionales' => strpos($pedido['observaciones'] ?? '', 'fuera de presupuesto') !== false
+                    ]
+                ]);
+
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
 
         case 'getItemDetails':
             try {
@@ -881,7 +1278,7 @@ try {
             }
             
             // Consulta para obtener ITEMS del presupuesto con sus componentes
-            $sql = "SELECT 
+            $sql = "SELECT
                         dp.id_det_presupuesto,
                         i.id_item,
                         i.codigo_item,
@@ -890,13 +1287,13 @@ try {
                         i.precio_unitario,
                         dp.cantidad,
                         c.id_capitulo,
-                        c.nombre_cap,
+                        c.nombre_cap AS nombre_capitulo,
                         (dp.cantidad * i.precio_unitario) as subtotal,
                         dp.cantidad as disponible
                     FROM det_presupuesto dp
                     INNER JOIN items i ON dp.id_item = i.id_item
                     INNER JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
-                    WHERE dp.id_presupuesto = ? 
+                    WHERE dp.id_presupuesto = ?
                     AND dp.idestado = 1";
             
             $params = [$presupuestoId];
@@ -1025,6 +1422,189 @@ try {
         }
         break;
 
+        case 'getDetallesComponentesPresupuesto':
+            try {
+                $presupuestoId = $_POST['presupuesto_id'] ?? $_GET['presupuesto_id'] ?? null;
+                
+                if (!$presupuestoId) {
+                    throw new \Exception('ID de presupuesto requerido');
+                }
+
+                $sql = "SELECT 
+                            dp.id_det_presupuesto,
+                            p.id_presupuesto,
+                            p.id_proyecto,
+                            c.id_capitulo,
+                            c.nombre_cap,
+                            i.id_item,
+                            i.codigo_item,
+                            i.nombre_item,
+                            i.unidad as unidad_item,
+                            dp.cantidad as cantidad_item_presupuesto,
+                            ic.id_componente,
+                            ic.descripcion as nombre_componente,
+                            ic.tipo_componente,
+                            ic.unidad as unidad_componente,
+                            ic.cantidad as cantidad_por_unidad_item,
+                            ic.precio_unitario,
+                            ROUND(dp.cantidad * ic.cantidad, 4) as total_componente_necesario,
+                            ROUND(dp.cantidad * ic.cantidad * ic.precio_unitario, 2) as subtotal_componente
+                        FROM det_presupuesto dp
+                        JOIN presupuestos p ON dp.id_presupuesto = p.id_presupuesto
+                        JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
+                        JOIN items i ON dp.id_item = i.id_item
+                        JOIN item_componentes ic ON i.id_item = ic.id_item
+                        WHERE dp.idestado = 1 
+                          AND ic.idestado = 1 
+                          AND p.idestado = 1
+                          AND p.id_presupuesto = ?
+                        ORDER BY c.id_capitulo, i.codigo_item, ic.tipo_componente";
+                
+                $stmt = $connection->prepare($sql);
+                $stmt->execute([$presupuestoId]);
+                $detalles = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $detalles
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getResumenComponentesPresupuesto':
+            try {
+                $presupuestoId = $_POST['presupuesto_id'] ?? $_GET['presupuesto_id'] ?? null;
+                
+                if (!$presupuestoId) {
+                    throw new \Exception('ID de presupuesto requerido');
+                }
+
+                $sql = "SELECT 
+                            MIN(ic.id_componente) as id_componente,
+                            ic.descripcion as nombre_componente,
+                            ic.tipo_componente,
+                            ic.unidad as unidad_componente,
+                            AVG(ic.precio_unitario) as precio_unitario,
+                            p.id_presupuesto,
+                            ROUND(SUM(dp.cantidad * ic.cantidad), 4) as total_necesario,
+                            0.0000 as ya_pedido,
+                            ROUND(SUM(dp.cantidad * ic.cantidad), 4) as disponible,
+                            GROUP_CONCAT(DISTINCT c.nombre_cap ORDER BY c.nombre_cap SEPARATOR ', ') as capitulos,
+                            COUNT(DISTINCT i.id_item) as cantidad_items,
+                            COUNT(DISTINCT c.id_capitulo) as cantidad_capitulos
+                        FROM det_presupuesto dp
+                        JOIN presupuestos p ON dp.id_presupuesto = p.id_presupuesto
+                        JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
+                        JOIN items i ON dp.id_item = i.id_item
+                        JOIN item_componentes ic ON i.id_item = ic.id_item
+                        WHERE dp.idestado = 1 
+                          AND ic.idestado = 1 
+                          AND p.idestado = 1
+                          AND p.id_presupuesto = ?
+                        GROUP BY ic.descripcion, ic.tipo_componente, ic.unidad, p.id_presupuesto
+                        ORDER BY ic.tipo_componente, ic.descripcion";
+                
+                $stmt = $connection->prepare($sql);
+                $stmt->execute([$presupuestoId]);
+                $resumen = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $resumen
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getComponentesParaPedido':
+            try {
+                $presupuestoId = $_POST['presupuesto_id'] ?? $_GET['presupuesto_id'] ?? null;
+                
+                if (!$presupuestoId) {
+                    throw new \Exception('ID de presupuesto requerido');
+                }
+
+                $sql = "SELECT 
+                            MIN(ic.id_componente) as id_componente,
+                            ic.descripcion as nombre_componente,
+                            ic.tipo_componente,
+                            ic.unidad as unidad_componente,
+                            AVG(ic.precio_unitario) as precio_unitario,
+                            p.id_presupuesto,
+                            ROUND(SUM(dp.cantidad * ic.cantidad), 4) as total_necesario,
+                            
+                            -- NUEVO: Calcular lo ya pedido sumando las cantidades de pedidos aprobados
+                            COALESCE(ROUND((
+                                SELECT SUM(pd.cantidad) 
+                                FROM pedidos_detalle pd
+                                INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                                WHERE pd.id_componente = ic.id_componente
+                                AND ped.id_presupuesto = p.id_presupuesto
+                                AND ped.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
+                            ), 4), 0.0000) as ya_pedido,
+                            
+                            -- NUEVO: Calcular disponible restando lo ya pedido
+                            ROUND(SUM(dp.cantidad * ic.cantidad) - COALESCE((
+                                SELECT SUM(pd.cantidad) 
+                                FROM pedidos_detalle pd
+                                INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                                WHERE pd.id_componente = ic.id_componente
+                                AND ped.id_presupuesto = p.id_presupuesto
+                                AND ped.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
+                            ), 0), 4) as disponible,
+                            
+                            GROUP_CONCAT(DISTINCT c.nombre_cap ORDER BY c.nombre_cap SEPARATOR ', ') as capitulos,
+                            COUNT(DISTINCT i.id_item) as cantidad_items,
+                            COUNT(DISTINCT c.id_capitulo) as cantidad_capitulos,
+                            GROUP_CONCAT(DISTINCT 
+                                CONCAT(i.codigo_item, '|', i.nombre_item, '|', 
+                                    c.nombre_cap, '|', ic.cantidad, '|', 
+                                    ic.unidad, '|', i.unidad, '|', 
+                                    dp.cantidad, '|', 
+                                    ROUND(dp.cantidad * ic.cantidad, 4)) 
+                                ORDER BY i.codigo_item, c.nombre_cap
+                                SEPARATOR '||'
+                            ) as detalle_serializado
+                        FROM det_presupuesto dp
+                        JOIN presupuestos p ON dp.id_presupuesto = p.id_presupuesto
+                        JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
+                        JOIN items i ON dp.id_item = i.id_item
+                        JOIN item_componentes ic ON i.id_item = ic.id_item
+                        WHERE dp.idestado = 1 
+                        AND ic.idestado = 1 
+                        AND p.idestado = 1
+                        AND p.id_presupuesto = ?
+                        GROUP BY ic.descripcion, ic.tipo_componente, ic.unidad, p.id_presupuesto
+                        ORDER BY ic.tipo_componente, ic.descripcion";
+                
+                $stmt = $connection->prepare($sql);
+                $stmt->execute([$presupuestoId]);
+                $componentes = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $componentes
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
         default:
             http_response_code(404);
             echo json_encode([
@@ -1044,8 +1624,13 @@ try {
                     'getDetallesCompletosPresupuesto' => 'Obtener detalles completos de presupuesto',
                     'getUnidades' => 'Obtener lista de unidades de medida',
                     'getTiposMaterial' => 'Obtener tipos de material',
-                    'guardarPedido' => 'Guardar pedido en base de datos',
-                    'getPedidosByPresupuesto' => 'Obtener pedidos por presupuesto'
+                    'guardarPedido' => 'Guardar pedido con control de autorizaciones (NUEVO)',
+                    'getPedidosByPresupuesto' => 'Obtener pedidos por presupuesto con detalles',
+                    'actualizarEstadoPedido' => 'Aprobar/Rechazar pedidos (NUEVO)',
+                    'getDetallePedido' => 'Obtener detalles completos de un pedido específico (NUEVO)',
+                    'getItemDetails' => 'Obtener detalles de un ítem por ID',
+                    'getItemDetailsByCode' => 'Obtener detalles de un ítem por código',
+                    'getItemsByPresupuesto' => 'Obtener ítems con componentes por presupuesto'
                 ]
             ]);
     }

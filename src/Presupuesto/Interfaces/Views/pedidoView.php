@@ -139,11 +139,17 @@
                                             <span>Valor total:</span>
                                             <strong id="statValorTotal">$0</strong>
                                         </div>
-                                        <div class="d-flex justify-content-between">
+                                        <div class="d-flex justify-content-between mb-2">
                                             <span>Materiales extra:</span>
                                             <strong id="statExtras">0</strong>
                                         </div>
                                         <hr>
+                                        <div class="alert alert-warning py-2 mb-2" id="alertPendientesAutorizacion" style="display: none;">
+                                            <small>
+                                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                                <strong id="statPendientesAutorizacion">0</strong> pedidos fuera de presupuesto
+                                            </small>
+                                        </div>
                                         <button class="btn btn-success w-100" onclick="confirmarPedido()" id="btnConfirmarPedido" disabled>
                                             <i class="bi bi-check-circle"></i> Confirmar Pedido
                                         </button>
@@ -205,6 +211,46 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Justificación de Pedido Extra -->
+    <div class="modal fade" id="modalJustificacionExtra" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Pedido Fuera de Presupuesto
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="infoComponenteExtra">
+                        <!-- La información se cargará dinámicamente -->
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Justificación del Pedido Extra *</strong></label>
+                        <textarea class="form-control" id="justificacionPedidoExtra" rows="4"
+                                  placeholder="Explique por qué necesita exceder el presupuesto disponible para este componente..."
+                                  required></textarea>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i> Esta justificación será revisada por el personal autorizado antes de aprobar el pedido.
+                        </small>
+                    </div>
+                    <div class="alert alert-info">
+                        <small>
+                            <strong>Nota:</strong> El pedido dentro del presupuesto se agregará al carrito normal,
+                            mientras que la cantidad extra quedará pendiente de autorización.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-warning" onclick="confirmarPedidoExtra()">
+                        <i class="bi bi-check-circle"></i> Solicitar Autorización
+                    </button>
                 </div>
             </div>
         </div>
