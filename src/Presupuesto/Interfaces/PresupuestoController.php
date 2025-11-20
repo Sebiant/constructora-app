@@ -1528,93 +1528,93 @@ try {
             break;
 
         case 'getComponentesParaPedido':
-            try {
-                $presupuestoId = $_POST['presupuesto_id'] ?? $_GET['presupuesto_id'] ?? null;
-                
-                if (!$presupuestoId) {
-                    throw new \Exception('ID de presupuesto requerido');
-                }
+    try {
+        $presupuestoId = $_POST['presupuesto_id'] ?? $_GET['presupuesto_id'] ?? null;
+        
+        if (!$presupuestoId) {
+            throw new \Exception('ID de presupuesto requerido');
+        }
 
-                $sql = "SELECT 
-                            MIN(ic.id_componente) as id_componente,
-                            ic.descripcion as nombre_componente,
-                            ic.tipo_componente,
-                            ic.unidad as unidad_componente,
-                            AVG(ic.precio_unitario) as precio_unitario,
-                            p.id_presupuesto,
-                            ROUND(SUM(dp.cantidad * ic.cantidad), 4) as total_necesario,
-                            
-                            -- NUEVO: Calcular lo ya pedido sumando las cantidades de pedidos aprobados
-                            COALESCE(ROUND((
-                                SELECT SUM(pd.cantidad) 
-                                FROM pedidos_detalle pd
-                                INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
-                                WHERE pd.id_componente = ic.id_componente
-                                AND ped.id_presupuesto = p.id_presupuesto
-                                AND ped.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
-                            ), 4), 0.0000) as ya_pedido,
-                            
-                            -- NUEVO: Calcular disponible restando lo ya pedido
-                            ROUND(SUM(dp.cantidad * ic.cantidad) - COALESCE((
-                                SELECT SUM(pd.cantidad) 
-                                FROM pedidos_detalle pd
-                                INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
-                                WHERE pd.id_componente = ic.id_componente
-                                AND ped.id_presupuesto = p.id_presupuesto
-                                AND ped.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
-                            ), 0), 4) as disponible,
-                                GROUP_CONCAT(DISTINCT 
-                                    CONCAT(
-                                        i.id_item, '|',
-                                        i.codigo_item, '|',
-                                        i.nombre_item, '|',
-                                        c.nombre_cap, '|',
-                                        ic.cantidad, '|',
-                                        ic.unidad, '|',
-                                        i.unidad, '|',
-                                        dp.cantidad, '|',
-                                        ROUND(dp.cantidad * ic.cantidad, 4), '|',
-                                        COALESCE((
-                                            SELECT SUM(pd.cantidad)
-                                            FROM pedidos_detalle pd
-                                            INNER JOIN pedidos ped2 ON pd.id_pedido = ped2.id_pedido
-                                            WHERE pd.id_componente = ic.id_componente
-                                            AND (pd.id_item = i.id_item OR pd.id_item IS NULL)
-                                            AND ped2.id_presupuesto = p.id_presupuesto
-                                            AND ped2.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
-                                        ), 0)
-                                    )
-                                    ORDER BY i.codigo_item, c.nombre_cap
-                                    SEPARATOR '||'
-                                ) as detalle_serializado
-                        FROM det_presupuesto dp
-                        JOIN presupuestos p ON dp.id_presupuesto = p.id_presupuesto
-                        JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
-                        JOIN items i ON dp.id_item = i.id_item
-                        JOIN item_componentes ic ON i.id_item = ic.id_item
-                        WHERE dp.idestado = 1 
-                        AND ic.idestado = 1 
-                        AND p.idestado = 1
-                        AND p.id_presupuesto = ?
-                        GROUP BY ic.descripcion, ic.tipo_componente, ic.unidad, p.id_presupuesto
-                        ORDER BY ic.tipo_componente, ic.descripcion";
-                
-                $stmt = $connection->prepare($sql);
-                $stmt->execute([$presupuestoId]);
-                $componentes = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-                
-                echo json_encode([
-                    'success' => true,
-                    'data' => $componentes
-                ]);
-                
-            } catch (\Exception $e) {
-                echo json_encode([
-                    'success' => false,
-                    'error' => $e->getMessage()
-                ]);
-            }
-            break;
+        $sql = "SELECT 
+                    ic.id_componente,
+                    ic.descripcion as nombre_componente,
+                    ic.tipo_componente,
+                    ic.unidad as unidad_componente,
+                    AVG(ic.precio_unitario) as precio_unitario,
+                    p.id_presupuesto,
+                    ROUND(SUM(dp.cantidad * ic.cantidad), 4) as total_necesario,
+                    
+                    -- NUEVO: Calcular lo ya pedido sumando las cantidades de pedidos aprobados
+                    COALESCE(ROUND((
+                        SELECT SUM(pd.cantidad) 
+                        FROM pedidos_detalle pd
+                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                        WHERE pd.id_componente = ic.id_componente
+                        AND ped.id_presupuesto = p.id_presupuesto
+                        AND ped.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
+                    ), 4), 0.0000) as ya_pedido,
+                    
+                    -- NUEVO: Calcular disponible restando lo ya pedido
+                    ROUND(SUM(dp.cantidad * ic.cantidad) - COALESCE((
+                        SELECT SUM(pd.cantidad) 
+                        FROM pedidos_detalle pd
+                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                        WHERE pd.id_componente = ic.id_componente
+                        AND ped.id_presupuesto = p.id_presupuesto
+                        AND ped.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
+                    ), 0), 4) as disponible,
+                        GROUP_CONCAT(DISTINCT 
+                            CONCAT(
+                                i.id_item, '|',
+                                i.codigo_item, '|',
+                                i.nombre_item, '|',
+                                c.nombre_cap, '|',
+                                ic.cantidad, '|',
+                                ic.unidad, '|',
+                                i.unidad, '|',
+                                dp.cantidad, '|',
+                                ROUND(dp.cantidad * ic.cantidad, 4), '|',
+                                COALESCE((
+                                    SELECT SUM(pd.cantidad)
+                                    FROM pedidos_detalle pd
+                                    INNER JOIN pedidos ped2 ON pd.id_pedido = ped2.id_pedido
+                                    WHERE pd.id_componente = ic.id_componente
+                                    AND pd.id_item = i.id_item
+                                    AND ped2.id_presupuesto = p.id_presupuesto
+                                    AND ped2.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
+                                ), 0)
+                            )
+                            ORDER BY i.codigo_item, c.nombre_cap
+                            SEPARATOR '||'
+                        ) as detalle_serializado
+                FROM det_presupuesto dp
+                JOIN presupuestos p ON dp.id_presupuesto = p.id_presupuesto
+                JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
+                JOIN items i ON dp.id_item = i.id_item
+                JOIN item_componentes ic ON i.id_item = ic.id_item
+                WHERE dp.idestado = 1 
+                AND ic.idestado = 1 
+                AND p.idestado = 1
+                AND p.id_presupuesto = ?
+                GROUP BY ic.id_componente, ic.descripcion, ic.tipo_componente, ic.unidad, p.id_presupuesto
+                ORDER BY ic.tipo_componente, ic.descripcion";
+        
+        $stmt = $connection->prepare($sql);
+        $stmt->execute([$presupuestoId]);
+        $componentes = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        
+        echo json_encode([
+            'success' => true,
+            'data' => $componentes
+        ]);
+        
+    } catch (\Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]);
+    }
+    break;
 
         default:
             http_response_code(404);

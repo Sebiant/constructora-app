@@ -293,21 +293,21 @@ class PaginadorPresupuestos {
               <strong>${comp.nombre_componente}</strong>
             </h6>
             <small class="text-muted">${obtenerNombreTipoComponente(
-              comp.tipo_componente
-            )} | Capítulo(s): ${comp.items_que_usan
-                .map((item) => item.nombre_capitulo)
-                .filter((c) => c)
-                .join(", ")}</small>
+        comp.tipo_componente
+      )} | Capítulo(s): ${comp.items_que_usan
+        .map((item) => item.nombre_capitulo)
+        .filter((c) => c)
+        .join(", ")}</small>
           </div>
           <div>
             <span class="badge ${obtenerClaseBadgeTipo(
-              comp.tipo_componente
-            )}">${unidad}</span>
+          comp.tipo_componente
+        )}">${unidad}</span>
             <span class="badge ${obtenerColorProgreso(
-              porcentajeYaPedido + porcentajePedidoActual
-            ).colorClass} ms-1">${obtenerColorProgreso(
-        porcentajeYaPedido + porcentajePedidoActual
-      ).colorText}</span>
+          porcentajeYaPedido + porcentajePedidoActual
+        ).colorClass} ms-1">${obtenerColorProgreso(
+          porcentajeYaPedido + porcentajePedidoActual
+        ).colorText}</span>
             <button class="btn btn-sm btn-outline-info ms-2" onclick="toggleDesgloseComponente('${comp.id_componente}')">
               Desglose
             </button>
@@ -318,14 +318,14 @@ class PaginadorPresupuestos {
             <div class="col-md-3">
               <small class="text-muted">Cantidad Total Necesaria</small>
               <div><strong>${parseFloat(cantidadTotal).toFixed(
-                4
-              )} ${unidad}</strong></div>
+          4
+        )} ${unidad}</strong></div>
               <div class="mt-1">
                 <small class="text-muted">
                   <i class="bi bi-check-circle text-success"></i> Ya pedido: 
                   <strong class="text-success">${parseFloat(yaPedido).toFixed(
-                    4
-                  )} ${unidad}</strong>
+          4
+        )} ${unidad}</strong>
                   (${porcentajeYaPedido.toFixed(1)}%)
                 </small>
               </div>
@@ -333,8 +333,8 @@ class PaginadorPresupuestos {
             <div class="col-md-2">
               <small class="text-muted">Precio Unitario</small>
               <div><strong>$${formatCurrency(
-                comp.precio_unitario
-              )}</strong></div>
+          comp.precio_unitario
+        )}</strong></div>
             </div>
             <div class="col-md-7">
               <div class="alert alert-info mb-0">
@@ -363,8 +363,8 @@ class PaginadorPresupuestos {
               </div>
               <!-- Barra de progreso para el nuevo pedido -->
               <div class="progress-bar ${obtenerColorProgreso(
-                porcentajeYaPedido + porcentajePedidoActual
-              ).colorClass}" role="progressbar"
+          porcentajeYaPedido + porcentajePedidoActual
+        ).colorClass}" role="progressbar"
                    style="width: ${porcentajePedidoActual}%"
                    aria-valuenow="${porcentajePedidoActual}" aria-valuemin="0" aria-valuemax="100"
                    title="Nuevo pedido: ${porcentajePedidoActual.toFixed(1)}%">
@@ -392,32 +392,32 @@ class PaginadorPresupuestos {
                 </thead>
                 <tbody>
                   ${comp.items_que_usan
-                    .map((item) => {
-                      const pedidoItem = parseFloat(item.pedido_actual || 0);
-                      const yaPedidoItem = parseFloat(
-                        (item.ya_pedido_item ?? item.ya_pedido) ?? 0
-                      );
-                      const cantidadNecesariaItem =
-                        parseFloat(item.cantidad_componente) || 0;
-                      const maxPermitido = Math.max(
-                        0,
-                        cantidadNecesariaItem - yaPedidoItem
-                      );
-                      const subtotalItem = pedidoItem * comp.precio_unitario;
-                      const porcentajeItem =
-                        cantidadNecesariaItem > 0
-                          ? Math.min(
-                              100,
-                              (yaPedidoItem / cantidadNecesariaItem) * 100
-                            )
-                          : 0;
-                      const badgeClass =
-                        porcentajeItem >= 100
-                          ? "bg-success"
-                          : porcentajeItem >= 80
-                          ? "bg-warning"
-                          : "bg-info";
-                      return `
+          .map((item) => {
+            const pedidoItem = parseFloat(item.pedido_actual || 0);
+            const yaPedidoItem = parseFloat(
+              (item.ya_pedido_item ?? item.ya_pedido) ?? 0
+            );
+            const cantidadNecesariaItem =
+              parseFloat(item.cantidad_componente) || 0;
+            const maxPermitido = Math.max(
+              0,
+              cantidadNecesariaItem - yaPedidoItem
+            );
+            const subtotalItem = pedidoItem * comp.precio_unitario;
+            const porcentajeItem =
+              cantidadNecesariaItem > 0
+                ? Math.min(
+                  100,
+                  (yaPedidoItem / cantidadNecesariaItem) * 100
+                )
+                : 0;
+            const badgeClass =
+              porcentajeItem >= 100
+                ? "bg-success"
+                : porcentajeItem >= 80
+                  ? "bg-warning"
+                  : "bg-info";
+            return `
                     <tr>
                       <td><strong>${item.codigo_item}</strong></td>
                       <td>${item.nombre_item}</td>
@@ -453,8 +453,8 @@ class PaginadorPresupuestos {
                       </td>
                     </tr>
                   `;
-                    })
-                    .join("")}
+          })
+          .join("")}
                 </tbody>
                 <tfoot class="table-light">
                   <tr>
@@ -466,8 +466,8 @@ class PaginadorPresupuestos {
                   <tr>
                     <td colspan="6" class="text-end"><strong>Total solicitado:</strong></td>
                     <td class="text-end"><strong class="total-desglose" data-comp-id="${comp.id_componente}">$${formatCurrency(
-                      subtotal
-                    )}</strong></td>
+            subtotal
+          )}</strong></td>
                     <td></td>
                   </tr>
                 </tfoot>
@@ -750,19 +750,18 @@ function cargarComponentesParaPedido(itemId) {
       </td>
       <td>
         ${componente.descripcion}
-        ${
-          pedidoExtra
-            ? `
+        ${pedidoExtra
+        ? `
           <div class="mt-1">
             <span class="badge bg-warning text-dark">
               <i class="bi bi-exclamation-triangle"></i> +${pedidoExtra.cantidad_extra.toFixed(
-                4
-              )} pendiente
+          4
+        )} pendiente
             </span>
           </div>
         `
-            : ""
-        }
+        : ""
+      }
       </td>
       <td>${componente.unidad}</td>
       <td>${parseFloat(componente.cantidad).toFixed(4)}</td>
@@ -770,39 +769,35 @@ function cargarComponentesParaPedido(itemId) {
       <td>
         <div class="input-group input-group-sm" style="width: 150px;">
           <input type="number"
-                 class="form-control form-control-sm cantidad-componente ${
-                   pedidoExtra ? "border-warning" : ""
-                 }"
+                 class="form-control form-control-sm cantidad-componente ${pedidoExtra ? "border-warning" : ""
+      }"
                  value="${cantidadActual}"
                  min="0"
                  step="0.0001"
                  data-componente-id="${componente.id_componente}"
                  data-item-id="${itemId}"
-                 title="${
-                   pedidoExtra
-                     ? "Tiene un pedido extra pendiente de aprobación"
-                     : "Ingrese la cantidad a pedir"
-                 }">
+                 title="${pedidoExtra
+        ? "Tiene un pedido extra pendiente de aprobación"
+        : "Ingrese la cantidad a pedir"
+      }">
           <span class="input-group-text">${componente.unidad}</span>
         </div>
         <small class="text-muted">Máx: ${cantidadMaxima.toFixed(4)}</small>
-        ${
-          pedidoExtra
-            ? `
+        ${pedidoExtra
+        ? `
           <div class="mt-1">
             <small class="text-warning">
               <i class="bi bi-info-circle"></i> Exceder solicitará autorización
             </small>
           </div>
         `
-            : ""
-        }
+        : ""
+      }
       </td>
       <td class="subtotal-componente">$${subtotal}</td>
       <td>
-        <button class="btn btn-sm btn-outline-success" onclick="agregarTodoComponente(${
-          componente.id_componente
-        }, ${itemId})" title="Agregar cantidad máxima">
+        <button class="btn btn-sm btn-outline-success" onclick="agregarTodoComponente(${componente.id_componente
+      }, ${itemId})" title="Agregar cantidad máxima">
           <i class="bi bi-plus-circle"></i> Máx
         </button>
       </td>
@@ -995,9 +990,8 @@ function generarDesgloseComponentesParaPedido(item) {
     if (grupo.items.length > 0) {
       html += `
         <div class="mb-3">
-          <h6 class="text-primary">${
-            nombresTipo[tipo] || tipo
-          } - $${formatCurrency(grupo.total)}</h6>
+          <h6 class="text-primary">${nombresTipo[tipo] || tipo
+        } - $${formatCurrency(grupo.total)}</h6>
           <div class="table-responsive">
             <table class="table table-sm table-bordered">
               <thead>
@@ -1107,9 +1101,8 @@ async function cargarPresupuestos() {
       result.data.forEach((presupuesto) => {
         const option = document.createElement("option");
         option.value = presupuesto.id_presupuesto;
-        option.textContent = `${
-          presupuesto.nombre_proyecto || presupuesto.nombre
-        } - $${parseFloat(presupuesto.monto_total || 0).toLocaleString()}`;
+        option.textContent = `${presupuesto.nombre_proyecto || presupuesto.nombre
+          } - $${parseFloat(presupuesto.monto_total || 0).toLocaleString()}`;
         option.setAttribute("data-presupuesto", JSON.stringify(presupuesto));
         selectPresupuesto.appendChild(option);
       });
@@ -1230,6 +1223,57 @@ async function cargarItemsPresupuesto(presupuestoId, capituloId = null) {
   }
 }
 
+/**
+ * Agrupa componentes con el mismo nombre+tipo+unidad en una sola card
+ * Preserva el mapeo id_componente_original para cada item
+ */
+function agruparComponentesPorNombre(componentes) {
+  const gruposMap = new Map();
+
+  componentes.forEach(comp => {
+    // Clave única por nombre, tipo y unidad
+    const clave = `${comp.nombre_componente}|${comp.tipo_componente}|${comp.unidad_componente}`;
+
+    if (!gruposMap.has(clave)) {
+      // Primera vez que vemos este componente
+      gruposMap.set(clave, {
+        ...comp,
+        // Guardar el primer id como referencia (aunque no se usará para guardar)
+        id_componente: comp.id_componente,
+        ids_componentes: [comp.id_componente], // Array de todos los IDs agrupados
+      });
+    } else {
+      // Ya existe, combinar
+      const existente = gruposMap.get(clave);
+
+      // Agregar este id_componente a la lista
+      existente.ids_componentes.push(comp.id_componente);
+
+      // Combinar items_que_usan (cada item ya tiene su id_componente_original)
+      existente.items_que_usan = existente.items_que_usan.concat(comp.items_que_usan);
+
+      // Sumar totales
+      existente.total_necesario += comp.total_necesario;
+      existente.ya_pedido += comp.ya_pedido;
+      existente.disponible += comp.disponible;
+
+      // Promediar precio (no es crítico, es solo para display)
+      existente.precio_unitario = (existente.precio_unitario + comp.precio_unitario) / 2;
+
+      // Combinar capitulos
+      if (comp.capitulos && comp.capitulos.length > 0) {
+        existente.capitulos = [...new Set([...existente.capitulos, ...comp.capitulos])];
+      }
+
+      // Actualizar contadores
+      existente.cantidad_items += comp.cantidad_items;
+      existente.cantidad_capitulos = Math.max(existente.cantidad_capitulos, comp.cantidad_capitulos);
+    }
+  });
+
+  return Array.from(gruposMap.values());
+}
+
 async function obtenerComponentesAgrupados(presupuestoId, capituloId = null) {
   try {
     const formData = new FormData();
@@ -1249,11 +1293,11 @@ async function obtenerComponentesAgrupados(presupuestoId, capituloId = null) {
     console.log("Datos recibidos de componentes:", result.data);
 
     if (result.success) {
-      return result.data.map((comp) => {
+      const componentesProcessed = result.data.map((comp) => {
         const unidad = comp.unidad_componente?.trim() || "UND";
         const cantidadTotal = parseFloat(comp.total_necesario) || 0;
 
-        return {
+        const componente = {
           id_componente: comp.id_componente,
           id_componente_unico: comp.id_componente,
           nombre_componente: comp.nombre_componente || "Sin nombre",
@@ -1264,7 +1308,7 @@ async function obtenerComponentesAgrupados(presupuestoId, capituloId = null) {
           precio_unitario: parseFloat(comp.precio_unitario) || 0,
           total_necesario: cantidadTotal,
           disponible: parseFloat(comp.disponible) || 0,
-          ya_pedido: parseFloat(comp.ya_pedido) || 0,
+          ya_pedido: parseFloat(comp.ya_pedido) || 0,  // Temporal, se recalcula abajo
           pedido_inicial: parseFloat(comp.pedido_inicial) || 0,
           capitulos: comp.capitulos || [],
           cantidad_items: comp.cantidad_items || 0,
@@ -1272,7 +1316,28 @@ async function obtenerComponentesAgrupados(presupuestoId, capituloId = null) {
           pedido: 0,
           items_que_usan: parseDetalleSerializado(comp.detalle_serializado),
         };
+
+        // Agregar id_componente a cada item para preservar el mapeo
+        componente.items_que_usan.forEach(item => {
+          item.id_componente_original = comp.id_componente;
+        });
+
+        // RECALCULAR ya_pedido como suma de ya_pedido_item de todos los items
+        // Esto asegura que el resumen coincida con la tabla de desglose
+        componente.ya_pedido = componente.items_que_usan.reduce((sum, item) => {
+          return sum + (parseFloat(item.ya_pedido_item) || 0);
+        }, 0);
+
+        // Recalcular disponible basado en el ya_pedido corregido
+        componente.disponible = Math.max(0, componente.total_necesario - componente.ya_pedido);
+
+        return componente;
       });
+
+      // AGRUPAR componentes con el mismo nombre
+      const componentesAgrupados = agruparComponentesPorNombre(componentesProcessed);
+
+      return componentesAgrupados;
     }
     throw new Error(
       result.error || "No se pudieron cargar los componentes agrupados"
@@ -1626,22 +1691,20 @@ function actualizarCarrito() {
                 </div>
               </div>
               <div class="col-md-2 text-center">
-                <span class="badge bg-info">${componente.pedido} ${
-        componente.unidad
-      }</span>
+                <span class="badge bg-info">${componente.pedido} ${componente.unidad
+        }</span>
               </div>
               <div class="col-md-2">
                 <small>$${formatCurrency(
-                  componente.precio_unitario
-                )} c/u</small>
+          componente.precio_unitario
+        )} c/u</small>
               </div>
               <div class="col-md-2">
                 <strong class="text-info">$${formatCurrency(subtotal)}</strong>
               </div>
               <div class="col-md-2 text-end">
-                <button class="btn btn-sm btn-outline-danger" onclick="quitarComponenteDelCarrito(${
-                  componente.id_componente
-                }, ${componente.id_item_padre})">
+                <button class="btn btn-sm btn-outline-danger" onclick="quitarComponenteDelCarrito(${componente.id_componente
+        }, ${componente.id_item_padre})">
                   Quitar
                 </button>
               </div>
@@ -1680,9 +1743,8 @@ function actualizarCarrito() {
                 <div class="d-flex align-items-center">
                   <i class="${icono} me-2 text-warning"></i>
                   <div>
-                    <strong class="text-warning">${
-                      pedido.descripcion_componente
-                    }</strong>
+                    <strong class="text-warning">${pedido.descripcion_componente
+        }</strong>
                     <p class="mb-0 small">
                       <span class="badge ${badgeClass} me-1">${nombreTipo}</span>
                       De: ${pedido.codigo_item}
@@ -1697,8 +1759,8 @@ function actualizarCarrito() {
                 </span>
                 <div class="mt-1">
                   <small class="d-block">Extra: +${pedido.cantidad_extra.toFixed(
-                    4
-                  )}</small>
+          4
+        )}</small>
                 </div>
               </div>
               <div class="col-md-2">
@@ -1706,8 +1768,8 @@ function actualizarCarrito() {
               </div>
               <div class="col-md-2">
                 <strong class="text-warning">$${formatCurrency(
-                  subtotalExtra
-                )}</strong>
+          subtotalExtra
+        )}</strong>
                 <small class="d-block text-muted">(solo extra)</small>
               </div>
               <div class="col-md-2 text-end">
@@ -1729,8 +1791,8 @@ function actualizarCarrito() {
             </div>
             <div class="col-md-4 text-end">
               <strong class="text-warning">$${formatCurrency(
-                totalPendiente
-              )}</strong>
+      totalPendiente
+    )}</strong>
             </div>
           </div>
         </div>
@@ -1743,18 +1805,17 @@ function actualizarCarrito() {
       <div class="row">
         <div class="col-md-8"><strong class="text-dark">TOTAL DEL CARRITO:</strong></div>
         <div class="col-md-4 text-end"><h5 class="text-success">$${formatCurrency(
-          totalGeneral
-        )}</h5></div>
+    totalGeneral
+  )}</h5></div>
       </div>
-      ${
-        pedidosFueraPresupuesto.length > 0
-          ? `
+      ${pedidosFueraPresupuesto.length > 0
+      ? `
       <div class="row mt-2">
         <div class="col-md-8"><small class="text-warning">Los pedidos adicionales requieren aprobación</small></div>
       </div>
       `
-          : ""
-      }
+      : ""
+    }
     </div>
   `;
 
@@ -1936,18 +1997,17 @@ function solicitarJustificacionPedidoExtra(
     <div class="alert alert-warning">
       <h6><i class="bi bi-exclamation-triangle"></i> Pedido Fuera de Presupuesto</h6>
       <p class="mb-1"><strong>Componente:</strong> ${componente.descripcion}</p>
-      <p class="mb-1"><strong>Item:</strong> ${item.codigo_item} - ${
-    item.nombre_item
-  }</p>
+      <p class="mb-1"><strong>Item:</strong> ${item.codigo_item} - ${item.nombre_item
+    }</p>
       <p class="mb-1"><strong>Cantidad máxima permitida:</strong> ${cantidadMaxima.toFixed(
-        4
-      )} ${componente.unidad}</p>
+      4
+    )} ${componente.unidad}</p>
       <p class="mb-1"><strong>Cantidad solicitada:</strong> ${cantidadSolicitada.toFixed(
-        4
-      )} ${componente.unidad}</p>
+      4
+    )} ${componente.unidad}</p>
       <p class="mb-0"><strong>Cantidad extra:</strong> <span class="text-danger">+${(
-        cantidadSolicitada - cantidadMaxima
-      ).toFixed(4)} ${componente.unidad}</span></p>
+      cantidadSolicitada - cantidadMaxima
+    ).toFixed(4)} ${componente.unidad}</span></p>
     </div>
   `;
 
@@ -2043,9 +2103,34 @@ async function confirmarPedido() {
 
   const componentesConPedido = [];
 
+  // CAMBIADO: Ahora enviamos los pedidos por ITEM, no por componente agregado
   if (itemsData.componentesAgrupados) {
     itemsData.componentesAgrupados.forEach((componente) => {
-      if (componente.pedido > 0) {
+      // Verificar si hay pedidos en items individuales (desglose)
+      if (componente.items_que_usan && Array.isArray(componente.items_que_usan)) {
+        componente.items_que_usan.forEach((item) => {
+          const cantidadItem = parseFloat(item.pedido_actual) || 0;
+          if (cantidadItem > 0) {
+            // Usar id_componente_original del item (preservado durante agrupación)
+            // Esto asegura que cada pedido se guarde con el componente correcto
+            const idComponenteParaGuardar = item.id_componente_original || componente.id_componente;
+
+            componentesConPedido.push({
+              id_componente: idComponenteParaGuardar,  // ID específico del item
+              nombre_componente: componente.nombre_componente,
+              tipo_componente: componente.tipo_componente,
+              unidad_componente: componente.unidad_componente,
+              precio_unitario: componente.precio_unitario,
+              pedido: cantidadItem,
+              id_item: item.id_item,  // ¡CRÍTICO! Agregar id_item
+              total_necesario: componente.total_necesario,
+              capitulos: componente.capitulos,
+            });
+          }
+        });
+      }
+      // Si no hay desglose por items, enviar el pedido agregado (compatibilidad)
+      else if (componente.pedido > 0) {
         componentesConPedido.push({
           id_componente: componente.id_componente,
           nombre_componente: componente.nombre_componente,
@@ -2053,13 +2138,13 @@ async function confirmarPedido() {
           unidad_componente: componente.unidad_componente,
           precio_unitario: componente.precio_unitario,
           pedido: componente.pedido,
+          id_item: null,  // Sin id_item específico (pedidos antiguos)
           total_necesario: componente.total_necesario,
           capitulos: componente.capitulos,
         });
       }
     });
   }
-
   if (
     componentesConPedido.length === 0 &&
     materialesExtra.length === 0 &&
@@ -2323,18 +2408,17 @@ function solicitarJustificacionPedidoExtra(
   document.getElementById("infoComponenteExtra").innerHTML = `
     <div class="alert alert-warning">
       <h6><i class="bi bi-exclamation-triangle"></i> Pedido Fuera de Presupuesto</h6>
-      <p class="mb-1"><strong>Componente:</strong> ${
-        componente.nombre_componente
-      }</p>
+      <p class="mb-1"><strong>Componente:</strong> ${componente.nombre_componente
+    }</p>
       <p class="mb-1"><strong>Cantidad máxima permitida:</strong> ${cantidadMaxima.toFixed(
-        4
-      )} ${componente.unidad_componente}</p>
+      4
+    )} ${componente.unidad_componente}</p>
       <p class="mb-1"><strong>Cantidad solicitada:</strong> ${cantidadSolicitada.toFixed(
-        4
-      )} ${componente.unidad_componente}</p>
+      4
+    )} ${componente.unidad_componente}</p>
       <p class="mb-0"><strong>Cantidad extra:</strong> <span class="text-danger">+${(
-        cantidadSolicitada - cantidadMaxima
-      ).toFixed(4)} ${componente.unidad_componente}</span></p>
+      cantidadSolicitada - cantidadMaxima
+    ).toFixed(4)} ${componente.unidad_componente}</span></p>
     </div>
   `;
 
@@ -2421,18 +2505,17 @@ function solicitarJustificacionPedidoExtra(
   document.getElementById("infoComponenteExtra").innerHTML = `
     <div class="alert alert-warning">
       <h6><i class="bi bi-exclamation-triangle"></i> Pedido Fuera de Presupuesto</h6>
-      <p class="mb-1"><strong>Componente:</strong> ${
-        componente.nombre_componente
-      }</p>
+      <p class="mb-1"><strong>Componente:</strong> ${componente.nombre_componente
+    }</p>
       <p class="mb-1"><strong>Cantidad máxima permitida:</strong> ${cantidadMaxima.toFixed(
-        4
-      )} ${componente.unidad_componente}</p>
+      4
+    )} ${componente.unidad_componente}</p>
       <p class="mb-1"><strong>Cantidad solicitada:</strong> ${cantidadSolicitada.toFixed(
-        4
-      )} ${componente.unidad_componente}</p>
+      4
+    )} ${componente.unidad_componente}</p>
       <p class="mb-0"><strong>Cantidad extra:</strong> <span class="text-danger">+${(
-        cantidadSolicitada - cantidadMaxima
-      ).toFixed(4)} ${componente.unidad_componente}</span></p>
+      cantidadSolicitada - cantidadMaxima
+    ).toFixed(4)} ${componente.unidad_componente}</span></p>
     </div>
   `;
 
