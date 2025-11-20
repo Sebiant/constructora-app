@@ -1563,19 +1563,30 @@ try {
                                 AND ped.id_presupuesto = p.id_presupuesto
                                 AND ped.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
                             ), 0), 4) as disponible,
-                            
-                            GROUP_CONCAT(DISTINCT c.nombre_cap ORDER BY c.nombre_cap SEPARATOR ', ') as capitulos,
-                            COUNT(DISTINCT i.id_item) as cantidad_items,
-                            COUNT(DISTINCT c.id_capitulo) as cantidad_capitulos,
-                            GROUP_CONCAT(DISTINCT 
-                                CONCAT(i.codigo_item, '|', i.nombre_item, '|', 
-                                    c.nombre_cap, '|', ic.cantidad, '|', 
-                                    ic.unidad, '|', i.unidad, '|', 
-                                    dp.cantidad, '|', 
-                                    ROUND(dp.cantidad * ic.cantidad, 4)) 
-                                ORDER BY i.codigo_item, c.nombre_cap
-                                SEPARATOR '||'
-                            ) as detalle_serializado
+                                GROUP_CONCAT(DISTINCT 
+                                    CONCAT(
+                                        i.id_item, '|',
+                                        i.codigo_item, '|',
+                                        i.nombre_item, '|',
+                                        c.nombre_cap, '|',
+                                        ic.cantidad, '|',
+                                        ic.unidad, '|',
+                                        i.unidad, '|',
+                                        dp.cantidad, '|',
+                                        ROUND(dp.cantidad * ic.cantidad, 4), '|',
+                                        COALESCE((
+                                            SELECT SUM(pd.cantidad)
+                                            FROM pedidos_detalle pd
+                                            INNER JOIN pedidos ped2 ON pd.id_pedido = ped2.id_pedido
+                                            WHERE pd.id_componente = ic.id_componente
+                                            AND (pd.id_item = i.id_item OR pd.id_item IS NULL)
+                                            AND ped2.id_presupuesto = p.id_presupuesto
+                                            AND ped2.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
+                                        ), 0)
+                                    )
+                                    ORDER BY i.codigo_item, c.nombre_cap
+                                    SEPARATOR '||'
+                                ) as detalle_serializado
                         FROM det_presupuesto dp
                         JOIN presupuestos p ON dp.id_presupuesto = p.id_presupuesto
                         JOIN capitulos c ON dp.id_capitulo = c.id_capitulo

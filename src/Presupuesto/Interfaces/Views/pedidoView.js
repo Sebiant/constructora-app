@@ -263,53 +263,52 @@ class PaginadorPresupuestos {
 
     items.forEach((comp) => {
       const unidad = comp.unidad_componente || "UND";
-      const cantidadTotal = comp.total_necesario || 0;
-      const yaPedido = comp.ya_pedido || 0; // NUEVO CAMPO
-      const cantidadPedido = comp.pedido || 0;
+      const cantidadTotal = parseFloat(comp.total_necesario) || 0;
+      const yaPedido = parseFloat(comp.ya_pedido) || 0;
+      const cantidadPedido = calcularTotalPedidoComponente(comp);
+      comp.pedido = cantidadPedido;
       const subtotal = cantidadPedido * comp.precio_unitario;
+      const totalCantidadNecesaria = (comp.items_que_usan || []).reduce(
+        (sum, item) => sum + (parseFloat(item.cantidad_componente) || 0),
+        0
+      );
+      const totalCantidadYaPedida = (comp.items_que_usan || []).reduce(
+        (sum, item) =>
+          sum + (parseFloat(item.ya_pedido_item ?? item.ya_pedido) || 0),
+        0
+      );
 
-      // Calcular porcentajes
       const porcentajeYaPedido =
         cantidadTotal > 0 ? (yaPedido / cantidadTotal) * 100 : 0;
       const porcentajePedidoActual =
         cantidadTotal > 0 ? (cantidadPedido / cantidadTotal) * 100 : 0;
-      const porcentajeTotal = Math.min(
-        porcentajeYaPedido + porcentajePedidoActual,
-        100
-      );
-
-      const { colorClass, colorText } = obtenerColorProgreso(porcentajeTotal);
-      const iconoTipo = obtenerIconoTipoComponente(comp.tipo_componente);
-      const nombreTipo = obtenerNombreTipoComponente(comp.tipo_componente);
-      const badgeClass = obtenerClaseBadgeTipo(comp.tipo_componente);
-
-      const capitulos = [
-        ...new Set(
-          comp.items_que_usan
-            .map((item) => item.nombre_capitulo)
-            .filter((c) => c)
-        ),
-      ];
-      const capitulosTexto =
-        capitulos.length > 0 ? capitulos.join(", ") : "N/A";
-
-      const componenteId = comp.id_componente || comp.id_componente_unico;
 
       html += `
       <div class="card mb-3 shadow-sm componente-card"
            data-tipo="${comp.tipo_componente}"
-           data-id="${componenteId}">
+           data-id="${comp.id_componente}">
         <div class="card-header bg-light d-flex justify-content-between align-items-center">
           <div>
             <h6 class="mb-0">
               <strong>${comp.nombre_componente}</strong>
             </h6>
-            <small class="text-muted">${nombreTipo} | Capítulo(s): ${capitulosTexto}</small>
+            <small class="text-muted">${obtenerNombreTipoComponente(
+              comp.tipo_componente
+            )} | Capítulo(s): ${comp.items_que_usan
+                .map((item) => item.nombre_capitulo)
+                .filter((c) => c)
+                .join(", ")}</small>
           </div>
           <div>
-            <span class="badge ${badgeClass}">${unidad}</span>
-            <span class="badge ${colorClass} ms-1">${colorText}</span>
-            <button class="btn btn-sm btn-outline-info ms-2" onclick="toggleDesgloseComponente('${componenteId}')">
+            <span class="badge ${obtenerClaseBadgeTipo(
+              comp.tipo_componente
+            )}">${unidad}</span>
+            <span class="badge ${obtenerColorProgreso(
+              porcentajeYaPedido + porcentajePedidoActual
+            ).colorClass} ms-1">${obtenerColorProgreso(
+        porcentajeYaPedido + porcentajePedidoActual
+      ).colorText}</span>
+            <button class="btn btn-sm btn-outline-info ms-2" onclick="toggleDesgloseComponente('${comp.id_componente}')">
               Desglose
             </button>
           </div>
@@ -321,7 +320,6 @@ class PaginadorPresupuestos {
               <div><strong>${parseFloat(cantidadTotal).toFixed(
                 4
               )} ${unidad}</strong></div>
-              <!-- NUEVO: Información de Ya Pedido -->
               <div class="mt-1">
                 <small class="text-muted">
                   <i class="bi bi-check-circle text-success"></i> Ya pedido: 
@@ -338,32 +336,12 @@ class PaginadorPresupuestos {
                 comp.precio_unitario
               )}</strong></div>
             </div>
-            <div class="col-md-3">
-              <small class="text-muted">Cantidad a Pedir</small>
-              <div>
-                <input type="number"
-                       class="form-control form-control-sm cantidad-componente-agrupado"
-                       value="${cantidadPedido}"
-                       min="0"
-                       max="${Math.max(0, cantidadTotal - yaPedido)}"
-                       step="0.0001"
-                       data-tipo="${comp.tipo_componente}"
-                       data-componente-id="${componenteId}"
-                       data-descripcion="${comp.nombre_componente}"
-                       data-precio="${comp.precio_unitario}"
-                       data-unidad="${unidad}"
-                       data-ya-pedido="${yaPedido}"
-                       style="width: 120px;">
-                <small class="text-muted">Máx: ${parseFloat(
-                  cantidadTotal - yaPedido
-                ).toFixed(4)}</small>
+            <div class="col-md-7">
+              <div class="alert alert-info mb-0">
+                <small>
+                  Este componente se debe pedir item por item. Use el botón "Desglose" para registrar cantidades específicas.
+                </small>
               </div>
-            </div>
-            <div class="col-md-2">
-              <small class="text-muted">Subtotal</small>
-              <div><strong class="text-success">$${formatCurrency(
-                subtotal
-              )}</strong></div>
             </div>
           </div>
 
@@ -373,7 +351,7 @@ class PaginadorPresupuestos {
               <small class="text-muted">
                 ${porcentajeYaPedido.toFixed(1)}% ya pedido + 
                 ${porcentajePedidoActual.toFixed(1)}% nuevo = 
-                ${porcentajeTotal.toFixed(1)}% total
+                ${porcentajeYaPedido + porcentajePedidoActual}%
               </small>
             </div>
             <div class="progress" style="height: 12px;">
@@ -384,7 +362,9 @@ class PaginadorPresupuestos {
                    title="Ya pedido: ${porcentajeYaPedido.toFixed(1)}%">
               </div>
               <!-- Barra de progreso para el nuevo pedido -->
-              <div class="progress-bar ${colorClass}" role="progressbar"
+              <div class="progress-bar ${obtenerColorProgreso(
+                porcentajeYaPedido + porcentajePedidoActual
+              ).colorClass}" role="progressbar"
                    style="width: ${porcentajePedidoActual}%"
                    aria-valuenow="${porcentajePedidoActual}" aria-valuemin="0" aria-valuemax="100"
                    title="Nuevo pedido: ${porcentajePedidoActual.toFixed(1)}%">
@@ -392,66 +372,106 @@ class PaginadorPresupuestos {
             </div>
           </div>
 
-          <div id="desglose-comp-${componenteId}" style="display: none;" class="mt-3">
+          <div id="desglose-comp-${comp.id_componente}" style="display: none;" class="mt-3">
             <hr>
             <h6 class="text-primary mb-3">Desglose Detallado</h6>
             <div class="table-responsive">
-              <table class="table table-sm table-bordered">
+              <table class="table table-sm table-bordered tabla-desglose-componentes" data-comp-id="${comp.id_componente}">
                 <thead class="table-light">
                   <tr>
                     <th>Código Item</th>
                     <th>Nombre del Item</th>
                     <th>Capítulo</th>
                     <th class="text-end">Cantidad Necesaria</th>
-                    <th class="text-end">Precio Unit.</th>
+                    <th class="text-end">Cantidad ya pedida</th>
+                    <th class="text-end">% Ya pedido</th>
+                    <th class="text-end">Cantidad a pedir</th>
                     <th class="text-end">Subtotal</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${comp.items_que_usan
-                    .map(
-                      (item) => `
+                    .map((item) => {
+                      const pedidoItem = parseFloat(item.pedido_actual || 0);
+                      const yaPedidoItem = parseFloat(
+                        (item.ya_pedido_item ?? item.ya_pedido) ?? 0
+                      );
+                      const cantidadNecesariaItem =
+                        parseFloat(item.cantidad_componente) || 0;
+                      const maxPermitido = Math.max(
+                        0,
+                        cantidadNecesariaItem - yaPedidoItem
+                      );
+                      const subtotalItem = pedidoItem * comp.precio_unitario;
+                      const porcentajeItem =
+                        cantidadNecesariaItem > 0
+                          ? Math.min(
+                              100,
+                              (yaPedidoItem / cantidadNecesariaItem) * 100
+                            )
+                          : 0;
+                      const badgeClass =
+                        porcentajeItem >= 100
+                          ? "bg-success"
+                          : porcentajeItem >= 80
+                          ? "bg-warning"
+                          : "bg-info";
+                      return `
                     <tr>
                       <td><strong>${item.codigo_item}</strong></td>
                       <td>${item.nombre_item}</td>
-                      <td><small class="text-muted">${
-                        item.nombre_capitulo || "N/A"
-                      }</small></td>
-                      <td class="text-end">${parseFloat(
-                        item.cantidad_componente || 0
-                      ).toFixed(4)} ${unidad}</td>
-                      <td class="text-end">$${formatCurrency(
-                        comp.precio_unitario
-                      )}</td>
-                      <td class="text-end">$${formatCurrency(
-                        parseFloat(item.cantidad_componente || 0) *
-                          comp.precio_unitario
-                      )}</td>
+                      <td><small class="text-muted">${item.nombre_capitulo || "N/A"}</small></td>
+                      <td class="text-end">${cantidadNecesariaItem.toFixed(4)} ${unidad}</td>
+                      <td class="text-end">${yaPedidoItem.toFixed(4)} ${unidad}</td>
+                      <td class="text-end">
+                        <span class="badge ${badgeClass}">
+                          ${porcentajeItem.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td class="text-end" style="width: 180px;">
+                        <div class="input-group input-group-sm">
+                          <input type="number"
+                                 class="form-control form-control-sm cantidad-componente-item"
+                                 value="${pedidoItem.toFixed(4)}"
+                                 min="0"
+                                 max="${maxPermitido.toFixed(4)}"
+                                 step="0.0001"
+                                 data-componente-id="${comp.id_componente}"
+                                 data-item-id="${item.id_item}"
+                                 data-precio="${comp.precio_unitario}"
+                                 data-unidad="${unidad}">
+                          <span class="input-group-text">${unidad}</span>
+                        </div>
+                        <small class="text-muted">Máx: ${maxPermitido.toFixed(4)}</small>
+                      </td>
+                      <td class="text-end subtotal-item">$${formatCurrency(subtotalItem)}</td>
+                      <td class="text-center">
+                        <button class="btn btn-sm btn-outline-success" type="button" data-action="max-item">
+                          <i class="bi bi-plus-circle"></i>
+                        </button>
+                      </td>
                     </tr>
-                  `
-                    )
+                  `;
+                    })
                     .join("")}
                 </tbody>
                 <tfoot class="table-light">
                   <tr>
-                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
-                    <td class="text-end"><strong>${parseFloat(
-                      cantidadTotal
-                    ).toFixed(4)} ${unidad}</strong></td>
-                    <td></td>
-                    <td class="text-end"><strong>$${formatCurrency(
-                      cantidadTotal * comp.precio_unitario
+                    <td colspan="3" class="text-end"><strong>Totales:</strong></td>
+                    <td class="text-end"><strong>${totalCantidadNecesaria.toFixed(4)} ${unidad}</strong></td>
+                    <td class="text-end"><strong>${totalCantidadYaPedida.toFixed(4)} ${unidad}</strong></td>
+                    <td colspan="3"></td>
+                  </tr>
+                  <tr>
+                    <td colspan="6" class="text-end"><strong>Total solicitado:</strong></td>
+                    <td class="text-end"><strong class="total-desglose" data-comp-id="${comp.id_componente}">$${formatCurrency(
+                      subtotal
                     )}</strong></td>
+                    <td></td>
                   </tr>
                 </tfoot>
               </table>
-            </div>
-            <div class="alert alert-info mt-2 mb-0">
-              <small>
-                <strong>Usado en ${
-                  comp.items_que_usan.length
-                } item(s)</strong> del presupuesto
-              </small>
             </div>
           </div>
         </div>
@@ -462,12 +482,165 @@ class PaginadorPresupuestos {
     container.innerHTML = html;
 
     document
-      .querySelectorAll(".cantidad-componente-agrupado")
-      .forEach((input) => {
-        input.addEventListener("change", function () {
-          actualizarCantidadComponenteAgrupado(this);
-        });
+      .querySelectorAll(".tabla-desglose-componentes")
+      .forEach((table) => {
+        table.addEventListener("change", manejarCambioCantidadItem);
+        table.addEventListener("click", manejarClickBtnItem);
       });
+  }
+}
+
+function calcularTotalPedidoComponente(componente) {
+  if (!componente || !Array.isArray(componente.items_que_usan)) return 0;
+  return componente.items_que_usan.reduce((total, item) => {
+    return total + (parseFloat(item.pedido_actual) || 0);
+  }, 0);
+}
+
+function manejarCambioCantidadItem(event) {
+  if (!event.target.classList.contains("cantidad-componente-item")) return;
+  const input = event.target;
+  const max = parseFloat(input.max);
+  let value = parseFloat(input.value) || 0;
+
+  if (!Number.isNaN(max) && max >= 0 && value > max) {
+    value = max;
+  }
+
+  if (value < 0) value = 0;
+  input.value = value.toFixed(4);
+  actualizarPedidoItemDesdeInput(input, value);
+}
+
+function manejarClickBtnItem(event) {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  event.preventDefault();
+
+  if (button.dataset.action === "max-item") {
+    const row = button.closest("tr");
+    const input = row?.querySelector(".cantidad-componente-item");
+    if (input) {
+      const max = parseFloat(input.max) || 0;
+      input.value = max.toFixed(4);
+      actualizarPedidoItemDesdeInput(input, max);
+    }
+  }
+}
+
+function actualizarPedidoItemDesdeInput(input, cantidad) {
+  const componenteId = input.dataset.componenteId;
+  const itemId = input.dataset.itemId;
+
+  const componente = itemsData.componentesAgrupados?.find(
+    (comp) => String(comp.id_componente) === String(componenteId)
+  );
+  if (!componente) return;
+
+  const item = componente.items_que_usan?.find(
+    (itm) => String(itm.id_item) === String(itemId)
+  );
+  if (!item) return;
+
+  const yaPedidoItem = parseFloat(item.ya_pedido_item) || 0;
+  const cantidadNecesaria = parseFloat(item.cantidad_componente) || 0;
+  const maxPermitido = Math.max(0, cantidadNecesaria - yaPedidoItem);
+  const precioUnitario = parseFloat(input.dataset.precio) || 0;
+
+  let nuevoValor = cantidad;
+  if (nuevoValor > maxPermitido) {
+    nuevoValor = maxPermitido;
+    input.value = maxPermitido.toFixed(4);
+  }
+
+  item.pedido_actual = nuevoValor;
+
+  const subtotalCell = input.closest("tr")?.querySelector(".subtotal-item");
+  if (subtotalCell) {
+    subtotalCell.textContent = `$${formatCurrency(nuevoValor * precioUnitario)}`;
+  }
+
+  actualizarTotalesDesglose(componente);
+  actualizarResumenComponente(componente);
+  actualizarCarrito();
+  actualizarEstadisticas();
+}
+
+function actualizarTotalesDesglose(componente) {
+  if (!componente) return;
+  const totalElement = document.querySelector(
+    `.total-desglose[data-comp-id="${componente.id_componente}"]`
+  );
+  if (!totalElement) return;
+
+  const total = componente.items_que_usan.reduce((sum, item) => {
+    return sum + (parseFloat(item.pedido_actual) || 0) * componente.precio_unitario;
+  }, 0);
+
+  totalElement.textContent = `$${formatCurrency(total)}`;
+}
+
+function actualizarResumenComponente(componente) {
+  if (!componente) return;
+  const card = document.querySelector(
+    `.componente-card[data-id="${componente.id_componente}"]`
+  );
+  if (!card) return;
+
+  const cantidadTotal = parseFloat(componente.total_necesario) || 0;
+  const yaPedido = parseFloat(componente.ya_pedido) || 0;
+  const pedidoActual = calcularTotalPedidoComponente(componente);
+  componente.pedido = pedidoActual;
+
+  const porcentajeYaPedido =
+    cantidadTotal > 0 ? (yaPedido / cantidadTotal) * 100 : 0;
+  const porcentajePedidoActual =
+    cantidadTotal > 0 ? (pedidoActual / cantidadTotal) * 100 : 0;
+  const porcentajeTotal = Math.min(
+    porcentajeYaPedido + porcentajePedidoActual,
+    100
+  );
+
+  const resumenProgreso = card.querySelector(
+    ".mb-2 .d-flex small:last-child"
+  );
+  if (resumenProgreso) {
+    resumenProgreso.textContent = `${porcentajeYaPedido.toFixed(
+      1
+    )}% ya pedido + ${porcentajePedidoActual.toFixed(
+      1
+    )}% nuevo = ${porcentajeTotal.toFixed(1)}% total`;
+  }
+
+  const barras = card.querySelectorAll(".progress .progress-bar");
+  if (barras.length >= 2) {
+    barras[0].style.width = `${Math.min(100, Math.max(0, porcentajeYaPedido))}%`;
+    barras[0].setAttribute("aria-valuenow", porcentajeYaPedido.toFixed(1));
+
+    barras[1].style.width = `${Math.min(
+      100,
+      Math.max(0, porcentajePedidoActual)
+    )}%`;
+    barras[1].setAttribute("aria-valuenow", porcentajePedidoActual.toFixed(1));
+
+    const estado = obtenerColorProgreso(porcentajeTotal);
+    barras[1].className = `progress-bar ${estado.colorClass}`;
+
+    const badge = card.querySelector(".card-header .badge.ms-1");
+    if (badge) {
+      badge.className = `badge ${estado.colorClass} ms-1`;
+      badge.textContent = estado.colorText;
+    }
+  }
+
+  const totalFooter = card.querySelector(
+    `.total-desglose[data-comp-id="${componente.id_componente}"]`
+  );
+  if (totalFooter) {
+    const totalMonetario = componente.items_que_usan.reduce((sum, item) => {
+      return sum + (parseFloat(item.pedido_actual) || 0) * componente.precio_unitario;
+    }, 0);
+    totalFooter.textContent = `$${formatCurrency(totalMonetario)}`;
   }
 }
 
@@ -1084,12 +1257,15 @@ async function obtenerComponentesAgrupados(presupuestoId, capituloId = null) {
           id_componente: comp.id_componente,
           id_componente_unico: comp.id_componente,
           nombre_componente: comp.nombre_componente || "Sin nombre",
+          descripcion: comp.descripcion || "Sin descripción",
           tipo_componente: comp.tipo_componente || "material",
           unidad_componente: unidad,
+          unidad: unidad,
           precio_unitario: parseFloat(comp.precio_unitario) || 0,
           total_necesario: cantidadTotal,
           disponible: parseFloat(comp.disponible) || 0,
           ya_pedido: parseFloat(comp.ya_pedido) || 0,
+          pedido_inicial: parseFloat(comp.pedido_inicial) || 0,
           capitulos: comp.capitulos || [],
           cantidad_items: comp.cantidad_items || 0,
           cantidad_capitulos: comp.cantidad_capitulos || 0,
@@ -1118,20 +1294,23 @@ function parseDetalleSerializado(detalleSerializado) {
 
         const partes = itemStr.split("|");
 
-        if (partes.length < 8) {
+        if (partes.length < 10) {
           console.warn("Detalle serializado incompleto:", partes);
           return null;
         }
 
         return {
-          codigo_item: partes[0]?.trim() || "N/A",
-          nombre_item: partes[1]?.trim() || "N/A",
-          nombre_capitulo: partes[2]?.trim() || "N/A",
-          cantidad_por_unidad: parseFloat(partes[3]) || 0,
-          unidad_componente: partes[4]?.trim() || "UND",
-          unidad_item: partes[5]?.trim() || "UND",
-          cantidad_item_presupuesto: parseFloat(partes[6]) || 0,
-          cantidad_componente: parseFloat(partes[7]) || 0,
+          id_item: partes[0]?.trim() || null,
+          codigo_item: partes[1]?.trim() || "N/A",
+          nombre_item: partes[2]?.trim() || "N/A",
+          nombre_capitulo: partes[3]?.trim() || "N/A",
+          cantidad_por_unidad: parseFloat(partes[4]) || 0,
+          unidad_componente: partes[5]?.trim() || "UND",
+          unidad_item: partes[6]?.trim() || "UND",
+          cantidad_item_presupuesto: parseFloat(partes[7]) || 0,
+          cantidad_componente: parseFloat(partes[8]) || 0,
+          pedido_actual: 0,
+          ya_pedido_item: parseFloat(partes[9]) || 0,
         };
       })
       .filter((item) => item !== null);
@@ -1859,6 +2038,9 @@ function confirmarPedidoExtra() {
 }
 
 async function confirmarPedido() {
+  const btn = document.getElementById("btnConfirmarPedido");
+  const originalBtnHtml = btn ? btn.innerHTML : null;
+
   const componentesConPedido = [];
 
   if (itemsData.componentesAgrupados) {
@@ -1887,40 +2069,73 @@ async function confirmarPedido() {
     return;
   }
 
-  if (confirm("¿Está seguro de confirmar este pedido?")) {
-    try {
-      const pedidoData = {
-        seleccionActual,
-        componentes: componentesConPedido,
-        materialesExtra,
-        pedidosFueraPresupuesto,
-        total: componentesConPedido.reduce(
-          (sum, comp) => sum + (comp.pedido || 0) * comp.precio_unitario,
-          0
-        ),
-        fecha: new Date().toISOString(),
-      };
+  if (!confirm("¿Está seguro de confirmar este pedido?")) return;
 
-      const formData = new FormData();
-      formData.append("pedido_data", JSON.stringify(pedidoData));
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Confirmando...';
+    }
 
-      const response = await fetch(API_PRESUPUESTOS + "?action=guardarPedido", {
-        method: "POST",
-        body: formData,
-      });
+    const pedidoData = {
+      seleccionActual,
+      componentes: componentesConPedido,
+      materialesExtra,
+      pedidosFueraPresupuesto,
+      total: componentesConPedido.reduce(
+        (sum, comp) => sum + (comp.pedido || 0) * comp.precio_unitario,
+        0
+      ),
+      fecha: new Date().toISOString(),
+    };
 
-      const result = await response.json();
-      if (result.success) {
-        alert(
-          "Pedido confirmado exitosamente. ID del pedido: " + result.id_pedido
-        );
-        resetarGestion();
-      } else {
-        alert("Error al guardar el pedido: " + result.error);
+    const formData = new FormData();
+    formData.append("pedido_data", JSON.stringify(pedidoData));
+
+    const response = await fetch(API_PRESUPUESTOS + "?action=guardarPedido", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      alert(
+        "Pedido confirmado exitosamente. ID del pedido: " + result.id_pedido
+      );
+
+      // Limpiar carrito/extra en memoria
+      materialesExtra = [];
+      pedidosFueraPresupuesto = [];
+      if (itemsData.componentesAgrupados) {
+        itemsData.componentesAgrupados.forEach((c) => (c.pedido = 0));
       }
-    } catch (error) {
-      console.error("Error confirmando pedido:", error);
-      alert("Error al confirmar el pedido");
+      // Limpiar también los componentes individuales si existen
+      if (Array.isArray(itemsData)) {
+        itemsData.forEach((it) =>
+          it.componentes?.forEach((c) => (c.pedido = 0))
+        );
+      } else if (itemsData.itemsIndividuales) {
+        itemsData.itemsIndividuales.forEach((it) =>
+          it.componentes?.forEach((c) => (c.pedido = 0))
+        );
+      }
+
+      actualizarCarrito();
+      actualizarEstadisticas();
+
+      // Recargar los datos del presupuesto actual para reflejar ya_pedido actualizado
+      await cargarItems();
+    } else {
+      alert("Error al guardar el pedido: " + result.error);
+    }
+  } catch (error) {
+    console.error("Error confirmando pedido:", error);
+    alert("Error al confirmar el pedido");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHtml || "Confirmar Pedido";
     }
   }
 }
@@ -1978,75 +2193,116 @@ function toggleDesgloseComponente(idComponente) {
 }
 
 function actualizarCantidadComponenteAgrupado(input) {
-  const cantidadTotal = parseFloat(input.value) || 0;
+  const nuevaCantidad = parseFloat(input.value) || 0;
   const componenteId = input.dataset.componenteId;
-  const maxCantidad = parseFloat(input.max);
 
-  if (cantidadTotal > maxCantidad) {
-    const componente = itemsData.componentesAgrupados.find(
-      (comp) => comp.id_componente == componenteId
-    );
+  const componente = itemsData.componentesAgrupados?.find(
+    (comp) => String(comp.id_componente) === String(componenteId)
+  );
+  if (!componente) return;
 
-    if (componente) {
-      solicitarJustificacionPedidoExtra(componente, cantidadTotal, maxCantidad);
-      input.value = componente.pedido || 0;
-    }
+  const totalNecesario = parseFloat(componente.total_necesario) || 0;
+  const yaPedido = parseFloat(componente.ya_pedido) || 0;
+  const maxPermitido = Math.max(0, totalNecesario - yaPedido);
+
+  if (nuevaCantidad > maxPermitido) {
+    solicitarJustificacionPedidoExtra(componente, nuevaCantidad, maxPermitido);
+    input.value = componente.pedido || 0;
     return;
   }
 
-  if (itemsData.componentesAgrupados) {
-    const componente = itemsData.componentesAgrupados.find(
-      (comp) => comp.id_componente == componenteId
+  componente.pedido = nuevaCantidad;
+
+  const idxExtra = pedidosFueraPresupuesto.findIndex(
+    (p) => p.id_componente === componente.id_componente && !p.id_item
+  );
+  if (idxExtra >= 0) {
+    const extraActual = Math.max(0, (componente.pedido || 0) - maxPermitido);
+    if (extraActual <= 0) {
+      pedidosFueraPresupuesto.splice(idxExtra, 1);
+    } else {
+      pedidosFueraPresupuesto[idxExtra].cantidad_extra = extraActual;
+    }
+  }
+
+  const card = input.closest(".card");
+  if (card) {
+    const subtotalElement = card.querySelector(".col-md-2 .text-success");
+    if (subtotalElement) {
+      const precioUnitario = parseFloat(input.dataset.precio) || 0;
+      const subtotal = nuevaCantidad * precioUnitario;
+      subtotalElement.textContent = `${formatCurrency(subtotal)}`;
+    }
+
+    const porcentajeYaPedido =
+      totalNecesario > 0 ? (yaPedido / totalNecesario) * 100 : 0;
+    const porcentajePedidoActual =
+      totalNecesario > 0 ? (nuevaCantidad / totalNecesario) * 100 : 0;
+    const porcentajeTotal = Math.min(
+      porcentajeYaPedido + porcentajePedidoActual,
+      100
     );
 
-    if (componente) {
-      componente.pedido = cantidadTotal;
+    const resumenProgreso = card.querySelector(
+      ".mb-2 .d-flex small:last-child"
+    );
+    if (resumenProgreso) {
+      resumenProgreso.textContent = `${porcentajeYaPedido.toFixed(
+        1
+      )}% ya pedido + ${porcentajePedidoActual.toFixed(
+        1
+      )}% nuevo = ${porcentajeTotal.toFixed(1)}% total`;
+    }
+
+    const barras = card.querySelectorAll(".progress .progress-bar");
+    if (barras.length >= 2) {
+      barras[0].style.width = `${Math.max(
+        0,
+        Math.min(100, porcentajeYaPedido)
+      )}%`;
+      barras[0].setAttribute("aria-valuenow", porcentajeYaPedido.toFixed(1));
+      barras[1].style.width = `${Math.max(
+        0,
+        Math.min(100, porcentajePedidoActual)
+      )}%`;
+      barras[1].setAttribute(
+        "aria-valuenow",
+        porcentajePedidoActual.toFixed(1)
+      );
+      const estado = obtenerColorProgreso(porcentajeTotal);
+      barras[1].className = `progress-bar ${estado.colorClass}`;
+    }
+
+    // Actualizar indicador de pedido extra pendiente
+    const extraObj = pedidosFueraPresupuesto.find(
+      (p) => p.id_componente === componente.id_componente && !p.id_item
+    );
+    const extraCant = extraObj ? parseFloat(extraObj.cantidad_extra) || 0 : 0;
+    const extraDiv = card.querySelector('.pedido-extra-info');
+    if (extraDiv) {
+      if (extraCant > 0) {
+        extraDiv.style.display = '';
+        extraDiv.innerHTML = `
+          <small class="text-warning">
+            <i class="bi bi-exclamation-triangle"></i> Pedido extra pendiente: 
+            <strong class="text-warning">+${extraCant.toFixed(4)} ${input.dataset.unidad || componente.unidad_componente || ''}</strong>
+          </small>
+        `;
+      } else {
+        extraDiv.style.display = 'none';
+      }
+    }
+
+    const badge = card.querySelector(".card-header .badge.ms-1");
+    if (badge) {
+      const estado = obtenerColorProgreso(porcentajeTotal);
+      badge.className = `badge ${estado.colorClass} ms-1`;
+      badge.textContent = estado.colorText;
     }
   }
 
   actualizarCarrito();
   actualizarEstadisticas();
-
-  const card = input.closest(".card");
-  if (card) {
-    const subtotalElement = card.querySelector(
-      ".col-md-3:last-child .text-success"
-    );
-    if (subtotalElement) {
-      const precioUnitario = parseFloat(input.dataset.precio);
-      const subtotal = cantidadTotal * precioUnitario;
-      subtotalElement.textContent = `$${formatCurrency(subtotal)}`;
-    }
-
-    const cantidadTotalNecesaria = maxCantidad;
-    const porcentaje =
-      cantidadTotalNecesaria > 0
-        ? (cantidadTotal / cantidadTotalNecesaria) * 100
-        : 0;
-    const progressBar = card.querySelector(".progress-bar");
-    const progressText = card
-      .querySelector(".progress")
-      .previousElementSibling.querySelector("small:last-child");
-
-    if (progressBar) {
-      progressBar.style.width = `${Math.min(porcentaje, 100)}%`;
-      progressBar.setAttribute("aria-valuenow", porcentaje);
-
-      const { colorClass } = obtenerColorProgreso(porcentaje);
-      progressBar.className = `progress-bar ${colorClass}`;
-    }
-
-    if (progressText) {
-      progressText.textContent = `${Math.round(porcentaje)}% solicitado`;
-    }
-
-    const badge = card.querySelector(".card-header .badge.ms-1");
-    if (badge) {
-      const { colorClass, colorText } = obtenerColorProgreso(porcentaje);
-      badge.className = `badge ${colorClass} ms-1`;
-      badge.textContent = colorText;
-    }
-  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
