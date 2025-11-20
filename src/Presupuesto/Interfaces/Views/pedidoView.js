@@ -435,7 +435,7 @@ class PaginadorPresupuestos {
                                  class="form-control form-control-sm cantidad-componente-item"
                                  value="${pedidoItem.toFixed(4)}"
                                  min="0"
-                                 max="${maxPermitido.toFixed(4)}"
+                                 data-max="${maxPermitido.toFixed(4)}"
                                  step="0.0001"
                                  data-componente-id="${comp.id_componente}"
                                  data-item-id="${item.id_item}"
@@ -500,15 +500,11 @@ function calcularTotalPedidoComponente(componente) {
 function manejarCambioCantidadItem(event) {
   if (!event.target.classList.contains("cantidad-componente-item")) return;
   const input = event.target;
-  const max = parseFloat(input.max);
   let value = parseFloat(input.value) || 0;
 
-  if (!Number.isNaN(max) && max >= 0 && value > max) {
-    value = max;
-  }
-
   if (value < 0) value = 0;
-  input.value = value.toFixed(4);
+  // No forzamos el valor al input aquí para permitir que el usuario escriba
+  // Solo actualizamos si es válido
   actualizarPedidoItemDesdeInput(input, value);
 }
 
@@ -521,7 +517,7 @@ function manejarClickBtnItem(event) {
     const row = button.closest("tr");
     const input = row?.querySelector(".cantidad-componente-item");
     if (input) {
-      const max = parseFloat(input.max) || 0;
+      const max = parseFloat(input.dataset.max) || 0;
       input.value = max.toFixed(4);
       actualizarPedidoItemDesdeInput(input, max);
     }
@@ -549,6 +545,12 @@ function actualizarPedidoItemDesdeInput(input, cantidad) {
 
   let nuevoValor = cantidad;
   if (nuevoValor > maxPermitido) {
+    solicitarJustificacionPedidoExtra(
+      componente,
+      item,
+      nuevoValor,
+      maxPermitido
+    );
     nuevoValor = maxPermitido;
     input.value = maxPermitido.toFixed(4);
   }
@@ -1535,15 +1537,20 @@ function mostrarInformacionProyecto(proyecto, presupuesto) {
 }
 
 function obtenerColorProgreso(porcentaje) {
+  // 0% -> rojo (danger)
   if (porcentaje === 0)
-    return { colorClass: "bg-secondary", colorText: "Sin uso" };
-  if (porcentaje <= 80)
+    return { colorClass: "bg-danger", colorText: "Sin uso" };
+  // 1% - 69% -> verde (success)
+  if (porcentaje < 70)
     return { colorClass: "bg-success", colorText: "Dentro del presupuesto" };
-  if (porcentaje <= 95)
+  // 70% - 89% -> amarillo (warning)
+  if (porcentaje < 90)
     return { colorClass: "bg-warning", colorText: "Cerca del límite" };
-  if (porcentaje <= 100)
-    return { colorClass: "bg-danger", colorText: "Límite alcanzado" };
-  return { colorClass: "bg-dark", colorText: "Excedido" };
+  // 90% - 99% -> naranja (custom orange)
+  if (porcentaje < 100)
+    return { colorClass: "bg-orange", colorText: "Alto riesgo" };
+  // 100% o más -> rojo (danger)
+  return { colorClass: "bg-danger", colorText: "Límite alcanzado" };
 }
 
 function organizarComponentesPorTipo(componentes) {
@@ -1612,10 +1619,11 @@ function actualizarEstadisticas() {
     alertPendientes.style.display = "none";
   }
 
-  document.getElementById("btnConfirmarPedido").disabled =
-    componentesSeleccionados === 0 &&
+  const btnDisabled = componentesSeleccionados === 0 &&
     materialesExtra.length === 0 &&
     pedidosFueraPresupuesto.length === 0;
+
+  document.getElementById("btnConfirmarPedido").disabled = btnDisabled;
 }
 
 function actualizarCarrito() {
@@ -2062,30 +2070,35 @@ function confirmarPedidoExtra() {
     pedidosFueraPresupuesto.push(pedidoExtra);
   }
 
-  componente.pedido = cantidadMaxima;
+  // Actualizar el pedido normal al máximo permitido
+  item.pedido_actual = cantidadMaxima;
 
-  actualizarEstadisticas();
-  actualizarCarrito();
-  actualizarBotonDesglose(item.id_item);
-
+  // Actualizar input específico del item
   const input = document.querySelector(
-    `input[data-componente-id="${componente.id_componente}"]`
+    `input.cantidad-componente-item[data-componente-id="${componente.id_componente}"][data-item-id="${item.id_item}"]`
   );
-  if (input) {
-    input.value = cantidadMaxima;
-  }
 
-  const row = input?.closest("tr");
-  if (row) {
-    const subtotalElement = row.querySelector(".subtotal-componente");
-    if (subtotalElement) {
-      subtotalElement.textContent = `$${(
-        cantidadMaxima * componente.precio_unitario
-      ).toFixed(2)}`;
+  if (input) {
+    input.value = cantidadMaxima.toFixed(4);
+
+    // Actualizar subtotal en la fila
+    const row = input.closest("tr");
+    if (row) {
+      const subtotalElement = row.querySelector(".subtotal-item");
+      if (subtotalElement) {
+        subtotalElement.textContent = `$${formatCurrency(
+          cantidadMaxima * componente.precio_unitario
+        )}`;
+      }
     }
   }
 
-  actualizarTotalComponentesItem(item.id_item);
+  // Actualizar totales
+  actualizarTotalesDesglose(componente);
+  actualizarResumenComponente(componente);
+
+  actualizarEstadisticas();
+  actualizarCarrito();
 
   const modal = bootstrap.Modal.getInstance(
     document.getElementById("modalJustificacionExtra")
@@ -2390,200 +2403,5 @@ function actualizarCantidadComponenteAgrupado(input) {
   actualizarEstadisticas();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  cargarProyectos();
-});
 
-function solicitarJustificacionPedidoExtra(
-  componente,
-  cantidadSolicitada,
-  cantidadMaxima
-) {
-  window.pedidoExtraTemp = {
-    componente: componente,
-    cantidadSolicitada: cantidadSolicitada,
-    cantidadMaxima: cantidadMaxima,
-  };
 
-  document.getElementById("infoComponenteExtra").innerHTML = `
-    <div class="alert alert-warning">
-      <h6><i class="bi bi-exclamation-triangle"></i> Pedido Fuera de Presupuesto</h6>
-      <p class="mb-1"><strong>Componente:</strong> ${componente.nombre_componente
-    }</p>
-      <p class="mb-1"><strong>Cantidad máxima permitida:</strong> ${cantidadMaxima.toFixed(
-      4
-    )} ${componente.unidad_componente}</p>
-      <p class="mb-1"><strong>Cantidad solicitada:</strong> ${cantidadSolicitada.toFixed(
-      4
-    )} ${componente.unidad_componente}</p>
-      <p class="mb-0"><strong>Cantidad extra:</strong> <span class="text-danger">+${(
-      cantidadSolicitada - cantidadMaxima
-    ).toFixed(4)} ${componente.unidad_componente}</span></p>
-    </div>
-  `;
-
-  document.getElementById("justificacionPedidoExtra").value = "";
-
-  const modal = new bootstrap.Modal(
-    document.getElementById("modalJustificacionExtra")
-  );
-  modal.show();
-}
-
-function confirmarPedidoExtra() {
-  const justificacion = document
-    .getElementById("justificacionPedidoExtra")
-    .value.trim();
-
-  if (!justificacion) {
-    alert(
-      "Debe proporcionar una justificación para el pedido fuera de presupuesto"
-    );
-    return;
-  }
-
-  const { componente, cantidadSolicitada, cantidadMaxima } =
-    window.pedidoExtraTemp;
-
-  const pedidoExtra = {
-    id_componente: componente.id_componente,
-    nombre_componente: componente.nombre_componente,
-    tipo_componente: componente.tipo_componente,
-    unidad: componente.unidad_componente,
-    cantidad_maxima: cantidadMaxima,
-    cantidad_solicitada: cantidadSolicitada,
-    cantidad_extra: cantidadSolicitada - cantidadMaxima,
-    precio_unitario: componente.precio_unitario,
-    justificacion: justificacion,
-    estado: "pendiente_aprobacion",
-    fecha: new Date().toISOString(),
-  };
-
-  const indexExistente = pedidosFueraPresupuesto.findIndex(
-    (p) => p.id_componente === componente.id_componente
-  );
-
-  if (indexExistente >= 0) {
-    pedidosFueraPresupuesto[indexExistente] = pedidoExtra;
-  } else {
-    pedidosFueraPresupuesto.push(pedidoExtra);
-  }
-
-  componente.pedido = cantidadMaxima;
-
-  actualizarEstadisticas();
-  actualizarCarrito();
-
-  const input = document.querySelector(
-    `input[data-componente-id="${componente.id_componente}"]`
-  );
-  if (input) {
-    input.value = cantidadMaxima;
-  }
-
-  const modal = bootstrap.Modal.getInstance(
-    document.getElementById("modalJustificacionExtra")
-  );
-  modal.hide();
-
-  delete window.pedidoExtraTemp;
-
-  alert("Pedido fuera de presupuesto agregado. Requiere aprobación.");
-}
-
-function solicitarJustificacionPedidoExtra(
-  componente,
-  cantidadSolicitada,
-  cantidadMaxima
-) {
-  window.pedidoExtraTemp = {
-    componente: componente,
-    cantidadSolicitada: cantidadSolicitada,
-    cantidadMaxima: cantidadMaxima,
-  };
-
-  document.getElementById("infoComponenteExtra").innerHTML = `
-    <div class="alert alert-warning">
-      <h6><i class="bi bi-exclamation-triangle"></i> Pedido Fuera de Presupuesto</h6>
-      <p class="mb-1"><strong>Componente:</strong> ${componente.nombre_componente
-    }</p>
-      <p class="mb-1"><strong>Cantidad máxima permitida:</strong> ${cantidadMaxima.toFixed(
-      4
-    )} ${componente.unidad_componente}</p>
-      <p class="mb-1"><strong>Cantidad solicitada:</strong> ${cantidadSolicitada.toFixed(
-      4
-    )} ${componente.unidad_componente}</p>
-      <p class="mb-0"><strong>Cantidad extra:</strong> <span class="text-danger">+${(
-      cantidadSolicitada - cantidadMaxima
-    ).toFixed(4)} ${componente.unidad_componente}</span></p>
-    </div>
-  `;
-
-  document.getElementById("justificacionPedidoExtra").value = "";
-
-  const modal = new bootstrap.Modal(
-    document.getElementById("modalJustificacionExtra")
-  );
-  modal.show();
-}
-
-function confirmarPedidoExtra() {
-  const justificacion = document
-    .getElementById("justificacionPedidoExtra")
-    .value.trim();
-
-  if (!justificacion) {
-    alert(
-      "Debe proporcionar una justificación para el pedido fuera de presupuesto"
-    );
-    return;
-  }
-
-  const { componente, cantidadSolicitada, cantidadMaxima } =
-    window.pedidoExtraTemp;
-
-  const pedidoExtra = {
-    id_componente: componente.id_componente,
-    nombre_componente: componente.nombre_componente,
-    tipo_componente: componente.tipo_componente,
-    unidad: componente.unidad_componente,
-    cantidad_maxima: cantidadMaxima,
-    cantidad_solicitada: cantidadSolicitada,
-    cantidad_extra: cantidadSolicitada - cantidadMaxima,
-    precio_unitario: componente.precio_unitario,
-    justificacion: justificacion,
-    estado: "pendiente_aprobacion",
-    fecha: new Date().toISOString(),
-  };
-
-  const indexExistente = pedidosFueraPresupuesto.findIndex(
-    (p) => p.id_componente === componente.id_componente
-  );
-
-  if (indexExistente >= 0) {
-    pedidosFueraPresupuesto[indexExistente] = pedidoExtra;
-  } else {
-    pedidosFueraPresupuesto.push(pedidoExtra);
-  }
-
-  componente.pedido = cantidadMaxima;
-
-  actualizarEstadisticas();
-  actualizarCarrito();
-
-  const input = document.querySelector(
-    `input[data-componente-id="${componente.id_componente}"]`
-  );
-  if (input) {
-    input.value = cantidadMaxima;
-  }
-
-  const modal = bootstrap.Modal.getInstance(
-    document.getElementById("modalJustificacionExtra")
-  );
-  modal.hide();
-
-  delete window.pedidoExtraTemp;
-
-  alert("Pedido fuera de presupuesto agregado. Requiere aprobación.");
-}
