@@ -76,6 +76,9 @@
                                 <button class="btn btn-primary" onclick="mostrarModalNuevoItem()" id="btnAgregarExtra" disabled>
                                     <i class="bi bi-plus-circle"></i> Agregar Material Extra
                                 </button>
+                                <button class="btn btn-info ms-2" onclick="abrirModalResumen()" id="btnVerResumen" disabled>
+                                    <i class="bi bi-file-earmark-text"></i> Ver Resumen
+                                </button>
                             </div>
                             <div class="col-md-4 text-end">
                                 <div class="input-group">
@@ -328,7 +331,54 @@
         </div>
     </div>
 
+<!-- Modal de Resumen de Materiales -->
+<div class="modal fade" id="modalResumen" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-file-earmark-text"></i> Resumen de Materiales</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <div class="col-md-3"><div class="card bg-light"><div class="card-body text-center"><h6 class="text-muted">Total Items</h6><h3 id="resumenTotalItems">0</h3></div></div></div>
+                    <div class="col-md-3"><div class="card bg-primary text-white"><div class="card-body text-center"><h6 class="text-white">Total Componentes</h6><h3 id="resumenTotalComponentes">0</h3></div></div></div>
+                    <div class="col-md-3"><div class="card bg-success text-white"><div class="card-body text-center"><h6 class="text-white">Completados</h6><h3 id="resumenCompletados">0</h3></div></div></div>
+                    <div class="col-md-3"><div class="card bg-info text-white"><div class="card-body text-center"><h6 class="text-white">Valor Total</h6><h3 id="resumenValorTotal">$0</h3></div></div></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-primary">
+                            <tr>
+                                <th>Componente</th>
+                                <th class="text-center">Tipo</th>
+                                <th class="text-center">Unidad</th>
+                                <th class="text-end">Cant. Total</th>
+                                <th class="text-end">Ya Pedido</th>
+                                <th class="text-end">Pedido Actual</th>
+                                <th class="text-end">Pendiente</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaResumenUnificada">
+                            <tr><td colspan="9" class="text-center text-muted">No hay datos para mostrar</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" onclick="exportarResumenAExcel()"><i class="bi bi-file-earmark-excel"></i> Exportar a Excel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="pedidoView.js"></script>
     <script>
         const API_PRESUPUESTOS = '/workspace/constructora-app/src/Presupuesto/Interfaces/PresupuestoController.php';
     </script>

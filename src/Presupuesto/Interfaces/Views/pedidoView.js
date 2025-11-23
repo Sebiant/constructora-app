@@ -1152,6 +1152,10 @@ async function cargarItems() {
         "currentSelectionInfo"
       ).textContent = `${proyecto.nombre} - ${seleccionActual.presupuesto}`;
       document.getElementById("btnAgregarExtra").disabled = false;
+      const btnResumen = document.getElementById("btnVerResumen");
+      if (btnResumen) {
+        btnResumen.disabled = false;
+      }
       document.getElementById("filterCapitulo").disabled = false;
 
       mostrarItemsConComponentes(items);
@@ -1859,6 +1863,10 @@ function resetarGestion() {
   document.getElementById("currentSelectionInfo").textContent =
     "Seleccione un proyecto y presupuesto para comenzar";
   document.getElementById("btnAgregarExtra").disabled = true;
+  const btnResumen = document.getElementById("btnVerResumen");
+  if (btnResumen) {
+    btnResumen.disabled = true;
+  }
   document.getElementById("btnConfirmarPedido").disabled = true;
   document.getElementById("filterCapitulo").disabled = true;
   document.getElementById("cardCarrito").style.display = "none";
@@ -2404,4 +2412,270 @@ function actualizarCantidadComponenteAgrupado(input) {
 }
 
 
+// ==============================================
+// FUNCIONES PARA RESUMEN Y EXPORTACIÓN
+// ==============================================
 
+/**
+ * Abre el modal de resumen con vista unificada de materiales
+ */
+function abrirModalResumen() {
+  const datosResumen = generarDatosResumen();
+
+  // Actualizar estadísticas generales
+  document.getElementById('resumenTotalItems').textContent = datosResumen.totalItems || 0;
+  document.getElementById('resumenTotalComponentes').textContent = datosResumen.totalComponentes || 0;
+  document.getElementById('resumenCompletados').textContent = datosResumen.componentesCompletados || 0;
+  document.getElementById('resumenValorTotal').textContent = `$${(datosResumen.valorTotal || 0).toLocaleString('es-CO')}`;
+
+  // Llenar tabla unificada
+  const tablaResumen = document.getElementById('tablaResumenUnificada');
+
+  if (datosResumen.componentesPorItem.length > 0) {
+    let html = '';
+
+    datosResumen.componentesPorItem.forEach((item, idx) => {
+      const detalleId = `desglose-resumen-${idx}`;
+
+      // Fila del item (colapsable)
+      html += `
+        <tr class="table-light cursor-pointer fw-bold" onclick="toggleDesglose('${detalleId}')" style="cursor: pointer;">
+          <td colspan="7">
+            <i class="bi bi-chevron-right me-2" id="icon-${detalleId}"></i>
+            <strong>${item.codigoItem}</strong> - ${item.nombreItem}
+          </td>
+          <td class="text-center">
+            <span class="badge ${item.porcentajeGlobal >= 100 ? 'bg-success' : item.porcentajeGlobal >= 70 ? 'bg-info' : item.porcentajeGlobal >= 30 ? 'bg-warning text-dark' : 'bg-danger'}">
+              ${item.porcentajeGlobal.toFixed(1)}%
+            </span>
+          </td>
+          <td class="text-end"><strong>$${item.valorTotal.toLocaleString('es-CO')}</strong></td>
+        </tr>
+      `;
+
+      // Filas de desglose (ocultas inicialmente)
+      item.componentes.forEach(comp => {
+        const porcentaje = comp.porcentaje;
+        let badgeClass, badgeText;
+
+        if (porcentaje >= 100) {
+          badgeClass = 'bg-success';
+          badgeText = '✓ Completo';
+        } else if (porcentaje >= 70) {
+          badgeClass = 'bg-info';
+          badgeText = `${porcentaje.toFixed(1)}%`;
+        } else if (porcentaje >= 30) {
+          badgeClass = 'bg-warning text-dark';
+          badgeText = `${porcentaje.toFixed(1)}%`;
+        } else if (porcentaje > 0) {
+          badgeClass = 'bg-danger';
+          badgeText = `${porcentaje.toFixed(1)}%`;
+        } else {
+          badgeClass = 'bg-secondary';
+          badgeText = 'Sin pedir';
+        }
+
+        html += `
+          <tr id="${detalleId}" class="desglose-row" style="display: none;">
+            <td class="ps-5">${comp.nombre}</td>
+            <td class="text-center">
+              <span class="badge bg-secondary">${comp.tipo}</span>
+            </td>
+            <td class="text-center">${comp.unidad}</td>
+            <td class="text-end">${comp.cantidadTotal.toFixed(4)}</td>
+            <td class="text-end text-primary">${comp.yaPedido.toFixed(4)}</td>
+            <td class="text-end text-success"><strong>${comp.pedidoActual.toFixed(4)}</strong></td>
+            <td class="text-end text-warning">${comp.pendiente.toFixed(4)}</td>
+            <td class="text-center">
+              <span class="badge ${badgeClass}">${badgeText}</span>
+            </td>
+            <td class="text-end">$${comp.subtotal.toLocaleString('es-CO')}</td>
+          </tr>
+        `;
+      });
+    });
+
+    tablaResumen.innerHTML = html;
+  } else {
+    tablaResumen.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No hay datos para mostrar</td></tr>';
+  }
+
+  // Abrir modal
+  const modal = new bootstrap.Modal(document.getElementById('modalResumen'));
+  modal.show();
+}
+
+// Función auxiliar para toggle de desglose
+function toggleDesglose(detalleId) {
+  const rows = document.querySelectorAll(`tr[id="${detalleId}"]`);
+  const icon = document.getElementById(`icon-${detalleId}`);
+
+  rows.forEach(row => {
+    if (row.style.display === 'none') {
+      row.style.display = '';
+      if (icon) icon.className = 'bi bi-chevron-down me-2';
+    } else {
+      row.style.display = 'none';
+      if (icon) icon.className = 'bi bi-chevron-right me-2';
+    }
+  });
+}
+
+/**
+ * Genera los datos para el resumen unificado de materiales
+ * @returns {Object} Datos estructurados para el resumen
+ */
+function generarDatosResumen() {
+  const componentesPorItem = new Map();
+  let valorTotalGlobal = 0;
+  let totalComponentesContados = 0;
+  let componentesCompletados = 0;
+
+  if (!itemsData.componentesAgrupados) {
+    return {
+      totalItems: 0,
+      totalComponentes: 0,
+      componentesCompletados: 0,
+      valorTotal: 0,
+      componentesPorItem: []
+    };
+  }
+
+  // Agrupar todos los componentes por item
+  itemsData.componentesAgrupados.forEach(componente => {
+    if (!componente.items_que_usan || !Array.isArray(componente.items_que_usan)) {
+      return;
+    }
+
+    componente.items_que_usan.forEach(item => {
+      const cantidadTotal = parseFloat(item.cantidad_componente) || 0;
+      const yaPedido = parseFloat(item.ya_pedido_item) || 0;
+      const pedidoActual = parseFloat(item.pedido_actual) || 0;
+      const pendiente = Math.max(0, cantidadTotal - yaPedido - pedidoActual);
+      const precioUnitario = parseFloat(componente.precio_unitario) || 0;
+
+      const porcentaje = cantidadTotal > 0 ? ((yaPedido + pedidoActual) / cantidadTotal) * 100 : 0;
+      const subtotal = (yaPedido + pedidoActual) * precioUnitario;
+
+      const itemKey = item.codigo_item;
+
+      if (!componentesPorItem.has(itemKey)) {
+        componentesPorItem.set(itemKey, {
+          codigoItem: item.codigo_item,
+          nombreItem: item.nombre_item,
+          capitulo: item.nombre_capitulo || 'N/A',
+          componentes: [],
+          valorTotal: 0,
+          cantidadTotalGlobal: 0,
+          cantidadCompletadaGlobal: 0,
+          porcentajeGlobal: 0
+        });
+      }
+
+      const itemData = componentesPorItem.get(itemKey);
+
+      itemData.componentes.push({
+        nombre: componente.nombre_componente,
+        tipo: componente.tipo_componente,
+        unidad: componente.unidad_componente || 'UND',
+        cantidadTotal: cantidadTotal,
+        yaPedido: yaPedido,
+        pedidoActual: pedidoActual,
+        pendiente: pendiente,
+        porcentaje: porcentaje,
+        precioUnitario: precioUnitario,
+        subtotal: subtotal
+      });
+
+      itemData.valorTotal += subtotal;
+      itemData.cantidadTotalGlobal += cantidadTotal;
+      itemData.cantidadCompletadaGlobal += (yaPedido + pedidoActual);
+
+      valorTotalGlobal += subtotal;
+      totalComponentesContados++;
+
+      if (porcentaje >= 100) {
+        componentesCompletados++;
+      }
+    });
+  });
+
+  // Calcular porcentaje global para cada item
+  componentesPorItem.forEach(itemData => {
+    itemData.porcentajeGlobal = itemData.cantidadTotalGlobal > 0
+      ? (itemData.cantidadCompletadaGlobal / itemData.cantidadTotalGlobal) * 100
+      : 0;
+  });
+
+  return {
+    totalItems: componentesPorItem.size,
+    totalComponentes: totalComponentesContados,
+    componentesCompletados: componentesCompletados,
+    valorTotal: valorTotalGlobal,
+    componentesPorItem: Array.from(componentesPorItem.values())
+  };
+}
+
+/**
+ * Exporta el resumen unificado a un archivo Excel
+ */
+function exportarResumenAExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert('La librería XLSX no está disponible. No se puede generar el archivo Excel.');
+    return;
+  }
+
+  const datosResumen = generarDatosResumen();
+
+  // Crear libro de trabajo
+  const wb = XLSX.utils.book_new();
+
+  // === HOJA 1: Resumen General ===
+  const wsResumenData = [
+    ['RESUMEN GENERAL DE MATERIALES'],
+    [''],
+    ['Total de Items:', datosResumen.totalItems],
+    ['Total de Componentes:', datosResumen.totalComponentes],
+    ['Componentes Completados:', datosResumen.componentesCompletados],
+    ['Valor Total:', `$${datosResumen.valorTotal.toLocaleString('es-CO')}`],
+    [''],
+    ['Fecha de Generación:', new Date().toLocaleString('es-CO')]
+  ];
+  const wsResumen = XLSX.utils.aoa_to_sheet(wsResumenData);
+  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen General');
+
+  // === HOJA 2: Materiales Detallados ===
+  const wsMaterialesData = [
+    ['RESUMEN DETALLADO DE MATERIALES'],
+    [''],
+    ['Código Item', 'Nombre del Item', 'Capítulo', 'Componente', 'Tipo', 'Unidad', 'Cant. Total', 'Ya Pedido', 'Pedido Actual', 'Pendiente', '% Completado', 'Precio Unit.', 'Subtotal']
+  ];
+
+  datosResumen.componentesPorItem.forEach(item => {
+    item.componentes.forEach(comp => {
+      wsMaterialesData.push([
+        item.codigoItem,
+        item.nombreItem,
+        item.capitulo,
+        comp.nombre,
+        comp.tipo,
+        comp.unidad,
+        comp.cantidadTotal,
+        comp.yaPedido,
+        comp.pedidoActual,
+        comp.pendiente,
+        `${comp.porcentaje.toFixed(1)}%`,
+        comp.precioUnitario,
+        comp.subtotal
+      ]);
+    });
+  });
+
+  const wsMateriales = XLSX.utils.aoa_to_sheet(wsMaterialesData);
+  XLSX.utils.book_append_sheet(wb, wsMateriales, 'Materiales Detallados');
+
+  // Generar archivo
+  const fecha = new Date().toISOString().split('T')[0];
+  const nombreArchivo = `Resumen_Materiales_${fecha}.xlsx`;
+  XLSX.writeFile(wb, nombreArchivo);
+}
