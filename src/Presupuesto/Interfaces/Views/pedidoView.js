@@ -2724,12 +2724,15 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
 
   // ENCABEZADOS DE COLUMNAS PRINCIPALES
   const encabezados = worksheet.getRow(filaActual);
+  const encabezadoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
   encabezados.values = ['CODIGO', 'CLASIF', 'DESCRIPCION', 'UND', 'CANT.', 'VR. UNIT.', 'VR. TOTAL'];
   encabezados.font = { bold: true, size: 10 };
-  encabezados.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
   encabezados.alignment = { horizontal: 'center', vertical: 'middle' };
   encabezados.height = 20;
-  encabezados.eachCell((cell) => { cell.border = borderCompleto(); });
+  encabezados.eachCell((cell) => {
+    cell.border = borderCompleto();
+    cell.fill = encabezadoFill;
+  });
   filaActual++;
 
   // LÍNEA VACÍA
@@ -2742,22 +2745,28 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
   if (componentesPorTipo.material.length > 0) {
     const totalMateriales = componentesPorTipo.material.reduce((sum, c) => sum + c.valorTotal, 0);
     const filaG1 = worksheet.getRow(filaActual);
+    const grupoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
     filaG1.values = ['G1', '', 'MATERIALES', '', '', '', totalMateriales];
     filaG1.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-    filaG1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
     filaG1.alignment = { horizontal: 'left', vertical: 'middle' };
     filaG1.height = 22;
-    filaG1.eachCell((cell) => { cell.border = borderCompleto(); });
+    filaG1.eachCell((cell) => {
+      cell.border = borderCompleto();
+      cell.fill = grupoFill;
+    });
     filaG1.getCell(7).numFmt = '#,##0.00';
     filaActual++;
 
     // Subencabezados
     const subEnc = worksheet.getRow(filaActual);
+    const subEncFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
     subEnc.values = ['CODIGO', 'CLASIF', 'DESCRIPCION', 'UND', 'CANT.', 'VR. UNIT.', 'VR. TOTAL'];
     subEnc.font = { bold: true, size: 9 };
-    subEnc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
     subEnc.alignment = { horizontal: 'center', vertical: 'middle' };
-    subEnc.eachCell((cell) => { cell.border = borderCompleto(); });
+    subEnc.eachCell((cell) => {
+      cell.border = borderCompleto();
+      cell.fill = subEncFill;
+    });
     filaActual++;
 
     // Items de materiales
@@ -2768,7 +2777,6 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
         comp.clasificacion,
         comp.descripcion,
         comp.unidad,
-        1,
         comp.cantidad,
         comp.precioUnitario,
         comp.valorTotal
@@ -2776,52 +2784,61 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
       fila.alignment = { horizontal: 'left', vertical: 'middle' };
       fila.eachCell((cell, colNum) => {
         cell.border = borderCompleto();
-        if (colNum >= 5) {
+        if (colNum >= 4) {
           cell.numFmt = '#,##0.0000';
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
         }
-        if (colNum === 7 || colNum === 8) {
+        if (colNum === 6) {
           cell.numFmt = '#,##0.00';
         }
       });
       filaActual++;
     });
 
-    filaActual++; // Línea vacía
-  }
-
   // MANO DE OBRA (G2)
   if (componentesPorTipo.mano_obra.length > 0) {
     const totalMO = componentesPorTipo.mano_obra.reduce((sum, c) => sum + c.valorTotal, 0);
     const filaG2 = worksheet.getRow(filaActual);
-    filaG2.values = ['G2', '', 'MANO DE OBRA', '', '', '', totalMO];
+    const grupoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
+    filaG2.values = ['', '', 'MANO DE OBRA', '', '', '', totalMO];
     filaG2.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-    filaG2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
     filaG2.alignment = { horizontal: 'left', vertical: 'middle' };
     filaG2.height = 22;
-    filaG2.eachCell((cell) => { cell.border = borderCompleto(); });
-    filaG2.getCell(7).numFmt = '#,##0.00';
+    filaG2.eachCell((cell, colNum) => {
+      cell.border = borderCompleto();
+      if (colNum <= 6) {
+        cell.fill = grupoFill;
+      }
+    });
+    filaG2.getCell(6).numFmt = '#,##0.00';
     filaActual++;
 
     const subEnc = worksheet.getRow(filaActual);
+    const subEncFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
     subEnc.values = ['CODIGO', 'CLASIF', 'DESCRIPCION', 'UND', 'CANT.', 'VR. UNIT.', 'VR. TOTAL'];
     subEnc.font = { bold: true, size: 9 };
-    subEnc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
     subEnc.alignment = { horizontal: 'center', vertical: 'middle' };
-    subEnc.eachCell((cell) => { cell.border = borderCompleto(); });
+    subEnc.eachCell((cell, colNum) => {
+      cell.border = borderCompleto();
+      if (colNum <= 6) {
+        cell.fill = subEncFill;
+      }
+    });
     filaActual++;
 
     componentesPorTipo.mano_obra.forEach(comp => {
       const fila = worksheet.getRow(filaActual);
-      fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, 1, comp.cantidad, comp.precioUnitario, comp.valorTotal];
+      fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, comp.cantidad, comp.precioUnitario, comp.valorTotal];
       fila.alignment = { horizontal: 'left', vertical: 'middle' };
       fila.eachCell((cell, colNum) => {
         cell.border = borderCompleto();
-        if (colNum >= 5) {
+        if (colNum >= 4) {
           cell.numFmt = '#,##0.0000';
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
         }
-        if (colNum === 7 || colNum === 8) cell.numFmt = '#,##0.00';
+        if (colNum === 6) {
+          cell.numFmt = '#,##0.00';
+        }
       });
       filaActual++;
     });
@@ -2832,34 +2849,46 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
   if (componentesPorTipo.equipo.length > 0) {
     const totalEq = componentesPorTipo.equipo.reduce((sum, c) => sum + c.valorTotal, 0);
     const filaG3 = worksheet.getRow(filaActual);
-    filaG3.values = ['G3', '', 'EQUIPO', '', '', '', totalEq];
+    const grupoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
+    filaG3.values = ['', '', 'EQUIPO', '', '', '', totalEq];
     filaG3.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-    filaG3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
     filaG3.alignment = { horizontal: 'left', vertical: 'middle' };
     filaG3.height = 22;
-    filaG3.eachCell((cell) => { cell.border = borderCompleto(); });
-    filaG3.getCell(7).numFmt = '#,##0.00';
+    filaG3.eachCell((cell, colNum) => {
+      cell.border = borderCompleto();
+      if (colNum <= 6) {
+        cell.fill = grupoFill;
+      }
+    });
+    filaG3.getCell(6).numFmt = '#,##0.00';
     filaActual++;
 
     const subEnc = worksheet.getRow(filaActual);
+    const subEncFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
     subEnc.values = ['CODIGO', 'CLASIF', 'DESCRIPCION', 'UND', 'CANT.', 'VR. UNIT.', 'VR. TOTAL'];
     subEnc.font = { bold: true, size: 9 };
-    subEnc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
     subEnc.alignment = { horizontal: 'center', vertical: 'middle' };
-    subEnc.eachCell((cell) => { cell.border = borderCompleto(); });
+    subEnc.eachCell((cell, colNum) => {
+      cell.border = borderCompleto();
+      if (colNum <= 6) {
+        cell.fill = subEncFill;
+      }
+    });
     filaActual++;
 
     componentesPorTipo.equipo.forEach(comp => {
       const fila = worksheet.getRow(filaActual);
-      fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, 1, comp.cantidad, comp.precioUnitario, comp.valorTotal];
+      fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, comp.cantidad, comp.precioUnitario, comp.valorTotal];
       fila.alignment = { horizontal: 'left', vertical: 'middle' };
       fila.eachCell((cell, colNum) => {
         cell.border = borderCompleto();
-        if (colNum >= 5) {
+        if (colNum >= 4) {
           cell.numFmt = '#,##0.0000';
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
         }
-        if (colNum === 7 || colNum === 8) cell.numFmt = '#,##0.00';
+        if (colNum === 6) {
+          cell.numFmt = '#,##0.00';
+        }
       });
       filaActual++;
     });
@@ -2870,34 +2899,44 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
   if (componentesPorTipo.transporte.length > 0) {
     const totalTr = componentesPorTipo.transporte.reduce((sum, c) => sum + c.valorTotal, 0);
     const filaG4 = worksheet.getRow(filaActual);
-    filaG4.values = ['G4', '', 'OTROS', '', '', '', totalTr];
+    const grupoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
+    filaG4.values = ['', '', 'OTROS', '', '', '', totalTr];
     filaG4.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-    filaG4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
     filaG4.alignment = { horizontal: 'left', vertical: 'middle' };
     filaG4.height = 22;
-    filaG4.eachCell((cell) => { cell.border = borderCompleto(); });
-    filaG4.getCell(7).numFmt = '#,##0.00';
+    filaG4.eachCell((cell, colNum) => {
+      cell.border = borderCompleto();
+      if (colNum <= 6) {
+        cell.fill = grupoFill;
+      }
+    });
+    filaG4.getCell(6).numFmt = '#,##0.00';
     filaActual++;
 
     const subEnc = worksheet.getRow(filaActual);
+    const subEncFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
     subEnc.values = ['CODIGO', 'CLASIF', 'DESCRIPCION', 'UND', 'CANT.', 'VR. UNIT.', 'VR. TOTAL'];
     subEnc.font = { bold: true, size: 9 };
-    subEnc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
     subEnc.alignment = { horizontal: 'center', vertical: 'middle' };
-    subEnc.eachCell((cell) => { cell.border = borderCompleto(); });
+    subEnc.eachCell((cell, colNum) => {
+      cell.border = borderCompleto();
+      if (colNum <= 6) {
+        cell.fill = subEncFill;
+      }
+    });
     filaActual++;
 
     componentesPorTipo.transporte.forEach(comp => {
       const fila = worksheet.getRow(filaActual);
-      fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, 1, comp.cantidad, comp.precioUnitario, comp.valorTotal];
+      fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, comp.cantidad, comp.precioUnitario, comp.valorTotal];
       fila.alignment = { horizontal: 'left', vertical: 'middle' };
       fila.eachCell((cell, colNum) => {
         cell.border = borderCompleto();
-        if (colNum >= 5) {
+        if (colNum >= 4) {
           cell.numFmt = '#,##0.0000';
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
         }
-        if (colNum === 7 || colNum === 8) cell.numFmt = '#,##0.00';
+        if (colNum === 6) cell.numFmt = '#,##0.00';
       });
       filaActual++;
     });
@@ -2907,12 +2946,15 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
   // TOTAL FINAL
   filaActual++;
   const filaTotal = worksheet.getRow(filaActual);
+  const totalFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
   filaTotal.values = ['', '', '', '', '', 'VALOR TOTAL INSUMOS', datosResumen.valorTotal];
   filaTotal.font = { bold: true, size: 11 };
-  filaTotal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
   filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
   filaTotal.height = 22;
-  filaTotal.eachCell((cell) => { cell.border = borderCompleto(); });
+  filaTotal.eachCell((cell) => {
+    cell.border = borderCompleto();
+    cell.fill = totalFill;
+  });
   filaTotal.getCell(7).numFmt = '#,##0.00';
 }
 
@@ -2977,16 +3019,19 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
 
   // ENCABEZADOS
   const encabezados = worksheet.getRow(filaActual);
+  const encabezadoDetalleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
   encabezados.values = [
     'Código Item', 'Nombre Item', 'Capítulo', 'Código Comp.', 'Componente',
     'Tipo', 'Unidad', 'Cant. Total', 'Ya Pedido', 'Pedido Actual',
     'Pendiente', '% Avance', 'Precio Unit.', 'Subtotal'
   ];
   encabezados.font = { bold: true, size: 10 };
-  encabezados.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
   encabezados.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
   encabezados.height = 30;
-  encabezados.eachCell((cell) => { cell.border = borderCompleto(); });
+  encabezados.eachCell((cell) => {
+    cell.border = borderCompleto();
+    cell.fill = encabezadoDetalleFill;
+  });
   filaActual++;
 
   // DATOS POR ITEM
@@ -3060,18 +3105,23 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
   // TOTALES
   filaActual++;
   const filaTotal = worksheet.getRow(filaActual);
+  const totalDetalleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
   filaTotal.values = ['', '', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', datosResumen.valorTotal];
   filaTotal.font = { bold: true, size: 11 };
-  filaTotal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
   filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
   filaTotal.height = 22;
   filaTotal.eachCell((cell) => {
     cell.border = borderCompleto();
+    cell.fill = totalDetalleFill;
     if (cell.col === 14) {
       cell.numFmt = '#,##0.00';
     }
   });
 }
+
+// Garantizar disponibilidad global para los generadores de hojas Excel
+window.generarHojaResumenInsumosExcel = generarHojaResumenInsumosExcel;
+window.generarHojaDetallePorItemsExcel = generarHojaDetallePorItemsExcel;
 
 /**
  * Función auxiliar para aplicar estilos a celdas
@@ -3201,4 +3251,5 @@ function hashCode(str) {
     hash = hash & hash;
   }
   return hash;
+}
 }
