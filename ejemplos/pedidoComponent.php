@@ -1,5 +1,5 @@
 <?php
-include $_SERVER['DOCUMENT_ROOT'] . '/workspace/constructora-app/src/Presupuesto/Interfaces/Views/pedidoView.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/src/Presupuesto/Interfaces/Views/pedidoView.php';
 ?>
 
-<script src="/workspace/constructora-app/src/Presupuesto/Interfaces/Views/pedidoView.js"></script>
+<script src="/sgigescomnew/src/Presupuesto/Interfaces/Views/pedidoView.js"></script>

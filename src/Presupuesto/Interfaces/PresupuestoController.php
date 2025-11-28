@@ -1160,39 +1160,66 @@ try {
             }
             break;
 
-        case 'getItemDetailsByCode':
-            try {
-                $codigoMaterial = $_GET['codigo_material'] ?? null;
+    case 'getItemDetailsByCode':
+        try {
+            $codigoMaterial = $_GET['codigo_material'] ?? null;
 
-                if (!$codigoMaterial) {
-                    throw new \Exception('Código de material requerido');
-                }
+            if (!$codigoMaterial) {
+                throw new \Exception('Código de material requerido');
+            }
 
-                // Buscar el ítem por código de material
-                $sqlItem = "SELECT
-                                i.id_item,
-                                i.codigo_item,
-                                i.nombre_item,
-                                i.unidad,
-                                i.descripcion,
-                                i.precio_unitario,
-                                'apu' as tipo
-                            FROM items i
-                            WHERE i.codigo_item = ? AND i.idestado = 1
-                            LIMIT 1";
-                
-                $stmt = $connection->prepare($sqlItem);
-                $stmt->execute([$codigoMaterial]);
-                $item = $stmt->fetch(\PDO::FETCH_ASSOC);
+            // Buscar el ítem por código de material
+            $sqlItem = "SELECT
+                            i.id_item,
+                            i.codigo_item,
+                            i.nombre_item,
+                            i.unidad,
+                            i.descripcion,
+                            i.precio_unitario,
+                            'apu' as tipo,
+                            CASE 
+                                WHEN EXISTS (
+                                    SELECT 1 FROM item_composicion ic 
+                                    WHERE ic.id_item_compuesto = i.id_item AND ic.idestado = 1
+                                ) THEN 1 
+                                ELSE 0 
+                            END as es_compuesto
+                        FROM items i
+                        WHERE i.codigo_item = ? AND i.idestado = 1
+                        LIMIT 1";
+            
+            $stmt = $connection->prepare($sqlItem);
+            $stmt->execute([$codigoMaterial]);
+            $item = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-                if (!$item) {
-                    throw new \Exception('Ítem no encontrado con código: ' . $codigoMaterial);
-                }
+            if (!$item) {
+                throw new \Exception('Item no encontrado con el código: ' . $codigoMaterial);
+            }
 
-                $idItem = $item['id_item'];
+            $idItem = $item['id_item'];
 
-                // Obtener componentes del ítem organizados por tipo
-                $sqlComponentes = "SELECT
+            // OBTENER ITEMS ANIDADOS
+            $sqlItemsAnidados = "SELECT
+                                    i2.id_item,
+                                    i2.codigo_item,
+                                    i2.nombre_item,
+                                    i2.unidad,
+                                    icomp.cantidad,
+                                    icomp.es_referencia,
+                                    i2.precio_unitario
+                                FROM item_composicion icomp
+                                INNER JOIN items i2 ON icomp.id_item_componente = i2.id_item
+                                WHERE icomp.id_item_compuesto = ? 
+                                AND icomp.idestado = 1
+                                AND i2.idestado = 1
+                                ORDER BY icomp.orden, i2.codigo_item";
+
+            $stmt = $connection->prepare($sqlItemsAnidados);
+            $stmt->execute([$idItem]);
+            $itemsAnidados = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            // Obtener componentes del ítem organizados por tipo
+            $sqlComponentes = "SELECT
                                     ic.id_componente,
                                     ic.tipo_componente,
                                     ic.descripcion,
@@ -1212,61 +1239,81 @@ try {
                                 ORDER BY 
                                     FIELD(ic.tipo_componente, 'material', 'mano_obra', 'equipo', 'transporte', 'otro'),
                                     ic.id_componente";
-                
-                $stmt = $connection->prepare($sqlComponentes);
-                $stmt->execute([$idItem]);
-                $componentes = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-
-                // Calcular totales por tipo de componente
-                $totalesPorTipo = [
-                    'material' => ['total' => 0, 'items' => []],
-                    'mano_obra' => ['total' => 0, 'items' => []],
-                    'equipo' => ['total' => 0, 'items' => []],
-                    'transporte' => ['total' => 0, 'items' => []],
-                    'otro' => ['total' => 0, 'items' => []]
-                ];
-
-                // Organizar componentes por tipo y calcular subtotales
-                foreach ($componentes as $comp) {
-                    $tipo = $comp['tipo_componente'];
-                    $subtotal = (float)$comp['subtotal'];
-                    
-                    if (isset($totalesPorTipo[$tipo])) {
-                        $totalesPorTipo[$tipo]['total'] += $subtotal;
-                        $totalesPorTipo[$tipo]['items'][] = $comp;
-                    } else {
-                        $totalesPorTipo['otro']['total'] += $subtotal;
-                        $totalesPorTipo['otro']['items'][] = $comp;
-                    }
-                }
-
-                // Calcular total general
-                $totalGeneral = array_sum(array_column(array_column($totalesPorTipo, 'total'), 'total'));
-
-                echo json_encode([
-                    'success' => true,
-                    'data' => [
-                        'item' => $item,
-                        'componentes_organizados' => $totalesPorTipo,
-                        'componentes_lista' => $componentes, // Lista plana por si la necesitas
-                        'total_general' => $totalGeneral,
-                        'resumen_totales' => [
-                            'material' => $totalesPorTipo['material']['total'],
-                            'mano_obra' => $totalesPorTipo['mano_obra']['total'],
-                            'equipo' => $totalesPorTipo['equipo']['total'],
-                            'transporte' => $totalesPorTipo['transporte']['total'],
-                            'otro' => $totalesPorTipo['otro']['total']
-                        ]
-                    ]
-                ]);
-
-            } catch (\Exception $e) {
-                echo json_encode([
-                    'success' => false,
-                    'error' => $e->getMessage()
-                ]);
+            
+            $stmt = $connection->prepare($sqlComponentes);
+            $stmt->execute([$idItem]);
+            $componentes = $stmt->fetchAll(\PDO::FETCH_ASSOC); 
+            // MEJORA: Si no hay componentes NI items anidados pero el item tiene precio, crear componente sintético
+            if (empty($componentes) && empty($itemsAnidados) && $item['precio_unitario'] > 0) {
+                // Este es un item simple (material directo) sin descomposición
+                $componentes = [[
+                    'id_componente' => 0,
+                    'tipo_componente' => 'material',
+                    'descripcion' => $item['nombre_item'] . ' (Material directo)',
+                    'unidad' => $item['unidad'],
+                    'cantidad' => 1.0000,
+                    'precio_unitario' => $item['precio_unitario'],
+                    'subtotal' => $item['precio_unitario'],
+                    'codigo_componente' => $item['codigo_item'],
+                    'nombre_material' => $item['nombre_item'],
+                    'unidad_material' => null,
+                    'tipo_material_desc' => 'Material Directo',
+                    'id_material' => null,
+                    'es_sintetico' => true
+                ]];
             }
-            break;
+
+            // Calcular totales por tipo de componente
+            $totalesPorTipo = [
+                'material' => ['total' => 0, 'items' => []],
+                'mano_obra' => ['total' => 0, 'items' => []],
+                'equipo' => ['total' => 0, 'items' => []],
+                'transporte' => ['total' => 0, 'items' => []],
+                'otro' => ['total' => 0, 'items' => []]
+            ];
+
+            // Organizar componentes por tipo y calcular subtotales
+            foreach ($componentes as $comp) {
+                $tipo = $comp['tipo_componente'];
+                $subtotal = (float)$comp['subtotal'];
+                
+                if (isset($totalesPorTipo[$tipo])) {
+                    $totalesPorTipo[$tipo]['total'] += $subtotal;
+                    $totalesPorTipo[$tipo]['items'][] = $comp;
+                } else {
+                    $totalesPorTipo['otro']['total'] += $subtotal;
+                    $totalesPorTipo['otro']['items'][] = $comp;
+                }
+            }
+
+            // Calcular total general
+            $totalGeneral = array_sum(array_column(array_column($totalesPorTipo, 'total'), 'total'));
+
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'item' => $item,
+                    'componentes_organizados' => $totalesPorTipo,
+                    'componentes_lista' => $componentes,
+                    'items_anidados' => $itemsAnidados,
+                    'total_general' => $totalGeneral,
+                    'resumen_totales' => [
+                        'material' => $totalesPorTipo['material']['total'],
+                        'mano_obra' => $totalesPorTipo['mano_obra']['total'],
+                        'equipo' => $totalesPorTipo['equipo']['total'],
+                        'transporte' => $totalesPorTipo['transporte']['total'],
+                        'otro' => $totalesPorTipo['otro']['total']
+                    ]
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+        break;
 
     case 'getItemsByPresupuesto':
         try {

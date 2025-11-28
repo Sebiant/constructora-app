@@ -124,6 +124,6 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
 ?>
 
 <script>
-    const API_PRESUPUESTOS = '/workspace/constructora-app/src/Presupuesto/Interfaces/PresupuestoController.php';
-    console.log('Ruta API:', API_PRESUPUESTOS);
+    const API_PROYECTOS = '/sgigescomnew/src/Proyectos/Interfaces/ProyectoController.php';
+    console.log('Ruta API:', API_PROYECTOS);
 </script>

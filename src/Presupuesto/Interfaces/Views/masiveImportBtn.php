@@ -42,8 +42,8 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
           (<b>CAP</b>, <b>COD</b>, <b>Cantidad</b>...)
         </div>
 
-        <a href="/workspace/constructora-app/src/Presupuesto/Assets/formato_presupuesto_masivo.xlsx" 
-          download="formato_presupuesto_masivo.xlsx">
+        <a href="/sgigescomnew/src/Presupuesto/Interfaces/downloadExcelTemplate.php" 
+          class="btn btn-sm btn-outline-primary">
           <i class="bi bi-download me-1"></i> Descargar formato de Excel
         </a>
 
@@ -133,6 +133,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
   </div>
 </div>
 
+<!-- Modal Detalle del Ítem - ACTUALIZADO -->
 <div class="modal fade" id="modalItem" tabindex="-1">
   <div class="modal-dialog modal-xl">
     <div class="modal-content">
@@ -141,8 +142,9 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
+        <!-- Información básica del item -->
         <div class="row mb-3">
-          <div class="col-md-6">
+          <div class="col-md-4">
             <strong>Código:</strong> <span id="modalItemCodigo">-</span>
           </div>
           <div class="col-md-3">
@@ -151,26 +153,39 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
           <div class="col-md-3">
             <strong>Precio Unitario:</strong> <span id="modalItemPrecio">-</span>
           </div>
-        </div>
-        <div class="row mb-3">
-          <div class="col-12">
-            <strong>Descripción:</strong> 
-            <div id="modalItemDescripcion" class="border p-2 bg-light">-</div>
+          <div class="col-md-2">
+            <strong>Tipo:</strong> <span id="modalItemTipo">-</span>
           </div>
         </div>
         
-        <h6 class="mt-4 mb-3">Composición del Ítem (APU)</h6>
+        <div class="row mb-3">
+          <div class="col-12">
+            <strong>Descripción:</strong> 
+            <div id="modalItemDescripcion" class="border p-2 bg-light rounded">-</div>
+          </div>
+        </div>
+
+        <div id="modalItemCantidadInfo"></div>
+        
+        <!-- Sección para items anidados (solo visible si es compuesto) -->
+        <div id="modalItemAnidados" class="mb-3"></div>
+        
+        <!-- Composición del Ítem -->
+        <h6 class="mt-4 mb-3 border-bottom pb-2">Composición del Ítem (APU)</h6>
         <div class="table-responsive">
           <table class="table table-bordered table-sm" id="modalTablaComponentes">
             <thead class="table-dark">
               <tr>
-                <th width="5%">#</th>
-                <th width="15%">Tipo</th>
-                <th width="35%">Descripción / Material</th>
-                <th width="10%">Unidad</th>
-                <th width="10%">Cantidad</th>
-                <th width="12%">Precio Unit.</th>
-                <th width="13%">Subtotal</th>
+                <th width="4%">#</th>
+                <th width="10%">Tipo</th>
+                <th width="25%">Descripción / Material</th>
+                <th width="7%">Unidad</th>
+                <th width="8%">Cantidad</th>
+                <th width="10%">Precio Unit.</th>
+                <th width="10%">Subtotal</th>
+                <th width="10%">Cant. Total</th>
+                <th width="10%">Valor Total</th>
+                <th width="6%">Acción</th>
               </tr>
             </thead>
             <tbody>
@@ -186,11 +201,10 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
   </div>
 </div>
 
-
 <?php
 include_once __DIR__ . '/../../../Shared/Components/footer.php';
 ?>
 
 <script>
-    const API_PRESUPUESTOS = '/workspace/constructora-app/src/Presupuesto/Interfaces/PresupuestoController.php';
+    const API_PRESUPUESTOS = '/sgigescomnew/src/Presupuesto/Interfaces/PresupuestoController.php';
 </script>

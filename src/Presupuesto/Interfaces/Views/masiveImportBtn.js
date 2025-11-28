@@ -555,8 +555,7 @@ function importarExcel() {
     success: function (data) {
       if (!data.ok) {
         $("#mensajeResultado").html(
-          `<div class="alert alert-danger">Error: ${
-            data.error || "No se pudo procesar el archivo."
+          `<div class="alert alert-danger">Error: ${data.error || "No se pudo procesar el archivo."
           }</div>`
         );
         $("#resumenImportacion").fadeIn();
@@ -735,7 +734,7 @@ function mostrarListaPresupuestosEnConsola() {
   console.log(`Total items: ${listaPresupuestos.length}`);
 }
 
-function cargarInfoItemPorCodigo(codigoMaterial) {
+function cargarInfoItemPorCodigo(codigoMaterial, cantidadPresupuesto = 1) {
   if (!codigoMaterial) return;
 
   const url =
@@ -752,19 +751,106 @@ function cargarInfoItemPorCodigo(codigoMaterial) {
         const item = res.data.item;
         const componentesOrganizados = res.data.componentes_organizados;
         const resumenTotales = res.data.resumen_totales;
+        const itemsAnidados = res.data.items_anidados || [];
 
         const totalGeneral = Object.values(resumenTotales).reduce(
           (sum, valor) => sum + valor,
           0
         );
 
-        $("#modalItemTitulo").text(item.nombre_item || "Detalle del Ítem");
+        const esCompuesto = item.es_compuesto || itemsAnidados.length > 0;
+        const badgeTipo = esCompuesto ?
+          '<span class="badge bg-warning text-dark">ITEM COMPUESTO</span>' :
+          '<span class="badge bg-info">ITEM SIMPLE</span>';
+
+        // Información de cantidades
+        const infoCantidadHtml = `
+          <div class="alert alert-info mt-3">
+            <h6 class="alert-heading"><i class="bi bi-info-circle"></i> Información de Cantidades</h6>
+            <div class="row mt-2">
+              <div class="col-md-4">
+                <strong>Cantidad en Presupuesto:</strong><br>
+                ${formatNumber(cantidadPresupuesto)} ${item.unidad || ''}
+              </div>
+              <div class="col-md-4">
+                <strong>Precio Unitario:</strong><br>
+                ${formatCurrency(item.precio_unitario || 0)}
+              </div>
+              <div class="col-md-4">
+                <strong>Total Item en Presupuesto:</strong><br>
+                ${formatCurrency((item.precio_unitario || 0) * cantidadPresupuesto)}
+              </div>
+            </div>
+            <div class="row mt-2">
+              <div class="col-12">
+                <small class="text-muted">
+                  <i class="bi bi-lightbulb"></i> 
+                  La tabla muestra la composición para <strong>1 unidad</strong>.<br>
+                  Los totales reflejan el costo para ${formatNumber(cantidadPresupuesto)} unidades.
+                </small>
+              </div>
+            </div>
+          </div>
+        `;
+
+        $("#modalItemTitulo").html(`${item.nombre_item || "Detalle del Ítem"} ${badgeTipo}`);
         $("#modalItemCodigo").text(item.codigo_item || codigoMaterial);
         $("#modalItemUnidad").text(item.unidad || "");
         $("#modalItemPrecio").text(formatCurrency(item.precio_unitario || 0));
         $("#modalItemDescripcion").text(item.descripcion || "Sin descripción");
 
+        $("#modalItemAnidados").html(infoCantidadHtml);
+
         let htmlComp = "";
+
+        // Agregar items anidados primero si existen
+        if (esCompuesto && itemsAnidados.length > 0) {
+          htmlComp += `
+            <tr class="table-warning">
+              <td colspan="10" class="fw-bold">
+                <i class="bi bi-box" style="margin-right: 5px;"></i>ITEMS COMPONEN ESTE APU
+              </td>
+            </tr>
+          `;
+
+          itemsAnidados.forEach((anidado, idx) => {
+            const cantidadTotal = parseFloat(anidado.cantidad) * cantidadPresupuesto;
+            const valorTotal = parseFloat(anidado.precio_unitario || 0) * cantidadTotal;
+
+            htmlComp += `
+              <tr class="table-light">
+                <td class="text-center">${idx + 1}</td>
+                <td><span class="badge bg-warning text-dark">ITEM</span></td>
+                <td>
+                  <strong>${anidado.codigo_item}</strong> - ${anidado.nombre_item}
+                </td>
+                <td class="text-center">${anidado.unidad}</td>
+                <td class="text-end">${parseFloat(anidado.cantidad).toFixed(4)}</td>
+                <td class="text-end">${formatCurrency(parseFloat(anidado.precio_unitario || 0))}</td>
+                <td class="text-end fw-bold">${formatCurrency(parseFloat(anidado.precio_unitario || 0) * parseFloat(anidado.cantidad))}</td>
+                <td class="text-end text-primary">${formatNumber(cantidadTotal)}</td>
+                <td class="text-end fw-bold text-success">${formatCurrency(valorTotal)}</td>
+                <td class="text-center">
+                  <button class="btn btn-sm btn-outline-primary btn-toggle-desglose" 
+                          data-codigo="${anidado.codigo_item}"
+                          data-nombre="${anidado.nombre_item}">
+                    <i class="bi bi-chevron-down"></i>
+                  </button>
+                </td>
+              </tr>
+              <tr id="desglose-${anidado.codigo_item}" class="collapse-desglose" style="display: none;">
+                <td colspan="10" class="p-0">
+                  <div class="desglose-content bg-light p-3" style="border-left: 3px solid #ffc107;">
+                    <div class="text-center text-muted">
+                      <span class="spinner-border spinner-border-sm" role="status"></span>
+                      Cargando desglose...
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            `;
+          });
+        }
 
         function renderizarSeccion(tipo, titulo) {
           const seccion = componentesOrganizados[tipo];
@@ -772,7 +858,7 @@ function cargarInfoItemPorCodigo(codigoMaterial) {
 
           let html = `
                         <tr class="table-info">
-                            <td colspan="7" class="fw-bold">
+                            <td colspan="10" class="fw-bold">
                                 ${titulo} - Total: ${formatCurrency(
             seccion.total
           )}
@@ -781,27 +867,50 @@ function cargarInfoItemPorCodigo(codigoMaterial) {
                     `;
 
           seccion.items.forEach((comp, idx) => {
+            let codigoComponente = comp.codigo_componente || '';
+
+            if (!codigoComponente && comp.id_componente) {
+              codigoComponente = `COMP-${comp.id_componente}`;
+            }
+
+            if (!codigoComponente && comp.descripcion) {
+              const match = comp.descripcion.match(/^([A-Z0-9-]+)/);
+              if (match) {
+                codigoComponente = match[1];
+              }
+            }
+
+            const codigoHtml = codigoComponente ?
+              `<br><small class="text-muted"><i class="bi bi-tag"></i> Código: <strong>${codigoComponente}</strong></small>` :
+              '';
+
+            const cantidadTotal = parseFloat(comp.cantidad) * cantidadPresupuesto;
+            const valorTotal = parseFloat(comp.subtotal) * cantidadPresupuesto;
+
             html += `
                             <tr>
                                 <td class="text-center">${idx + 1}</td>
                                 <td class="text-center">
                                     <span class="badge ${getBadgeClass(
-                                      comp.tipo_componente
-                                    )}">
+              comp.tipo_componente
+            )}">
                                         ${comp.tipo_componente}
                                     </span>
                                 </td>
-                                <td>${comp.descripcion}</td>
+                                <td>${comp.descripcion}${codigoHtml}</td>
                                 <td class="text-center">${comp.unidad}</td>
                                 <td class="text-end">${formatNumber(
-                                  parseFloat(comp.cantidad)
-                                )}</td>
+              parseFloat(comp.cantidad)
+            )}</td>
                                 <td class="text-end">${formatCurrency(
-                                  parseFloat(comp.precio_unitario)
-                                )}</td>
+              parseFloat(comp.precio_unitario)
+            )}</td>
                                 <td class="text-end fw-bold">${formatCurrency(
-                                  parseFloat(comp.subtotal)
-                                )}</td>
+              parseFloat(comp.subtotal)
+            )}</td>
+                                <td class="text-end text-primary">${formatNumber(cantidadTotal)}</td>
+                                <td class="text-end fw-bold text-success">${formatCurrency(valorTotal)}</td>
+                                <td class="text-center">-</td>
                             </tr>
                         `;
           });
@@ -828,35 +937,39 @@ function cargarInfoItemPorCodigo(codigoMaterial) {
 
         htmlComp += `
                     <tr class="table-secondary">
-                        <td colspan="7" class="text-center fw-bold">RESUMEN DE COSTOS</td>
+                        <td colspan="10" class="text-center fw-bold">RESUMEN DE COSTOS</td>
                     </tr>
                     <tr>
-                        <td colspan="5" class="text-end fw-bold">Materiales:</td>
+                        <td colspan="7" class="text-end fw-bold">Materiales:</td>
                         <td colspan="2" class="text-end">${formatCurrency(
-                          resumenTotales.material
-                        )}</td>
+          resumenTotales.material
+        )}</td>
+                        <td></td>
                     </tr>
                     <tr>
-                        <td colspan="5" class="text-end fw-bold">Mano de Obra:</td>
+                        <td colspan="7" class="text-end fw-bold">Mano de Obra:</td>
                         <td colspan="2" class="text-end">${formatCurrency(
-                          resumenTotales.mano_obra
-                        )}</td>
+          resumenTotales.mano_obra
+        )}</td>
+                        <td></td>
                     </tr>
                     <tr>
-                        <td colspan="5" class="text-end fw-bold">Equipos:</td>
+                        <td colspan="7" class="text-end fw-bold">Equipos:</td>
                         <td colspan="2" class="text-end">${formatCurrency(
-                          resumenTotales.equipo
-                        )}</td>
+          resumenTotales.equipo
+        )}</td>
+                        <td></td>
                     </tr>
                 `;
 
         if (resumenTotales.transporte > 0) {
           htmlComp += `
                         <tr>
-                            <td colspan="5" class="text-end fw-bold">Transporte:</td>
+                            <td colspan="7" class="text-end fw-bold">Transporte:</td>
                             <td colspan="2" class="text-end">${formatCurrency(
-                              resumenTotales.transporte
-                            )}</td>
+            resumenTotales.transporte
+          )}</td>
+                            <td></td>
                         </tr>
                     `;
         }
@@ -864,20 +977,31 @@ function cargarInfoItemPorCodigo(codigoMaterial) {
         if (resumenTotales.otro > 0) {
           htmlComp += `
                         <tr>
-                            <td colspan="5" class="text-end fw-bold">Otros:</td>
+                            <td colspan="7" class="text-end fw-bold">Otros:</td>
                             <td colspan="2" class="text-end">${formatCurrency(
-                              resumenTotales.otro
-                            )}</td>
+            resumenTotales.otro
+          )}</td>
+                            <td></td>
                         </tr>
                     `;
         }
 
+        const totalGeneralPresupuesto = totalGeneral * cantidadPresupuesto;
+
         htmlComp += `
                     <tr class="table-success">
-                        <td colspan="5" class="text-end fw-bold fs-6">TOTAL GENERAL DEL ÍTEM:</td>
+                        <td colspan="7" class="text-end fw-bold fs-6">TOTAL GENERAL DEL ÍTEM:</td>
                         <td colspan="2" class="text-end fw-bold fs-6">${formatCurrency(
-                          totalGeneral
-                        )}</td>
+          totalGeneral
+        )}</td>
+                        <td></td>
+                    </tr>
+                    <tr class="table-primary">
+                        <td colspan="7" class="text-end fw-bold fs-6">TOTAL GENERAL EN PRESUPUESTO (×${formatNumber(cantidadPresupuesto)}):</td>
+                        <td colspan="2" class="text-end fw-bold fs-6">${formatCurrency(
+          totalGeneralPresupuesto
+        )}</td>
+                        <td></td>
                     </tr>
                 `;
 
@@ -886,7 +1010,7 @@ function cargarInfoItemPorCodigo(codigoMaterial) {
       } else {
         alert(
           "No se pudo obtener la información del ítem con código: " +
-            codigoMaterial
+          codigoMaterial
         );
       }
     },
@@ -902,8 +1026,146 @@ $(document).on("click", ".btn-ver-item", function () {
   const fila = listaPresupuestos[index];
 
   if (fila && fila.material_codigo) {
-    cargarInfoItemPorCodigo(fila.material_codigo);
+    cargarInfoItemPorCodigo(fila.material_codigo, parseFloat(fila.cantidad) || 1);
   } else {
     alert("No se encontró el código del material para mostrar detalles.");
+  }
+});
+
+// Event handler for toggling desglose (breakdown) for nested items
+$(document).on("click", ".btn-toggle-desglose", function () {
+  const btn = $(this);
+  const codigoItem = btn.data("codigo");
+  const nombreItem = btn.data("nombre");
+  const rowDesglose = $(`#desglose-${codigoItem}`);
+  const icon = btn.find("i");
+
+  if (!codigoItem) {
+    alert("No se pudo obtener el código del item.");
+    return;
+  }
+
+  // Toggle visibility
+  if (rowDesglose.is(":visible")) {
+    rowDesglose.slideUp(300);
+    icon.removeClass("bi-chevron-up").addClass("bi-chevron-down");
+    btn.html('<i class="bi bi-chevron-down"></i>');
+  } else {
+    // Si ya se cargó, solo mostrar
+    if (rowDesglose.data("loaded")) {
+      rowDesglose.slideDown(300);
+      icon.removeClass("bi-chevron-down").addClass("bi-chevron-up");
+      btn.html('<i class="bi bi-chevron-up"></i>');
+      return;
+    }
+
+    // Cargar el desglose por AJAX
+    const url = API_PRESUPUESTOS + "?action=getItemDetailsByCode&codigo_material=" + encodeURIComponent(codigoItem);
+
+    $.ajax({
+      url: url,
+      method: "GET",
+      dataType: "json",
+      success: function (res) {
+        if (res.success && res.data) {
+          const item = res.data.item;
+          const componentesOrganizados = res.data.componentes_organizados;
+          const resumenTotales = res.data.resumen_totales;
+
+          let htmlDesglose = `
+            <div class="bg-light p-3" style="border-left: 3px solid #ffc107;">
+              <h6 class="text-primary mb-3">
+                <i class="bi bi-diagram-3"></i> 
+                Composición de: ${item.nombre_item}
+              </h6>
+              <table class="table table-sm table-bordered mb-0">
+                <thead class="table-secondary">
+                  <tr>
+                    <th width="5%">#</th>
+                    <th width="10%">Tipo</th>
+                    <th width="35%">Descripción</th>
+                    <th width="10%">Unidad</th>
+                    <th width="10%">Cantidad</th>
+                    <th width="15%">Precio Unit.</th>
+                    <th width="15%">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+
+          function renderSeccionDesglose(tipo, titulo) {
+            const seccion = componentesOrganizados[tipo];
+            if (!seccion || seccion.items.length === 0) return "";
+
+            let html = `<tr class="table-info"><td colspan="7"><strong>${titulo}</strong> - Total: ${formatCurrency(seccion.total)}</td></tr>`;
+
+            seccion.items.forEach((comp, idx) => {
+              let codigoComponente = comp.codigo_componente || '';
+              if (!codigoComponente && comp.id_componente) codigoComponente = `COMP-${comp.id_componente}`;
+              if (!codigoComponente && comp.descripcion) {
+                const match = comp.descripcion.match(/^([A-Z0-9-]+)/);
+                if (match) codigoComponente = match[1];
+              }
+              const codigoHtml = codigoComponente ? `<br><small class="text-muted"><i class="bi bi-tag"></i> ${codigoComponente}</small>` : '';
+
+              html += `
+                <tr>
+                  <td class="text-center">${idx + 1}</td>
+                  <td><span class="badge ${getBadgeClassDesglose(comp.tipo_componente)}">${comp.tipo_componente}</span></td>
+                  <td>${comp.descripcion}${codigoHtml}</td>
+                  <td class="text-center">${comp.unidad}</td>
+                  <td class="text-end">${parseFloat(comp.cantidad).toFixed(4)}</td>
+                  <td class="text-end">${formatCurrency(parseFloat(comp.precio_unitario))}</td>
+                  <td class="text-end">${formatCurrency(parseFloat(comp.subtotal))}</td>
+                </tr>
+              `;
+            });
+
+            return html;
+          }
+
+          function getBadgeClassDesglose(tipo) {
+            const classes = {
+              material: "bg-primary",
+              mano_obra: "bg-success",
+              equipo: "bg-warning text-dark",
+              transporte: "bg-info",
+              otro: "bg-secondary",
+            };
+            return classes[tipo] || "bg-secondary";
+          }
+
+          htmlDesglose += renderSeccionDesglose("material", "MATERIALES");
+          htmlDesglose += renderSeccionDesglose("mano_obra", "MANO DE OBRA");
+          htmlDesglose += renderSeccionDesglose("equipo", "EQUIPOS Y HERRAMIENTAS");
+          htmlDesglose += renderSeccionDesglose("transporte", "TRANSPORTE");
+          htmlDesglose += renderSeccionDesglose("otro", "OTROS COSTOS");
+
+          const totalGeneral = Object.values(resumenTotales).reduce((sum, valor) => sum + valor, 0);
+
+          htmlDesglose += `
+                  <tr class="table-success">
+                    <td colspan="6" class="text-end fw-bold">TOTAL:</td>
+                    <td class="text-end fw-bold">${formatCurrency(totalGeneral)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          `;
+
+          rowDesglose.find(".desglose-content").html(htmlDesglose);
+          rowDesglose.data("loaded", true);
+          rowDesglose.slideDown(300);
+          icon.removeClass("bi-chevron-down").addClass("bi-chevron-up");
+          btn.html('<i class="bi bi-chevron-up"></i>');
+        } else {
+          alert("No se pudo cargar el desglose del item: " + nombreItem);
+        }
+      },
+      error: function (xhr, status, error) {
+        console.error("Error al cargar desglose:", error);
+        alert("Error al cargar el desglose: " + error);
+      }
+    });
   }
 });
