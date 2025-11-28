@@ -2617,72 +2617,51 @@ function generarDatosResumen() {
 }
 
 /**
- * Exporta el resumen unificado a un archivo Excel
+ * Exporta el resumen unificado a un archivo Excel con formato profesional usando ExcelJS
+ * REQUIERE: <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
  */
-function exportarResumenAExcel() {
-  if (typeof XLSX === 'undefined') {
-    alert('La librería XLSX no está disponible. No se puede generar el archivo Excel.');
+async function exportarResumenAExcel() {
+  if (typeof ExcelJS === 'undefined') {
+    alert('La librería ExcelJS no está disponible. Por favor, recargue la página.');
     return;
   }
 
-  const datosResumen = generarDatosResumen();
+  try {
+    const datosResumen = generarDatosResumen();
+    const workbook = new ExcelJS.Workbook();
 
-  // Crear libro de trabajo
-  const wb = XLSX.utils.book_new();
+    workbook.creator = 'Sistema de Gestión de Pedidos';
+    workbook.created = new Date();
 
-  // === HOJA 1: Resumen General ===
-  const wsResumenData = [
-    ['RESUMEN GENERAL DE MATERIALES'],
-    [''],
-    ['Total de Items:', datosResumen.totalItems],
-    ['Total de Componentes:', datosResumen.totalComponentes],
-    ['Componentes Completados:', datosResumen.componentesCompletados],
-    ['Valor Total:', `$${datosResumen.valorTotal.toLocaleString('es-CO')}`],
-    [''],
-    ['Fecha de Generación:', new Date().toLocaleString('es-CO')]
-  ];
-  const wsResumen = XLSX.utils.aoa_to_sheet(wsResumenData);
-  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen General');
+    // === HOJA 1: RESUMEN DE INSUMOS ===
+    await generarHojaResumenInsumosExcel(workbook, datosResumen);
 
-  // === HOJA 2: Materiales Detallados ===
-  const wsMaterialesData = [
-    ['RESUMEN DETALLADO DE MATERIALES'],
-    [''],
-    ['Código Item', 'Nombre del Item', 'Capítulo', 'Componente', 'Tipo', 'Unidad', 'Cant. Total', 'Ya Pedido', 'Pedido Actual', 'Pendiente', '% Completado', 'Precio Unit.', 'Subtotal']
-  ];
+    // === HOJA 2: DETALLE POR ITEMS ===
+    await generarHojaDetallePorItemsExcel(workbook, datosResumen);
 
-  datosResumen.componentesPorItem.forEach(item => {
-    item.componentes.forEach(comp => {
-      wsMaterialesData.push([
-        item.codigoItem,
-        item.nombreItem,
-        item.capitulo,
-        comp.nombre,
-        comp.tipo,
-        comp.unidad,
-        comp.cantidadTotal,
-        comp.yaPedido,
-        comp.pedidoActual,
-        comp.pendiente,
-        `${comp.porcentaje.toFixed(1)}%`,
-        comp.precioUnitario,
-        comp.subtotal
-      ]);
-    });
-  });
+    // Generar y descargar archivo
+    const fecha = new Date().toISOString().split('T')[0];
+    const nombreArchivo = `Resumen_Pedido_${seleccionActual?.presupuesto || 'Presupuesto'}_${fecha}.xlsx`;
 
-  const wsMateriales = XLSX.utils.aoa_to_sheet(wsMaterialesData);
-  XLSX.utils.book_append_sheet(wb, wsMateriales, 'Materiales Detallados');
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombreArchivo;
+    a.click();
+    window.URL.revokeObjectURL(url);
 
-  // Generar archivo
-  const fecha = new Date().toISOString().split('T')[0];
-  const nombreArchivo = `Resumen_Materiales_${fecha}.xlsx`;
-  XLSX.writeFile(wb, nombreArchivo);
+    console.log('✅ Archivo Excel generado exitosamente con formato profesional');
+  } catch (error) {
+    console.error('Error generando archivo Excel:', error);
+    alert('Error al generar el archivo Excel: ' + error.message);
+  }
 }
 
-// ============================================================================
-// FUNCIÓN 2: generarHojaResumenInsumosExcel (MODIFICADA - CORREGIR DESBORDAMIENTO)
-// ============================================================================
+/**
+ * Genera la hoja de RESUMEN DE INSUMOS con ExcelJS y estilos completos
+ */
 async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
   const worksheet = workbook.addWorksheet('Resumen de Insumos');
 
@@ -2759,7 +2738,7 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
   // Agrupar componentes por tipo
   const componentesPorTipo = agruparComponentesPorTipoParaExcel(datosResumen);
 
-  // MATERIALES (G1) - CORREGIDO: limitar border a columnas A-G
+  // MATERIALES (G1)
   if (componentesPorTipo.material.length > 0) {
     const totalMateriales = componentesPorTipo.material.reduce((sum, c) => sum + c.valorTotal, 0);
     const filaG1 = worksheet.getRow(filaActual);
@@ -2768,10 +2747,7 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
     filaG1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
     filaG1.alignment = { horizontal: 'left', vertical: 'middle' };
     filaG1.height = 22;
-    // CORREGIDO: Aplicar border solo a las columnas A-G (1-7)
-    for (let col = 1; col <= 7; col++) {
-      filaG1.getCell(col).border = borderCompleto();
-    }
+    filaG1.eachCell((cell) => { cell.border = borderCompleto(); });
     filaG1.getCell(7).numFmt = '#,##0.00';
     filaActual++;
 
@@ -2814,7 +2790,7 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
     filaActual++; // Línea vacía
   }
 
-  // MANO DE OBRA (G2) - CORREGIDO
+  // MANO DE OBRA (G2)
   if (componentesPorTipo.mano_obra.length > 0) {
     const totalMO = componentesPorTipo.mano_obra.reduce((sum, c) => sum + c.valorTotal, 0);
     const filaG2 = worksheet.getRow(filaActual);
@@ -2823,10 +2799,7 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
     filaG2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
     filaG2.alignment = { horizontal: 'left', vertical: 'middle' };
     filaG2.height = 22;
-    // CORREGIDO: Aplicar border solo a las columnas A-G (1-7)
-    for (let col = 1; col <= 7; col++) {
-      filaG2.getCell(col).border = borderCompleto();
-    }
+    filaG2.eachCell((cell) => { cell.border = borderCompleto(); });
     filaG2.getCell(7).numFmt = '#,##0.00';
     filaActual++;
 
@@ -2855,7 +2828,7 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
     filaActual++;
   }
 
-  // EQUIPO (G3) - CORREGIDO
+  // EQUIPO (G3)
   if (componentesPorTipo.equipo.length > 0) {
     const totalEq = componentesPorTipo.equipo.reduce((sum, c) => sum + c.valorTotal, 0);
     const filaG3 = worksheet.getRow(filaActual);
@@ -2864,10 +2837,7 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
     filaG3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
     filaG3.alignment = { horizontal: 'left', vertical: 'middle' };
     filaG3.height = 22;
-    // CORREGIDO: Aplicar border solo a las columnas A-G (1-7)
-    for (let col = 1; col <= 7; col++) {
-      filaG3.getCell(col).border = borderCompleto();
-    }
+    filaG3.eachCell((cell) => { cell.border = borderCompleto(); });
     filaG3.getCell(7).numFmt = '#,##0.00';
     filaActual++;
 
@@ -2896,7 +2866,7 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
     filaActual++;
   }
 
-  // OTROS/TRANSPORTE (G4) - CORREGIDO
+  // OTROS/TRANSPORTE (G4)
   if (componentesPorTipo.transporte.length > 0) {
     const totalTr = componentesPorTipo.transporte.reduce((sum, c) => sum + c.valorTotal, 0);
     const filaG4 = worksheet.getRow(filaActual);
@@ -2905,10 +2875,7 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
     filaG4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
     filaG4.alignment = { horizontal: 'left', vertical: 'middle' };
     filaG4.height = 22;
-    // CORREGIDO: Aplicar border solo a las columnas A-G (1-7)
-    for (let col = 1; col <= 7; col++) {
-      filaG4.getCell(col).border = borderCompleto();
-    }
+    filaG4.eachCell((cell) => { cell.border = borderCompleto(); });
     filaG4.getCell(7).numFmt = '#,##0.00';
     filaActual++;
 
@@ -2948,13 +2915,14 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
   filaTotal.eachCell((cell) => { cell.border = borderCompleto(); });
   filaTotal.getCell(7).numFmt = '#,##0.00';
 }
-// ============================================================================
-// FUNCIÓN 3: generarHojaDetallePorItemsExcel (MODIFICADA - EXCEDENTE + JUSTIFICACIÓN)
-// ============================================================================
+
+/**
+ * Genera la hoja de DETALLE POR ITEMS con ExcelJS
+ */
 async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
   const worksheet = workbook.addWorksheet('Detalle por Items');
 
-  // MODIFICADO: Agregar columna para justificación
+  // Configurar anchos de columna
   worksheet.columns = [
     { key: 'cod_item', width: 13 },
     { key: 'nom_item', width: 35 },
@@ -2965,18 +2933,17 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
     { key: 'unidad', width: 9 },
     { key: 'cant_total', width: 12 },
     { key: 'ya_pedido', width: 12 },
-    { key: 'excedente', width: 13 },        // CAMBIADO: pedido_actual -> excedente
+    { key: 'pedido_actual', width: 13 },
     { key: 'pendiente', width: 12 },
     { key: 'avance', width: 11 },
     { key: 'precio', width: 14 },
-    { key: 'subtotal', width: 16 },
-    { key: 'justificacion', width: 40 }     // NUEVO
+    { key: 'subtotal', width: 16 }
   ];
 
   let filaActual = 1;
 
-  // TÍTULO PRINCIPAL - MODIFICADO: Ahora son 15 columnas (A-O)
-  worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
+  // TÍTULO PRINCIPAL
+  worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
   const titulo = worksheet.getCell(`A${filaActual}`);
   titulo.value = 'DETALLE POR ITEMS DEL PRESUPUESTO';
   titulo.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -3008,12 +2975,12 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
   // LÍNEA VACÍA
   filaActual++;
 
-  // ENCABEZADOS - MODIFICADO: Cambiar "Pedido Actual" por "Excedente" y agregar "Justificación"
+  // ENCABEZADOS
   const encabezados = worksheet.getRow(filaActual);
   encabezados.values = [
     'Código Item', 'Nombre Item', 'Capítulo', 'Código Comp.', 'Componente',
-    'Tipo', 'Unidad', 'Cant. Total', 'Ya Pedido', 'Excedente',          // CAMBIADO
-    'Pendiente', '% Avance', 'Precio Unit.', 'Subtotal', 'Justificación'  // NUEVO
+    'Tipo', 'Unidad', 'Cant. Total', 'Ya Pedido', 'Pedido Actual',
+    'Pendiente', '% Avance', 'Precio Unit.', 'Subtotal'
   ];
   encabezados.font = { bold: true, size: 10 };
   encabezados.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
@@ -3033,35 +3000,33 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
           item.codigoItem,
           item.nombreItem,
           item.capitulo,
-          comp.codigo || '',           // MODIFICADO: Ahora muestra el código
+          comp.codigo || '',
           comp.nombre,
           obtenerNombreTipoComponente(comp.tipo),
           comp.unidad,
           comp.cantidadTotal,
           comp.yaPedido,
-          comp.excedente || 0,         // MODIFICADO: Muestra excedente en lugar de pedidoActual
+          comp.pedidoActual,
           comp.pendiente,
           comp.porcentaje / 100,
           comp.precioUnitario,
-          comp.subtotal,
-          comp.justificacion || ''     // NUEVO
+          comp.subtotal
         ];
       } else {
         // Filas adicionales
         fila.values = [
           '', '', '',
-          comp.codigo || '',           // MODIFICADO: Ahora muestra el código
+          comp.codigo || '',
           comp.nombre,
           obtenerNombreTipoComponente(comp.tipo),
           comp.unidad,
           comp.cantidadTotal,
           comp.yaPedido,
-          comp.excedente || 0,         // MODIFICADO
+          comp.pedidoActual,
           comp.pendiente,
           comp.porcentaje / 100,
           comp.precioUnitario,
-          comp.subtotal,
-          comp.justificacion || ''     // NUEVO
+          comp.subtotal
         ];
       }
 
@@ -3083,10 +3048,6 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
           cell.numFmt = '#,##0.00';
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
         }
-        if (colNum === 15) {
-          // Justificación 
-          cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
-        }
       });
 
       filaActual++;
@@ -3096,10 +3057,10 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
     filaActual++;
   });
 
-  // TOTALES - MODIFICADO: Ahora son 15 columnas
+  // TOTALES
   filaActual++;
   const filaTotal = worksheet.getRow(filaActual);
-  filaTotal.values = ['', '', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', datosResumen.valorTotal, ''];
+  filaTotal.values = ['', '', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', datosResumen.valorTotal];
   filaTotal.font = { bold: true, size: 11 };
   filaTotal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
   filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
@@ -3110,4 +3071,134 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
       cell.numFmt = '#,##0.00';
     }
   });
+}
+
+/**
+ * Función auxiliar para aplicar estilos a celdas
+ */
+function aplicarEstiloCelda(celda, font = {}, alignment = 'left') {
+  celda.font = { ...font };
+  celda.alignment = { horizontal: alignment, vertical: 'middle' };
+  celda.border = borderCompleto();
+}
+
+/**
+ * Genera bordes completos para celdas ExcelJS
+ */
+function borderCompleto() {
+  return {
+    top: { style: 'thin', color: { argb: 'FF000000' } },
+    bottom: { style: 'thin', color: { argb: 'FF000000' } },
+    left: { style: 'thin', color: { argb: 'FF000000' } },
+    right: { style: 'thin', color: { argb: 'FF000000' } }
+  };
+}
+
+/**
+ * Genera bordes ligeros para celdas ExcelJS
+ */
+function borderLigero() {
+  return {
+    top: { style: 'hair', color: { argb: 'FFCCCCCC' } },
+    bottom: { style: 'hair', color: { argb: 'FFCCCCCC' } },
+    left: { style: 'hair', color: { argb: 'FFCCCCCC' } },
+    right: { style: 'hair', color: { argb: 'FFCCCCCC' } }
+  };
+}
+function agruparComponentesPorTipoParaExcel(datosResumen) {
+  const grupos = {
+    material: [],
+    mano_obra: [],
+    equipo: [],
+    transporte: []
+  };
+
+  const componentesUnicos = new Map();
+
+  // Consolidar todos los componentes únicos con sus cantidades totales
+  datosResumen.componentesPorItem.forEach(item => {
+    item.componentes.forEach(comp => {
+      const clave = `${comp.nombre}_${comp.tipo}_${comp.unidad}`;
+
+      if (!componentesUnicos.has(clave)) {
+        componentesUnicos.set(clave, {
+          codigo: comp.codigo || generarCodigoComponente(comp),
+          clasificacion: comp.clasificacion || obtenerClasificacionPorTipo(comp.tipo),
+          descripcion: comp.nombre,
+          unidad: comp.unidad,
+          tipo: comp.tipo,
+          cantidad: 0,
+          precioUnitario: comp.precioUnitario,
+          valorTotal: 0
+        });
+      }
+
+      const existente = componentesUnicos.get(clave);
+      existente.cantidad += (comp.yaPedido + comp.pedidoActual);
+      existente.valorTotal += comp.subtotal;
+    });
+  });
+
+  // Distribuir en grupos por tipo
+  componentesUnicos.forEach(comp => {
+    let tipo = comp.tipo;
+    if (tipo === 'otro') tipo = 'transporte';
+
+    if (grupos[tipo]) {
+      grupos[tipo].push(comp);
+    } else {
+      grupos.transporte.push(comp);
+    }
+  });
+
+  // Ordenar cada grupo por código
+  Object.keys(grupos).forEach(key => {
+    grupos[key].sort((a, b) => a.codigo.localeCompare(b.codigo));
+  });
+
+  return grupos;
+}
+
+/**
+ * Genera un código para componentes sin código
+ */
+function generarCodigoComponente(comp) {
+  const prefijos = {
+    material: '100',
+    mano_obra: '200',
+    equipo: '300',
+    transporte: '440',
+    otro: '440'
+  };
+
+  const prefijo = prefijos[comp.tipo] || '100';
+  const hash = Math.abs(hashCode(comp.nombre)) % 1000;
+  return `${prefijo}${hash.toString().padStart(3, '0')}`;
+}
+
+/**
+ * Obtiene clasificación por tipo
+ */
+function obtenerClasificacionPorTipo(tipo) {
+  const clasificaciones = {
+    material: 'MATERIALES',
+    mano_obra: 'MANO DE OBRA',
+    equipo: 'EQUIPO',
+    transporte: 'TRANSPORTE',
+    otro: 'OTROS'
+  };
+  return clasificaciones[tipo] || 'OTROS';
+}
+
+/**
+ * Función hash simple para generar códigos
+ */
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash;
 }
