@@ -175,8 +175,7 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
                     i.codigo_item,
                     i.nombre_item,
                     i.unidad,
-                    i.descripcion,
-                    i.precio_unitario
+                    i.descripcion
                 FROM items i
                 WHERE i.idestado = 1
                 ORDER BY i.codigo_item";
@@ -311,9 +310,24 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
             if (isset($itemsMap[$codigoMaterial])) {
                 $itemData = $itemsMap[$codigoMaterial];
                 $nombreMaterial = $itemData['nombre_item'];
-                $precioUnitario = (float)$itemData['precio_unitario'];
                 $unidad = $itemData['unidad'];
                 $idItem = $itemData['id_item'];
+                
+                // Calcular precio desde componentes
+                $sqlPrecio = "SELECT SUM(
+                    CASE 
+                        WHEN ic.tipo_componente = 'material' 
+                        THEN ic.cantidad * ic.precio_unitario * (1 + (ic.porcentaje_desperdicio/100))
+                        ELSE ic.cantidad * ic.precio_unitario
+                    END
+                ) as precio_total
+                FROM item_componentes ic
+                WHERE ic.id_item = ? AND ic.idestado = 1";
+                
+                $stmtPrecio = $this->conn->prepare($sqlPrecio);
+                $stmtPrecio->execute([$idItem]);
+                $resultPrecio = $stmtPrecio->fetch(PDO::FETCH_ASSOC);
+                $precioUnitario = (float)($resultPrecio['precio_total'] ?? 0);
             }
 
             $valorTotal = $precioUnitario * (float)$cantidad;
@@ -456,8 +470,6 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
                     dp.id_capitulo,
                     c.nombre_cap,
                     dp.cantidad,
-                    i.precio_unitario,
-                    (dp.cantidad * i.precio_unitario) AS valor_total,
                     i.unidad
                 FROM det_presupuesto dp
                 INNER JOIN items i ON dp.id_item = i.id_item

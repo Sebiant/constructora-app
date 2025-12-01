@@ -1082,7 +1082,6 @@ try {
                                 i.nombre_item,
                                 i.unidad,
                                 i.descripcion,
-                                i.precio_unitario,
                                 'apu' as tipo
                             FROM items i
                             WHERE i.id_item = ? AND i.idestado = 1
@@ -1162,7 +1161,7 @@ try {
 
     case 'getItemDetailsByCode':
         try {
-            $codigoMaterial = $_GET['codigo_material'] ?? null;
+            $codigoMaterial = isset($_GET['codigo_material']) ? trim($_GET['codigo_material']) : null;
 
             if (!$codigoMaterial) {
                 throw new \Exception('Código de material requerido');
@@ -1175,7 +1174,6 @@ try {
                             i.nombre_item,
                             i.unidad,
                             i.descripcion,
-                            i.precio_unitario,
                             'apu' as tipo,
                             CASE 
                                 WHEN EXISTS (
@@ -1193,7 +1191,7 @@ try {
             $item = $stmt->fetch(\PDO::FETCH_ASSOC);
 
             if (!$item) {
-                throw new \Exception('Item no encontrado con el código: ' . $codigoMaterial);
+                throw new \Exception('Item no encontrado con el código: "' . $codigoMaterial . '" (len: ' . strlen($codigoMaterial) . ')');
             }
 
             $idItem = $item['id_item'];
@@ -1205,8 +1203,7 @@ try {
                                     i2.nombre_item,
                                     i2.unidad,
                                     icomp.cantidad,
-                                    icomp.es_referencia,
-                                    i2.precio_unitario
+                                    icomp.es_referencia
                                 FROM item_composicion icomp
                                 INNER JOIN items i2 ON icomp.id_item_componente = i2.id_item
                                 WHERE icomp.id_item_compuesto = ? 
@@ -1226,7 +1223,12 @@ try {
                                     ic.unidad,
                                     ic.cantidad,
                                     ic.precio_unitario,
-                                    (ic.cantidad * ic.precio_unitario) as subtotal,
+                                    ic.porcentaje_desperdicio,
+                                    CASE 
+                                        WHEN ic.tipo_componente = 'material' 
+                                        THEN ic.cantidad * ic.precio_unitario * (1 + (ic.porcentaje_desperdicio/100))
+                                        ELSE ic.cantidad * ic.precio_unitario
+                                    END as subtotal,
                                     m.cod_material,
                                     CAST(m.nombremat AS CHAR) AS nombre_material,
                                     u.unidesc as unidad_material,
@@ -1243,6 +1245,34 @@ try {
             $stmt = $connection->prepare($sqlComponentes);
             $stmt->execute([$idItem]);
             $componentes = $stmt->fetchAll(\PDO::FETCH_ASSOC); 
+
+            // Calcular precio_unitario del item desde sus componentes
+            $precioCalculado = 0;
+            foreach ($componentes as $comp) {
+                $precioCalculado += (float)$comp['subtotal'];
+            }
+            
+            // Asignar el precio calculado al item
+            $item['precio_unitario'] = $precioCalculado;
+
+            // Para items anidados, calcular su precio tambien
+            foreach ($itemsAnidados as &$anidado) {
+                $sqlPrecioAnidado = "SELECT SUM(
+                    CASE 
+                        WHEN ic.tipo_componente = 'material' 
+                        THEN ic.cantidad * ic.precio_unitario * (1 + (ic.porcentaje_desperdicio/100))
+                        ELSE ic.cantidad * ic.precio_unitario
+                    END
+                ) as precio_total
+                FROM item_componentes ic
+                WHERE ic.id_item = ? AND ic.idestado = 1";
+                
+                $stmtPrecio = $connection->prepare($sqlPrecioAnidado);
+                $stmtPrecio->execute([$anidado['id_item']]);
+                $resultPrecio = $stmtPrecio->fetch(\PDO::FETCH_ASSOC);
+                $anidado['precio_unitario'] = (float)($resultPrecio['precio_total'] ?? 0);
+            }
+            unset($anidado);
             // MEJORA: Si no hay componentes NI items anidados pero el item tiene precio, crear componente sintético
             if (empty($componentes) && empty($itemsAnidados) && $item['precio_unitario'] > 0) {
                 // Este es un item simple (material directo) sin descomposición
@@ -1331,11 +1361,9 @@ try {
                         i.codigo_item,
                         i.nombre_item,
                         i.unidad,
-                        i.precio_unitario,
                         dp.cantidad,
                         c.id_capitulo,
                         c.nombre_cap AS nombre_capitulo,
-                        (dp.cantidad * i.precio_unitario) as subtotal,
                         dp.cantidad as disponible
                     FROM det_presupuesto dp
                     INNER JOIN items i ON dp.id_item = i.id_item
@@ -1355,6 +1383,25 @@ try {
             $stmt = $connection->prepare($sql);
             $stmt->execute($params);
             $items = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            // Calcular precio para cada item desde componentes
+            foreach ($items as &$item) {
+                $sqlPrecio = "SELECT SUM(
+                    CASE 
+                        WHEN ic.tipo_componente = 'material' 
+                        THEN ic.cantidad * ic.precio_unitario * (1 + (ic.porcentaje_desperdicio/100))
+                        ELSE ic.cantidad * ic.precio_unitario
+                    END
+                ) as precio_total
+                FROM item_componentes ic
+                WHERE ic.id_item = ? AND ic.idestado = 1";
+                
+                $stmtPrecio = $connection->prepare($sqlPrecio);
+                $stmtPrecio->execute([$item['id_item']]);
+                $resultPrecio = $stmtPrecio->fetch(\PDO::FETCH_ASSOC);
+                $item['precio_unitario'] = (float)($resultPrecio['precio_total'] ?? 0);
+                $item['subtotal'] = $item['cantidad'] * $item['precio_unitario'];
+            }
             
             // Para cada item, obtener sus componentes
             foreach ($items as &$item) {
@@ -1365,7 +1412,12 @@ try {
                                     ic.unidad,
                                     ic.cantidad,
                                     ic.precio_unitario,
-                                    (ic.cantidad * ic.precio_unitario) as subtotal,
+                                    ic.porcentaje_desperdicio,
+                                    CASE 
+                                        WHEN ic.tipo_componente = 'material' 
+                                        THEN ic.cantidad * ic.precio_unitario * (1 + (ic.porcentaje_desperdicio/100))
+                                        ELSE ic.cantidad * ic.precio_unitario
+                                    END as subtotal,
                                     m.cod_material,
                                     CAST(m.nombremat AS CHAR) AS nombre_material,
                                     tm.desc_tipo as tipo_material_desc
@@ -1393,81 +1445,7 @@ try {
         }
         break;
 
-    case 'getItemsByPresupuesto':
-        try {
-            $presupuestoId = $_POST['presupuesto_id'] ?? null;
-            $capituloId = $_POST['capitulo_id'] ?? null;
-            
-            if (!$presupuestoId) {
-                throw new \Exception('ID de presupuesto requerido');
-            }
-            
-            $sql = "SELECT 
-                        dp.id_det_presupuesto,
-                        i.id_item,
-                        i.codigo_item,
-                        i.nombre_item,
-                        i.unidad,
-                        i.precio_unitario,
-                        dp.cantidad,
-                        c.id_capitulo,
-                        c.nombre_cap AS nombre_capitulo,
-                        (dp.cantidad * i.precio_unitario) as subtotal,
-                        dp.cantidad as disponible
-                    FROM det_presupuesto dp
-                    INNER JOIN items i ON dp.id_item = i.id_item
-                    INNER JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
-                    WHERE dp.id_presupuesto = ? 
-                    AND dp.idestado = 1";
-            
-            $params = [$presupuestoId];
-            
-            if ($capituloId) {
-                $sql .= " AND dp.id_capitulo = ?";
-                $params[] = $capituloId;
-            }
-            
-            $sql .= " ORDER BY c.id_capitulo, i.codigo_item";
-            
-            $stmt = $connection->prepare($sql);
-            $stmt->execute($params);
-            $items = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-            
-            foreach ($items as &$item) {
-                $sqlComponentes = "SELECT 
-                                    ic.id_componente,
-                                    ic.tipo_componente,
-                                    ic.descripcion,
-                                    ic.unidad,
-                                    ic.cantidad,
-                                    ic.precio_unitario,
-                                    (ic.cantidad * ic.precio_unitario) as subtotal,
-                                    m.cod_material,
-                                    CAST(m.nombremat AS CHAR) AS nombre_material,
-                                    tm.desc_tipo as tipo_material_desc
-                                FROM item_componentes ic
-                                LEFT JOIN materiales m ON ic.id_material = m.id_material
-                                LEFT JOIN tipo_material tm ON m.id_tipo_material = tm.id_tipo_material
-                                WHERE ic.id_item = ? AND ic.idestado = 1
-                                ORDER BY FIELD(ic.tipo_componente, 'material', 'mano_obra', 'equipo', 'transporte', 'otro')";
-                
-                $stmtComp = $connection->prepare($sqlComponentes);
-                $stmtComp->execute([$item['id_item']]);
-                $item['componentes'] = $stmtComp->fetchAll(\PDO::FETCH_ASSOC);
-            }
-            
-            echo json_encode([
-                'success' => true,
-                'data' => $items
-            ]);
-            
-        } catch (\Exception $e) {
-            echo json_encode([
-                'success' => false, 
-                'error' => $e->getMessage()
-            ]);
-        }
-        break;
+    
 
         case 'getDetallesComponentesPresupuesto':
             try {

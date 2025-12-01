@@ -827,6 +827,7 @@ function cargarInfoItemPorCodigo(codigoMaterial, cantidadPresupuesto = 1) {
                 <td class="text-center">${anidado.unidad}</td>
                 <td class="text-end">${parseFloat(anidado.cantidad).toFixed(4)}</td>
                 <td class="text-end">${formatCurrency(parseFloat(anidado.precio_unitario || 0))}</td>
+                <td class="text-center">-</td>
                 <td class="text-end fw-bold">${formatCurrency(parseFloat(anidado.precio_unitario || 0) * parseFloat(anidado.cantidad))}</td>
                 <td class="text-end text-primary">${formatNumber(cantidadTotal)}</td>
                 <td class="text-end fw-bold text-success">${formatCurrency(valorTotal)}</td>
@@ -905,9 +906,13 @@ function cargarInfoItemPorCodigo(codigoMaterial, cantidadPresupuesto = 1) {
                                 <td class="text-end">${formatCurrency(
               parseFloat(comp.precio_unitario)
             )}</td>
+                                <td class="text-end">${comp.tipo_componente === 'material'
+                ? formatNumber(parseFloat(comp.porcentaje_desperdicio || 0)) + '%'
+                : '-'
+              }</td>
                                 <td class="text-end fw-bold">${formatCurrency(
-              parseFloat(comp.subtotal)
-            )}</td>
+                parseFloat(comp.subtotal)
+              )}</td>
                                 <td class="text-end text-primary">${formatNumber(cantidadTotal)}</td>
                                 <td class="text-end fw-bold text-success">${formatCurrency(valorTotal)}</td>
                                 <td class="text-center">-</td>
@@ -1009,8 +1014,7 @@ function cargarInfoItemPorCodigo(codigoMaterial, cantidadPresupuesto = 1) {
         $("#modalItem").modal("show");
       } else {
         alert(
-          "No se pudo obtener la información del ítem con código: " +
-          codigoMaterial
+          "Error: " + (res.error || "No se pudo obtener la información del ítem con código: " + codigoMaterial)
         );
       }
     },
@@ -1083,10 +1087,11 @@ $(document).on("click", ".btn-toggle-desglose", function () {
                   <tr>
                     <th width="5%">#</th>
                     <th width="10%">Tipo</th>
-                    <th width="35%">Descripción</th>
-                    <th width="10%">Unidad</th>
+                    <th width="30%">Descripción</th>
+                    <th width="8%">Unidad</th>
                     <th width="10%">Cantidad</th>
-                    <th width="15%">Precio Unit.</th>
+                    <th width="12%">Precio Unit.</th>
+                    <th width="10%">% Desp.</th>
                     <th width="15%">Subtotal</th>
                   </tr>
                 </thead>
@@ -1097,7 +1102,7 @@ $(document).on("click", ".btn-toggle-desglose", function () {
             const seccion = componentesOrganizados[tipo];
             if (!seccion || seccion.items.length === 0) return "";
 
-            let html = `<tr class="table-info"><td colspan="7"><strong>${titulo}</strong> - Total: ${formatCurrency(seccion.total)}</td></tr>`;
+            let html = `<tr class="table-info"><td colspan="8"><strong>${titulo}</strong> - Total: ${formatCurrency(seccion.total)}</td></tr>`;
 
             seccion.items.forEach((comp, idx) => {
               let codigoComponente = comp.codigo_componente || '';
@@ -1116,6 +1121,10 @@ $(document).on("click", ".btn-toggle-desglose", function () {
                   <td class="text-center">${comp.unidad}</td>
                   <td class="text-end">${parseFloat(comp.cantidad).toFixed(4)}</td>
                   <td class="text-end">${formatCurrency(parseFloat(comp.precio_unitario))}</td>
+                  <td class="text-center">${comp.tipo_componente === 'material'
+                  ? formatNumber(parseFloat(comp.porcentaje_desperdicio || 0)) + '%'
+                  : '-'
+                }</td>
                   <td class="text-end">${formatCurrency(parseFloat(comp.subtotal))}</td>
                 </tr>
               `;
@@ -1145,7 +1154,7 @@ $(document).on("click", ".btn-toggle-desglose", function () {
 
           htmlDesglose += `
                   <tr class="table-success">
-                    <td colspan="6" class="text-end fw-bold">TOTAL:</td>
+                    <td colspan="7" class="text-end fw-bold">TOTAL:</td>
                     <td class="text-end fw-bold">${formatCurrency(totalGeneral)}</td>
                   </tr>
                 </tbody>

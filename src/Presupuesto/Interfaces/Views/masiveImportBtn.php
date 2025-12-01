@@ -182,6 +182,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                 <th width="7%">Unidad</th>
                 <th width="8%">Cantidad</th>
                 <th width="10%">Precio Unit.</th>
+                <th width="8%">% Desp.</th>
                 <th width="10%">Subtotal</th>
                 <th width="10%">Cant. Total</th>
                 <th width="10%">Valor Total</th>
