@@ -1,4 +1,4 @@
-let proyectosData = [];
+﻿let proyectosData = [];
 let itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
 let materialesExtra = [];
 let pedidosFueraPresupuesto = [];
@@ -2525,11 +2525,29 @@ function toggleDesglose(detalleId) {
  * Genera los datos para el resumen unificado de materiales
  * @returns {Object} Datos estructurados para el resumen
  */
-function generarDatosResumen() {
+function generarDatosResumen(excedentes = []) {
   const componentesPorItem = new Map();
   let valorTotalGlobal = 0;
   let totalComponentesContados = 0;
   let componentesCompletados = 0;
+
+  const excedentesMap = new Map();
+  if (Array.isArray(excedentes)) {
+    excedentes.forEach((extra) => {
+      const clave = `${extra.id_item || 'GLOBAL'}-${extra.id_componente}`;
+      const acumulado = excedentesMap.get(clave) || {
+        cantidad: 0,
+        justificaciones: []
+      };
+
+      acumulado.cantidad += parseFloat(extra.cantidad_extra) || 0;
+      if (extra.justificacion) {
+        acumulado.justificaciones.push(extra.justificacion.trim());
+      }
+
+      excedentesMap.set(clave, acumulado);
+    });
+  }
 
   if (!itemsData.componentesAgrupados) {
     return {
@@ -2541,7 +2559,6 @@ function generarDatosResumen() {
     };
   }
 
-  // Agrupar todos los componentes por item
   itemsData.componentesAgrupados.forEach(componente => {
     if (!componente.items_que_usan || !Array.isArray(componente.items_que_usan)) {
       return;
@@ -2556,6 +2573,12 @@ function generarDatosResumen() {
 
       const porcentaje = cantidadTotal > 0 ? ((yaPedido + pedidoActual) / cantidadTotal) * 100 : 0;
       const subtotal = (yaPedido + pedidoActual) * precioUnitario;
+
+      const excedenteClaveEspecifica = `${item.id_item || 'GLOBAL'}-${componente.id_componente}`;
+      const excedenteClaveGeneral = `GLOBAL-${componente.id_componente}`;
+      const excedenteInfo = excedentesMap.get(excedenteClaveEspecifica) || excedentesMap.get(excedenteClaveGeneral);
+      const cantidadExcedente = excedenteInfo?.cantidad || 0;
+      const justificacionExcedente = excedenteInfo?.justificaciones?.join(' | ') || '';
 
       const itemKey = item.codigo_item;
 
@@ -2581,6 +2604,8 @@ function generarDatosResumen() {
         cantidadTotal: cantidadTotal,
         yaPedido: yaPedido,
         pedidoActual: pedidoActual,
+        excedente: cantidadExcedente,
+        justificacion: justificacionExcedente,
         pendiente: pendiente,
         porcentaje: porcentaje,
         precioUnitario: precioUnitario,
@@ -2627,7 +2652,21 @@ async function exportarResumenAExcel() {
   }
 
   try {
-    const datosResumen = generarDatosResumen();
+    const presupuestoId = seleccionActual?.datos?.presupuestoId;
+    const historialPedidos = typeof obtenerHistorialPedidos === 'function'
+      ? await obtenerHistorialPedidos(presupuestoId)
+      : [];
+
+    const excedentesHistorial = typeof extraerExcedentesDesdeHistorial === 'function'
+      ? extraerExcedentesDesdeHistorial(historialPedidos)
+      : [];
+    const excedentesActuales = Array.isArray(pedidosFueraPresupuesto)
+      ? pedidosFueraPresupuesto
+      : [];
+    const datosResumen = generarDatosResumen([
+      ...excedentesActuales,
+      ...excedentesHistorial
+    ]);
     const workbook = new ExcelJS.Workbook();
 
     workbook.creator = 'Sistema de Gestión de Pedidos';
@@ -2638,6 +2677,9 @@ async function exportarResumenAExcel() {
 
     // === HOJA 2: DETALLE POR ITEMS ===
     await generarHojaDetallePorItemsExcel(workbook, datosResumen);
+
+    // === HOJA 3: HISTORIAL DE PEDIDOS ===
+    await generarHojaHistorialPedidosExcel(workbook, historialPedidos);
 
     // Generar y descargar archivo
     const fecha = new Date().toISOString().split('T')[0];
@@ -2795,346 +2837,601 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
       filaActual++;
     });
 
-  // MANO DE OBRA (G2)
-  if (componentesPorTipo.mano_obra.length > 0) {
-    const totalMO = componentesPorTipo.mano_obra.reduce((sum, c) => sum + c.valorTotal, 0);
-    const filaG2 = worksheet.getRow(filaActual);
-    const grupoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
-    filaG2.values = ['', '', 'MANO DE OBRA', '', '', '', totalMO];
-    filaG2.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-    filaG2.alignment = { horizontal: 'left', vertical: 'middle' };
-    filaG2.height = 22;
-    filaG2.eachCell((cell, colNum) => {
-      cell.border = borderCompleto();
-      if (colNum <= 6) {
-        cell.fill = grupoFill;
-      }
-    });
-    filaG2.getCell(6).numFmt = '#,##0.00';
-    filaActual++;
-
-    const subEnc = worksheet.getRow(filaActual);
-    const subEncFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-    subEnc.values = ['CODIGO', 'CLASIF', 'DESCRIPCION', 'UND', 'CANT.', 'VR. UNIT.', 'VR. TOTAL'];
-    subEnc.font = { bold: true, size: 9 };
-    subEnc.alignment = { horizontal: 'center', vertical: 'middle' };
-    subEnc.eachCell((cell, colNum) => {
-      cell.border = borderCompleto();
-      if (colNum <= 6) {
-        cell.fill = subEncFill;
-      }
-    });
-    filaActual++;
-
-    componentesPorTipo.mano_obra.forEach(comp => {
-      const fila = worksheet.getRow(filaActual);
-      fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, comp.cantidad, comp.precioUnitario, comp.valorTotal];
-      fila.alignment = { horizontal: 'left', vertical: 'middle' };
-      fila.eachCell((cell, colNum) => {
+    // MANO DE OBRA (G2)
+    if (componentesPorTipo.mano_obra.length > 0) {
+      const totalMO = componentesPorTipo.mano_obra.reduce((sum, c) => sum + c.valorTotal, 0);
+      const filaG2 = worksheet.getRow(filaActual);
+      const grupoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
+      filaG2.values = ['', '', 'MANO DE OBRA', '', '', '', totalMO];
+      filaG2.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+      filaG2.alignment = { horizontal: 'left', vertical: 'middle' };
+      filaG2.height = 22;
+      filaG2.eachCell((cell, colNum) => {
         cell.border = borderCompleto();
-        if (colNum >= 4) {
-          cell.numFmt = '#,##0.0000';
-          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        if (colNum <= 6) {
+          cell.fill = grupoFill;
         }
-        if (colNum === 6) {
-          cell.numFmt = '#,##0.00';
+      });
+      filaG2.getCell(6).numFmt = '#,##0.00';
+      filaActual++;
+
+      const subEnc = worksheet.getRow(filaActual);
+      const subEncFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+      subEnc.values = ['CODIGO', 'CLASIF', 'DESCRIPCION', 'UND', 'CANT.', 'VR. UNIT.', 'VR. TOTAL'];
+      subEnc.font = { bold: true, size: 9 };
+      subEnc.alignment = { horizontal: 'center', vertical: 'middle' };
+      subEnc.eachCell((cell, colNum) => {
+        cell.border = borderCompleto();
+        if (colNum <= 6) {
+          cell.fill = subEncFill;
         }
       });
       filaActual++;
-    });
-    filaActual++;
-  }
 
-  // EQUIPO (G3)
-  if (componentesPorTipo.equipo.length > 0) {
-    const totalEq = componentesPorTipo.equipo.reduce((sum, c) => sum + c.valorTotal, 0);
-    const filaG3 = worksheet.getRow(filaActual);
-    const grupoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
-    filaG3.values = ['', '', 'EQUIPO', '', '', '', totalEq];
-    filaG3.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-    filaG3.alignment = { horizontal: 'left', vertical: 'middle' };
-    filaG3.height = 22;
-    filaG3.eachCell((cell, colNum) => {
-      cell.border = borderCompleto();
-      if (colNum <= 6) {
-        cell.fill = grupoFill;
-      }
-    });
-    filaG3.getCell(6).numFmt = '#,##0.00';
-    filaActual++;
+      componentesPorTipo.mano_obra.forEach(comp => {
+        const fila = worksheet.getRow(filaActual);
+        fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, comp.cantidad, comp.precioUnitario, comp.valorTotal];
+        fila.alignment = { horizontal: 'left', vertical: 'middle' };
+        fila.eachCell((cell, colNum) => {
+          cell.border = borderCompleto();
+          if (colNum >= 4) {
+            cell.numFmt = '#,##0.0000';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          }
+          if (colNum === 6) {
+            cell.numFmt = '#,##0.00';
+          }
+        });
+        filaActual++;
+      });
+      filaActual++;
+    }
 
-    const subEnc = worksheet.getRow(filaActual);
-    const subEncFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-    subEnc.values = ['CODIGO', 'CLASIF', 'DESCRIPCION', 'UND', 'CANT.', 'VR. UNIT.', 'VR. TOTAL'];
-    subEnc.font = { bold: true, size: 9 };
-    subEnc.alignment = { horizontal: 'center', vertical: 'middle' };
-    subEnc.eachCell((cell, colNum) => {
-      cell.border = borderCompleto();
-      if (colNum <= 6) {
-        cell.fill = subEncFill;
-      }
-    });
-    filaActual++;
-
-    componentesPorTipo.equipo.forEach(comp => {
-      const fila = worksheet.getRow(filaActual);
-      fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, comp.cantidad, comp.precioUnitario, comp.valorTotal];
-      fila.alignment = { horizontal: 'left', vertical: 'middle' };
-      fila.eachCell((cell, colNum) => {
+    // EQUIPO (G3)
+    if (componentesPorTipo.equipo.length > 0) {
+      const totalEq = componentesPorTipo.equipo.reduce((sum, c) => sum + c.valorTotal, 0);
+      const filaG3 = worksheet.getRow(filaActual);
+      const grupoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
+      filaG3.values = ['', '', 'EQUIPO', '', '', '', totalEq];
+      filaG3.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+      filaG3.alignment = { horizontal: 'left', vertical: 'middle' };
+      filaG3.height = 22;
+      filaG3.eachCell((cell, colNum) => {
         cell.border = borderCompleto();
-        if (colNum >= 4) {
-          cell.numFmt = '#,##0.0000';
-          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        if (colNum <= 6) {
+          cell.fill = grupoFill;
         }
-        if (colNum === 6) {
-          cell.numFmt = '#,##0.00';
+      });
+      filaG3.getCell(6).numFmt = '#,##0.00';
+      filaActual++;
+
+      const subEnc = worksheet.getRow(filaActual);
+      const subEncFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+      subEnc.values = ['CODIGO', 'CLASIF', 'DESCRIPCION', 'UND', 'CANT.', 'VR. UNIT.', 'VR. TOTAL'];
+      subEnc.font = { bold: true, size: 9 };
+      subEnc.alignment = { horizontal: 'center', vertical: 'middle' };
+      subEnc.eachCell((cell, colNum) => {
+        cell.border = borderCompleto();
+        if (colNum <= 6) {
+          cell.fill = subEncFill;
         }
       });
       filaActual++;
-    });
-    filaActual++;
-  }
 
-  // OTROS/TRANSPORTE (G4)
-  if (componentesPorTipo.transporte.length > 0) {
-    const totalTr = componentesPorTipo.transporte.reduce((sum, c) => sum + c.valorTotal, 0);
-    const filaG4 = worksheet.getRow(filaActual);
-    const grupoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
-    filaG4.values = ['', '', 'OTROS', '', '', '', totalTr];
-    filaG4.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-    filaG4.alignment = { horizontal: 'left', vertical: 'middle' };
-    filaG4.height = 22;
-    filaG4.eachCell((cell, colNum) => {
-      cell.border = borderCompleto();
-      if (colNum <= 6) {
-        cell.fill = grupoFill;
-      }
-    });
-    filaG4.getCell(6).numFmt = '#,##0.00';
-    filaActual++;
-
-    const subEnc = worksheet.getRow(filaActual);
-    const subEncFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-    subEnc.values = ['CODIGO', 'CLASIF', 'DESCRIPCION', 'UND', 'CANT.', 'VR. UNIT.', 'VR. TOTAL'];
-    subEnc.font = { bold: true, size: 9 };
-    subEnc.alignment = { horizontal: 'center', vertical: 'middle' };
-    subEnc.eachCell((cell, colNum) => {
-      cell.border = borderCompleto();
-      if (colNum <= 6) {
-        cell.fill = subEncFill;
-      }
-    });
-    filaActual++;
-
-    componentesPorTipo.transporte.forEach(comp => {
-      const fila = worksheet.getRow(filaActual);
-      fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, comp.cantidad, comp.precioUnitario, comp.valorTotal];
-      fila.alignment = { horizontal: 'left', vertical: 'middle' };
-      fila.eachCell((cell, colNum) => {
-        cell.border = borderCompleto();
-        if (colNum >= 4) {
-          cell.numFmt = '#,##0.0000';
-          cell.alignment = { horizontal: 'right', vertical: 'middle' };
-        }
-        if (colNum === 6) cell.numFmt = '#,##0.00';
+      componentesPorTipo.equipo.forEach(comp => {
+        const fila = worksheet.getRow(filaActual);
+        fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, comp.cantidad, comp.precioUnitario, comp.valorTotal];
+        fila.alignment = { horizontal: 'left', vertical: 'middle' };
+        fila.eachCell((cell, colNum) => {
+          cell.border = borderCompleto();
+          if (colNum >= 4) {
+            cell.numFmt = '#,##0.0000';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          }
+          if (colNum === 6) {
+            cell.numFmt = '#,##0.00';
+          }
+        });
+        filaActual++;
       });
       filaActual++;
+    }
+
+    // OTROS/TRANSPORTE (G4)
+    if (componentesPorTipo.transporte.length > 0) {
+      const totalTr = componentesPorTipo.transporte.reduce((sum, c) => sum + c.valorTotal, 0);
+      const filaG4 = worksheet.getRow(filaActual);
+      const grupoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF203764' } };
+      filaG4.values = ['', '', 'OTROS', '', '', '', totalTr];
+      filaG4.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+      filaG4.alignment = { horizontal: 'left', vertical: 'middle' };
+      filaG4.height = 22;
+      filaG4.eachCell((cell, colNum) => {
+        cell.border = borderCompleto();
+        if (colNum <= 6) {
+          cell.fill = grupoFill;
+        }
+      });
+      filaG4.getCell(6).numFmt = '#,##0.00';
+      filaActual++;
+
+      const subEnc = worksheet.getRow(filaActual);
+      const subEncFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+      subEnc.values = ['CODIGO', 'CLASIF', 'DESCRIPCION', 'UND', 'CANT.', 'VR. UNIT.', 'VR. TOTAL'];
+      subEnc.font = { bold: true, size: 9 };
+      subEnc.alignment = { horizontal: 'center', vertical: 'middle' };
+      subEnc.eachCell((cell, colNum) => {
+        cell.border = borderCompleto();
+        if (colNum <= 6) {
+          cell.fill = subEncFill;
+        }
+      });
+      filaActual++;
+
+      componentesPorTipo.transporte.forEach(comp => {
+        const fila = worksheet.getRow(filaActual);
+        fila.values = [comp.codigo, comp.clasificacion, comp.descripcion, comp.unidad, comp.cantidad, comp.precioUnitario, comp.valorTotal];
+        fila.alignment = { horizontal: 'left', vertical: 'middle' };
+        fila.eachCell((cell, colNum) => {
+          cell.border = borderCompleto();
+          if (colNum >= 4) {
+            cell.numFmt = '#,##0.0000';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          }
+          if (colNum === 6) cell.numFmt = '#,##0.00';
+        });
+        filaActual++;
+      });
+      filaActual++;
+    }
+
+    // TOTAL FINAL
+    filaActual++;
+    const filaTotal = worksheet.getRow(filaActual);
+    const totalFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
+    filaTotal.values = ['', '', '', '', '', 'VALOR TOTAL INSUMOS', datosResumen.valorTotal];
+    filaTotal.font = { bold: true, size: 11 };
+    filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
+    filaTotal.height = 22;
+    filaTotal.eachCell((cell) => {
+      cell.border = borderCompleto();
     });
+    filaTotal.getCell(7).numFmt = '#,##0.00';
+
     filaActual++;
   }
-
-  // TOTAL FINAL
-  filaActual++;
-  const filaTotal = worksheet.getRow(filaActual);
-  const totalFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
-  filaTotal.values = ['', '', '', '', '', 'VALOR TOTAL INSUMOS', datosResumen.valorTotal];
-  filaTotal.font = { bold: true, size: 11 };
-  filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
-  filaTotal.height = 22;
-  filaTotal.eachCell((cell) => {
-    cell.border = borderCompleto();
-    cell.fill = totalFill;
-  });
-  filaTotal.getCell(7).numFmt = '#,##0.00';
 }
 
-/**
- * Genera la hoja de DETALLE POR ITEMS con ExcelJS
- */
+
 async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
   const worksheet = workbook.addWorksheet('Detalle por Items');
 
+  const proyectoNombre = seleccionActual?.proyecto || 'FIRMA CONSTRUCTORA';
+  const presupuestoNombre = seleccionActual?.presupuesto || 'PRESUPUESTO';
+  const fechaActual = new Date().toLocaleDateString('es-CO');
+
   // Configurar anchos de columna
   worksheet.columns = [
-    { key: 'cod_item', width: 13 },
-    { key: 'nom_item', width: 35 },
-    { key: 'capitulo', width: 22 },
-    { key: 'cod_comp', width: 13 },
-    { key: 'componente', width: 45 },
-    { key: 'tipo', width: 14 },
-    { key: 'unidad', width: 9 },
+    { key: 'codigo_item', width: 12 },
+    { key: 'nombre_item', width: 40 },
+    { key: 'capitulo', width: 20 },
+    { key: 'codigo_comp', width: 12 },
+    { key: 'nombre_comp', width: 45 },
+    { key: 'tipo', width: 15 },
+    { key: 'unidad', width: 10 },
     { key: 'cant_total', width: 12 },
     { key: 'ya_pedido', width: 12 },
-    { key: 'pedido_actual', width: 13 },
+    { key: 'pedido_actual', width: 14 },
+    { key: 'excedente', width: 12 },
     { key: 'pendiente', width: 12 },
-    { key: 'avance', width: 11 },
-    { key: 'precio', width: 14 },
+    { key: 'porcentaje', width: 12 },
+    { key: 'precio_unit', width: 14 },
     { key: 'subtotal', width: 16 }
   ];
 
   let filaActual = 1;
 
-  // TÍTULO PRINCIPAL
-  worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
-  const titulo = worksheet.getCell(`A${filaActual}`);
-  titulo.value = 'DETALLE POR ITEMS DEL PRESUPUESTO';
-  titulo.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
-  titulo.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
-  titulo.alignment = { horizontal: 'center', vertical: 'middle' };
-  titulo.border = borderCompleto();
+  // ENCABEZADO PRINCIPAL
+  worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
+  const celda1 = worksheet.getCell(`A${filaActual}`);
+  celda1.value = proyectoNombre;
+  celda1.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+  celda1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+  celda1.alignment = { horizontal: 'center', vertical: 'middle' };
+  celda1.border = borderCompleto();
   worksheet.getRow(filaActual).height = 25;
   filaActual++;
 
-  // INFO DEL PROYECTO
-  const fila2 = worksheet.getRow(filaActual);
-  fila2.getCell(1).value = 'Proyecto:';
-  fila2.getCell(2).value = seleccionActual?.proyecto || 'N/A';
-  fila2.getCell(1).font = { bold: true };
+  // SUBTÍTULO
+  worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
+  const celda2 = worksheet.getCell(`A${filaActual}`);
+  celda2.value = 'DETALLE DE COMPONENTES POR ITEM';
+  celda2.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+  celda2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+  celda2.alignment = { horizontal: 'center', vertical: 'middle' };
+  celda2.border = borderCompleto();
+  worksheet.getRow(filaActual).height = 22;
   filaActual++;
 
+  // INFO FECHA
   const fila3 = worksheet.getRow(filaActual);
-  fila3.getCell(1).value = 'Presupuesto:';
-  fila3.getCell(2).value = seleccionActual?.presupuesto || 'N/A';
-  fila3.getCell(1).font = { bold: true };
-  filaActual++;
-
-  const fila4 = worksheet.getRow(filaActual);
-  fila4.getCell(1).value = 'Fecha:';
-  fila4.getCell(2).value = new Date().toLocaleDateString('es-CO');
-  fila4.getCell(1).font = { bold: true };
+  fila3.getCell(13).value = 'FECHA:';
+  fila3.getCell(14).value = fechaActual;
+  aplicarEstiloCelda(fila3.getCell(13), { bold: true }, 'right');
+  aplicarEstiloCelda(fila3.getCell(14), {}, 'left');
   filaActual++;
 
   // LÍNEA VACÍA
   filaActual++;
 
-  // ENCABEZADOS
+  // ENCABEZADOS DE COLUMNAS
   const encabezados = worksheet.getRow(filaActual);
-  const encabezadoDetalleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+  const encabezadoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
   encabezados.values = [
-    'Código Item', 'Nombre Item', 'Capítulo', 'Código Comp.', 'Componente',
-    'Tipo', 'Unidad', 'Cant. Total', 'Ya Pedido', 'Pedido Actual',
-    'Pendiente', '% Avance', 'Precio Unit.', 'Subtotal'
+    'COD. ITEM', 'NOMBRE ITEM', 'CAPITULO', 'COD. COMP', 'COMPONENTE',
+    'TIPO', 'UND', 'CANT. TOTAL', 'YA PEDIDO', 'PEDIDO ACTUAL',
+    'EXCEDENTE', 'PENDIENTE', '%', 'PRECIO UNIT.', 'SUBTOTAL'
   ];
-  encabezados.font = { bold: true, size: 10 };
+  encabezados.font = { bold: true, size: 9 };
   encabezados.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
   encabezados.height = 30;
   encabezados.eachCell((cell) => {
     cell.border = borderCompleto();
-    cell.fill = encabezadoDetalleFill;
+    cell.fill = encabezadoFill;
   });
   filaActual++;
 
-  // DATOS POR ITEM
-  datosResumen.componentesPorItem.forEach(item => {
-    item.componentes.forEach((comp, idx) => {
-      const fila = worksheet.getRow(filaActual);
+  // Agregar datos por item
+  if (datosResumen.componentesPorItem && datosResumen.componentesPorItem.length > 0) {
+    datosResumen.componentesPorItem.forEach((item, itemIdx) => {
+      let primeraFilaItem = true;
 
-      if (idx === 0) {
-        // Primera fila del item
+      item.componentes.forEach((comp) => {
+        const fila = worksheet.getRow(filaActual);
+        const porcentaje = comp.porcentaje || 0;
+
         fila.values = [
-          item.codigoItem,
-          item.nombreItem,
-          item.capitulo,
-          comp.codigo || '',
+          primeraFilaItem ? item.codigoItem : '',
+          primeraFilaItem ? item.nombreItem : '',
+          primeraFilaItem ? item.capitulo : '',
+          '', // código componente (se puede agregar si está disponible)
           comp.nombre,
-          obtenerNombreTipoComponente(comp.tipo),
+          comp.tipo.toUpperCase(),
           comp.unidad,
           comp.cantidadTotal,
           comp.yaPedido,
           comp.pedidoActual,
+          comp.excedente || 0,
           comp.pendiente,
-          comp.porcentaje / 100,
+          porcentaje.toFixed(1) + '%',
           comp.precioUnitario,
           comp.subtotal
         ];
-      } else {
-        // Filas adicionales
-        fila.values = [
-          '', '', '',
-          comp.codigo || '',
-          comp.nombre,
-          obtenerNombreTipoComponente(comp.tipo),
-          comp.unidad,
-          comp.cantidadTotal,
-          comp.yaPedido,
-          comp.pedidoActual,
-          comp.pendiente,
-          comp.porcentaje / 100,
-          comp.precioUnitario,
-          comp.subtotal
-        ];
-      }
 
-      // Aplicar estilos
-      fila.alignment = { horizontal: 'left', vertical: 'middle' };
-      fila.eachCell((cell, colNum) => {
-        cell.border = borderLigero();
+        // Estilo de la fila
+        fila.alignment = { horizontal: 'left', vertical: 'middle' };
+        fila.eachCell((cell, colNum) => {
+          cell.border = borderLigero();
 
-        // Alineación y formato numérico
-        if (colNum >= 8 && colNum <= 11) {
-          cell.numFmt = '#,##0.0000';
-          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          // Alineación y formato numérico
+          if (colNum >= 8 && colNum <= 12) {
+            cell.numFmt = '#,##0.0000';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          }
+          if (colNum === 13) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          }
+          if (colNum === 14) {
+            cell.numFmt = '#,##0.00';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          }
+          if (colNum === 15) {
+            cell.numFmt = '#,##0.00';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          }
+
+          // Colorear las primeras 3 columnas si es la primera fila del item
+          if (primeraFilaItem && colNum <= 3) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+            cell.font = { bold: true };
+          }
+        });
+
+        // Resaltar excedentes
+        if ((comp.excedente || 0) > 0) {
+          fila.eachCell((cell) => {
+            if (!cell.fill || cell.fill.fgColor?.argb !== 'FFF2F2F2') {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5B4' } };
+            }
+          });
         }
-        if (colNum === 12) {
-          cell.numFmt = '0.0%';
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        }
-        if (colNum === 13 || colNum === 14) {
-          cell.numFmt = '#,##0.00';
-          cell.alignment = { horizontal: 'right', vertical: 'middle' };
-        }
+
+        primeraFilaItem = false;
+        filaActual++;
       });
 
+      // Línea separadora entre items
+      if (itemIdx < datosResumen.componentesPorItem.length - 1) {
+        filaActual++;
+      }
+    });
+
+    // TOTAL FINAL
+    filaActual++;
+    const filaTotal = worksheet.getRow(filaActual);
+    const totalDetalleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
+    filaTotal.values = ['', '', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL:', datosResumen.valorTotal];
+    filaTotal.font = { bold: true, size: 11 };
+    filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
+    filaTotal.height = 22;
+    filaTotal.eachCell((cell, colNumber) => {
+      cell.border = borderCompleto();
+      cell.fill = totalDetalleFill;
+      if (colNumber === 15) {
+        cell.numFmt = '#,##0.00';
+      }
+    });
+  } else {
+    const fila = worksheet.getRow(filaActual);
+    fila.values = ['No hay datos para mostrar'];
+    worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
+    const celda = worksheet.getCell(`A${filaActual}`);
+    celda.alignment = { horizontal: 'center', vertical: 'middle' };
+    celda.font = { italic: true, color: { argb: 'FF757575' } };
+  }
+}
+
+async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = []) {
+  const worksheet = workbook.addWorksheet('Historial de Pedidos');
+
+  worksheet.columns = [
+    { key: 'id_pedido', width: 12 },
+    { key: 'fecha', width: 18 },
+    { key: 'estado', width: 20 },
+    { key: 'usuario', width: 28 },
+    { key: 'capitulo', width: 22 },
+    { key: 'codigo_item', width: 15 },
+    { key: 'nombre_item', width: 30 },
+    { key: 'componente', width: 40 },
+    { key: 'tipo', width: 15 },
+    { key: 'unidad', width: 10 },
+    { key: 'cantidad', width: 12 },
+    { key: 'precio_unit', width: 14 },
+    { key: 'subtotal', width: 16 },
+    { key: 'justificacion', width: 45 }
+  ];
+
+  let filaActual = 1;
+
+  worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
+  const titulo = worksheet.getCell(`A${filaActual}`);
+  titulo.value = 'Historial de Pedidos del Presupuesto';
+  titulo.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+  titulo.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF38598B' } };
+  titulo.alignment = { horizontal: 'center', vertical: 'middle' };
+  titulo.border = borderCompleto();
+  worksheet.getRow(filaActual).height = 24;
+  filaActual++;
+
+  const filaProyecto = worksheet.getRow(filaActual);
+  filaProyecto.getCell(1).value = 'Proyecto:';
+  filaProyecto.getCell(1).font = { bold: true };
+  filaProyecto.getCell(2).value = seleccionActual?.proyecto || 'N/A';
+  filaProyecto.getCell(5).value = 'Presupuesto:';
+  filaProyecto.getCell(5).font = { bold: true };
+  filaProyecto.getCell(6).value = seleccionActual?.presupuesto || 'N/A';
+  filaActual++;
+
+  const filaFecha = worksheet.getRow(filaActual);
+  filaFecha.getCell(1).value = 'Fecha Exportación:';
+  filaFecha.getCell(1).font = { bold: true };
+  filaFecha.getCell(2).value = new Date().toLocaleString('es-CO');
+  filaActual += 2;
+
+  const encabezados = worksheet.getRow(filaActual);
+  const encabezadoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+  encabezados.values = [
+    'ID Pedido', 'Fecha', 'Estado', 'Responsable', 'Capítulo',
+    'Código Item', 'Nombre Item', 'Componente', 'Tipo', 'Unidad',
+    'Cantidad', 'Precio Unit.', 'Subtotal', 'Justificación'
+  ];
+  encabezados.font = { bold: true, size: 10 };
+  encabezados.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  encabezados.height = 22;
+  encabezados.eachCell((cell) => {
+    cell.border = borderCompleto();
+    cell.fill = encabezadoFill;
+  });
+  filaActual++;
+
+  if (!Array.isArray(pedidosHistorial) || pedidosHistorial.length === 0) {
+    worksheet.getRow(filaActual).values = ['Sin pedidos registrados'];
+    worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
+    const celda = worksheet.getCell(`A${filaActual}`);
+    celda.alignment = { horizontal: 'center', vertical: 'middle' };
+    celda.font = { italic: true, color: { argb: 'FF757575' } };
+    return;
+  }
+
+  pedidosHistorial.forEach((pedido, index) => {
+    const estadoTexto = pedido.estado_descripcion || pedido.estado || 'N/A';
+    const estadoColor = obtenerColorEstadoExcel(pedido.estado_color);
+    const fechaTexto = formatearFechaCorta(pedido.fecha_pedido);
+
+    if (!pedido.detalles || pedido.detalles.length === 0) {
+      const fila = worksheet.getRow(filaActual);
+      fila.values = [
+        pedido.id_pedido,
+        fechaTexto,
+        estadoTexto,
+        pedido.nombre_usuario || 'N/A',
+        'Sin detalles',
+        '',
+        '',
+        '',
+        '',
+        '',
+        0,
+        0,
+        0,
+        pedido.observaciones || ''
+      ];
+      aplicarEstiloFilaHistorial(fila, estadoColor, false);
+      filaActual++;
+      return;
+    }
+
+    pedido.detalles.forEach((detalle) => {
+      const fila = worksheet.getRow(filaActual);
+      fila.values = [
+        pedido.id_pedido,
+        fechaTexto,
+        estadoTexto,
+        pedido.nombre_usuario || 'N/A',
+        detalle.nombre_capitulo || 'N/A',
+        detalle.codigo_item || '',
+        detalle.nombre_item || '',
+        detalle.descripcion_componente || 'Sin descripción',
+        obtenerNombreTipoComponente(detalle.tipo_componente || 'material'),
+        detalle.unidad_componente || detalle.unidad_item || 'UND',
+        detalle.cantidad || 0,
+        detalle.precio_unitario || 0,
+        detalle.subtotal || 0,
+        detalle.justificacion || ''
+      ];
+
+      const esExcedente = parseInt(detalle.es_excedente, 10) === 1;
+      aplicarEstiloFilaHistorial(fila, estadoColor, esExcedente);
       filaActual++;
     });
 
-    // Línea vacía entre items
-    filaActual++;
-  });
-
-  // TOTALES
-  filaActual++;
-  const filaTotal = worksheet.getRow(filaActual);
-  const totalDetalleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
-  filaTotal.values = ['', '', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', datosResumen.valorTotal];
-  filaTotal.font = { bold: true, size: 11 };
-  filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
-  filaTotal.height = 22;
-  filaTotal.eachCell((cell) => {
-    cell.border = borderCompleto();
-    cell.fill = totalDetalleFill;
-    if (cell.col === 14) {
-      cell.numFmt = '#,##0.00';
+    if (index < pedidosHistorial.length - 1) {
+      filaActual++;
     }
   });
+
+  const totalFila = worksheet.getRow(filaActual + 1);
+  totalFila.values = ['', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', calcularTotalHistorial(pedidosHistorial), ''];
+  totalFila.font = { bold: true };
+  totalFila.alignment = { horizontal: 'right', vertical: 'middle' };
+  totalFila.eachCell((cell) => {
+    cell.border = borderCompleto();
+  });
+  totalFila.getCell(13).numFmt = '#,##0.00';
 }
 
-// Garantizar disponibilidad global para los generadores de hojas Excel
-window.generarHojaResumenInsumosExcel = generarHojaResumenInsumosExcel;
-window.generarHojaDetallePorItemsExcel = generarHojaDetallePorItemsExcel;
+function aplicarEstiloFilaHistorial(fila, estadoColor, esExcedente) {
+  fila.alignment = { vertical: 'middle' };
+  fila.eachCell((cell, col) => {
+    cell.border = borderLigero();
+    if (col >= 11 && col <= 13) {
+      cell.numFmt = col === 11 ? '#,##0.0000' : '#,##0.00';
+      cell.alignment = { horizontal: 'right', vertical: 'middle' };
+    }
+    if (col === 3 && estadoColor) {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estadoColor } };
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+  });
 
-/**
- * Función auxiliar para aplicar estilos a celdas
- */
+  if (esExcedente) {
+    fila.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5B4' } };
+    });
+  }
+}
+
+function obtenerColorEstadoExcel(colorNombre = '') {
+  const mapa = {
+    success: 'FFC6EFCE',
+    info: 'FFBDD7EE',
+    warning: 'FFFFF2CC',
+    danger: 'FFF8CBAD',
+    primary: 'FFB4C6E7',
+    secondary: 'FFE2E2E2',
+    dark: 'FFBFBFBF'
+  };
+  return mapa[colorNombre] || 'FFE7E6E6';
+}
+
+function formatearFechaCorta(fecha) {
+  if (!fecha) return 'N/A';
+  try {
+    const d = new Date(fecha);
+    if (Number.isNaN(d.getTime())) return fecha;
+    return d.toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
+  } catch (error) {
+    return fecha;
+  }
+}
+
+function calcularTotalHistorial(pedidosHistorial = []) {
+  let total = 0;
+  pedidosHistorial.forEach((pedido) => {
+    if (Array.isArray(pedido.detalles)) {
+      pedido.detalles.forEach((detalle) => {
+        total += parseFloat(detalle.subtotal) || 0;
+      });
+    }
+  });
+  return total;
+}
+
+async function obtenerHistorialPedidos(presupuestoId) {
+  if (!presupuestoId) return [];
+  try {
+    const formData = new FormData();
+    formData.append('presupuesto_id', presupuestoId);
+    const response = await fetch(API_PRESUPUESTOS + '?action=getPedidosByPresupuesto', {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      return result.data || [];
+    }
+    console.warn('No se pudo obtener el historial de pedidos:', result.error);
+    return [];
+  } catch (error) {
+    console.error('Error obteniendo historial de pedidos:', error);
+    return [];
+  }
+}
+
+function extraerExcedentesDesdeHistorial(pedidosHistorial = []) {
+  const excedentes = [];
+  pedidosHistorial.forEach((pedido) => {
+    if (!Array.isArray(pedido.detalles)) {
+      return;
+    }
+
+    pedido.detalles.forEach((detalle) => {
+      if (parseInt(detalle.es_excedente, 10) !== 1) {
+        return;
+      }
+
+      excedentes.push({
+        id_item: detalle.id_item || null,
+        id_componente: detalle.id_componente,
+        cantidad_extra: detalle.cantidad,
+        justificacion: detalle.justificacion || '',
+        tipo_componente: detalle.tipo_componente,
+        precio_unitario: detalle.precio_unitario
+      });
+    });
+  });
+
+  return excedentes;
+}
+
 function aplicarEstiloCelda(celda, font = {}, alignment = 'left') {
   celda.font = { ...font };
   celda.alignment = { horizontal: alignment, vertical: 'middle' };
   celda.border = borderCompleto();
 }
 
-/**
- * Genera bordes completos para celdas ExcelJS
- */
 function borderCompleto() {
   return {
     top: { style: 'thin', color: { argb: 'FF000000' } },
@@ -3144,9 +3441,6 @@ function borderCompleto() {
   };
 }
 
-/**
- * Genera bordes ligeros para celdas ExcelJS
- */
 function borderLigero() {
   return {
     top: { style: 'hair', color: { argb: 'FFCCCCCC' } },
@@ -3155,6 +3449,7 @@ function borderLigero() {
     right: { style: 'hair', color: { argb: 'FFCCCCCC' } }
   };
 }
+
 function agruparComponentesPorTipoParaExcel(datosResumen) {
   const grupos = {
     material: [],
@@ -3165,7 +3460,6 @@ function agruparComponentesPorTipoParaExcel(datosResumen) {
 
   const componentesUnicos = new Map();
 
-  // Consolidar todos los componentes únicos con sus cantidades totales
   datosResumen.componentesPorItem.forEach(item => {
     item.componentes.forEach(comp => {
       const clave = `${comp.nombre}_${comp.tipo}_${comp.unidad}`;
@@ -3189,7 +3483,6 @@ function agruparComponentesPorTipoParaExcel(datosResumen) {
     });
   });
 
-  // Distribuir en grupos por tipo
   componentesUnicos.forEach(comp => {
     let tipo = comp.tipo;
     if (tipo === 'otro') tipo = 'transporte';
@@ -3201,7 +3494,6 @@ function agruparComponentesPorTipoParaExcel(datosResumen) {
     }
   });
 
-  // Ordenar cada grupo por código
   Object.keys(grupos).forEach(key => {
     grupos[key].sort((a, b) => a.codigo.localeCompare(b.codigo));
   });
@@ -3209,9 +3501,6 @@ function agruparComponentesPorTipoParaExcel(datosResumen) {
   return grupos;
 }
 
-/**
- * Genera un código para componentes sin código
- */
 function generarCodigoComponente(comp) {
   const prefijos = {
     material: '100',
@@ -3226,9 +3515,6 @@ function generarCodigoComponente(comp) {
   return `${prefijo}${hash.toString().padStart(3, '0')}`;
 }
 
-/**
- * Obtiene clasificación por tipo
- */
 function obtenerClasificacionPorTipo(tipo) {
   const clasificaciones = {
     material: 'MATERIALES',
@@ -3240,9 +3526,6 @@ function obtenerClasificacionPorTipo(tipo) {
   return clasificaciones[tipo] || 'OTROS';
 }
 
-/**
- * Función hash simple para generar códigos
- */
 function hashCode(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -3252,4 +3535,9 @@ function hashCode(str) {
   }
   return hash;
 }
-}
+
+window.generarHojaResumenInsumosExcel = generarHojaResumenInsumosExcel;
+window.generarHojaDetallePorItemsExcel = generarHojaDetallePorItemsExcel;
+window.generarHojaHistorialPedidosExcel = generarHojaHistorialPedidosExcel;
+window.obtenerHistorialPedidos = obtenerHistorialPedidos;
+window.extraerExcedentesDesdeHistorial = extraerExcedentesDesdeHistorial;

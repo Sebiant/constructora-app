@@ -1,5 +1,4 @@
-<?php
-namespace Src\Presupuesto\Interfaces;
+﻿<?php
 
 require __DIR__ . '/../../../vendor/autoload.php';
 require __DIR__ . '/../../../config/database.php';
@@ -678,8 +677,8 @@ try {
 
                     // 7. INSERTAR DETALLES DE COMPONENTES NORMALES
                     $sqlDetalle = "INSERT INTO pedidos_detalle
-                                   (id_pedido, id_componente, tipo_componente, id_item, cantidad, precio_unitario, subtotal, fechareg)
-                                   VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
+                                   (id_pedido, id_componente, tipo_componente, id_item, cantidad, precio_unitario, subtotal, justificacion, es_excedente, fechareg)
+                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
 
                     $stmtDetalle = $connection->prepare($sqlDetalle);
                     $detallesInsertados = 0;
@@ -702,7 +701,9 @@ try {
                             $idItem,
                             $cantidad,
                             $precioUnitario,
-                            $subtotal
+                            $subtotal,
+                            null,
+                            0
                         ]);
 
                         $detallesInsertados++;
@@ -727,7 +728,9 @@ try {
                             $idItem,
                             $cantidad,
                             $precioUnitario,
-                            $subtotal
+                            $subtotal,
+                            null,
+                            0
                         ]);
 
                         $detallesInsertados++;
@@ -746,6 +749,7 @@ try {
                         $idItem = isset($adicional['id_item']) && $adicional['id_item'] > 0 ? (int)$adicional['id_item'] : null;
                         $precioUnitario = (float)($adicional['precio_unitario'] ?? 0);
                         $subtotal = $cantidadExtra * $precioUnitario;
+                        $justificacion = $adicional['justificacion'] ?? '';
 
                         // Insertar el detalle con la cantidad extra
                         $stmtDetalle->execute([
@@ -755,7 +759,9 @@ try {
                             $idItem,
                             $cantidadExtra,
                             $precioUnitario,
-                            $subtotal
+                            $subtotal,
+                            $justificacion,
+                            1
                         ]);
 
                         $detallesInsertados++;
@@ -834,7 +840,6 @@ try {
                         GROUP BY p.id_pedido, p.fecha_pedido, p.estado, p.total, p.observaciones,
                                  p.idusuario, ep.desc_estado, ep.color, u.u_nombre
                         ORDER BY p.fecha_pedido DESC";
-
                 $stmt = $connection->prepare($sql);
                 $stmt->execute([$presupuestoId]);
                 $pedidos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
@@ -846,20 +851,30 @@ try {
                                         pd.id_det_pedido,
                                         pd.id_componente,
                                         pd.tipo_componente,
+                                        pd.id_item,
                                         pd.cantidad,
                                         pd.precio_unitario,
                                         pd.subtotal,
+                                        pd.justificacion,
+                                        pd.es_excedente,
+                                        pd.fechareg,
                                         i.codigo_item,
                                         i.nombre_item,
-                                        ic.descripcion as descripcion_componente
+                                        i.unidad as unidad_item,
+                                        ic.descripcion as descripcion_componente,
+                                        ic.unidad as unidad_componente,
+                                        c.id_capitulo,
+                                        c.nombre_cap AS nombre_capitulo
                                     FROM pedidos_detalle pd
                                     LEFT JOIN items i ON pd.id_item = i.id_item
                                     LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
+                                    LEFT JOIN det_presupuesto dp ON dp.id_item = pd.id_item AND dp.id_presupuesto = ?
+                                    LEFT JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
                                     WHERE pd.id_pedido = ?
                                     ORDER BY pd.id_det_pedido";
 
                     $stmtDet = $connection->prepare($sqlDetalles);
-                    $stmtDet->execute([$pedido['id_pedido']]);
+                    $stmtDet->execute([$presupuestoId, $pedido['id_pedido']]);
                     $pedido['detalles'] = $stmtDet->fetchAll(\PDO::FETCH_ASSOC);
 
                     // Determinar si tiene pedidos adicionales basado en observaciones
