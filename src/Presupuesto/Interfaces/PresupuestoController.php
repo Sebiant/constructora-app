@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 require __DIR__ . '/../../../vendor/autoload.php';
 require __DIR__ . '/../../../config/database.php';
@@ -1244,6 +1244,22 @@ try {
                                         THEN ic.cantidad * ic.precio_unitario * (1 + (ic.porcentaje_desperdicio/100))
                                         ELSE ic.cantidad * ic.precio_unitario
                                     END as subtotal,
+                                    COALESCE((
+                                        SELECT ROUND(SUM(pd.cantidad), 4)
+                                        FROM pedidos_detalle pd
+                                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                                        WHERE pd.id_componente = ic.id_componente
+                                        AND ped.id_presupuesto = ?
+                                                AND pd.es_excedente = 0
+                                    ), 0.0000) as ya_pedido,
+                                    ROUND(ic.cantidad - COALESCE((
+                                        SELECT SUM(pd.cantidad)
+                                        FROM pedidos_detalle pd
+                                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                                        WHERE pd.id_componente = ic.id_componente
+                                        AND ped.id_presupuesto = ?
+                                                AND pd.es_excedente = 0
+                                    ), 0), 4) as disponible,
                                     m.cod_material,
                                     CAST(m.nombremat AS CHAR) AS nombre_material,
                                     u.unidesc as unidad_material,
@@ -1433,6 +1449,22 @@ try {
                                         THEN ic.cantidad * ic.precio_unitario * (1 + (ic.porcentaje_desperdicio/100))
                                         ELSE ic.cantidad * ic.precio_unitario
                                     END as subtotal,
+                                    COALESCE((
+                                        SELECT ROUND(SUM(pd.cantidad), 4)
+                                        FROM pedidos_detalle pd
+                                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                                        WHERE pd.id_componente = ic.id_componente
+                                        AND ped.id_presupuesto = ?
+                                                AND pd.es_excedente = 0
+                                    ), 0.0000) as ya_pedido,
+                                    ROUND(ic.cantidad - COALESCE((
+                                        SELECT SUM(pd.cantidad)
+                                        FROM pedidos_detalle pd
+                                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                                        WHERE pd.id_componente = ic.id_componente
+                                        AND ped.id_presupuesto = ?
+                                                AND pd.es_excedente = 0
+                                    ), 0), 4) as disponible,
                                     m.cod_material,
                                     CAST(m.nombremat AS CHAR) AS nombre_material,
                                     tm.desc_tipo as tipo_material_desc
@@ -1443,7 +1475,7 @@ try {
                                 ORDER BY FIELD(ic.tipo_componente, 'material', 'mano_obra', 'equipo', 'transporte', 'otro')";
                 
                 $stmtComp = $connection->prepare($sqlComponentes);
-                $stmtComp->execute([$item['id_item']]);
+                $stmtComp->execute([$presupuestoId, $presupuestoId, $item['id_item']]);
                 $item['componentes'] = $stmtComp->fetchAll(\PDO::FETCH_ASSOC);
             }
             
@@ -1488,7 +1520,23 @@ try {
                             ic.cantidad as cantidad_por_unidad_item,
                             ic.precio_unitario,
                             ROUND(dp.cantidad * ic.cantidad, 4) as total_componente_necesario,
-                            ROUND(dp.cantidad * ic.cantidad * ic.precio_unitario, 2) as subtotal_componente
+                            ROUND(dp.cantidad * ic.cantidad * ic.precio_unitario, 2) as subtotal_componente,
+                            COALESCE((
+                                SELECT ROUND(SUM(pd.cantidad), 4)
+                                FROM pedidos_detalle pd
+                                INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                                WHERE pd.id_componente = ic.id_componente
+                                AND ped.id_presupuesto = p.id_presupuesto
+                                AND pd.es_excedente = 0
+                            ), 0.0000) as ya_pedido,
+                            ROUND(dp.cantidad * ic.cantidad - COALESCE((
+                                SELECT SUM(pd.cantidad)
+                                FROM pedidos_detalle pd
+                                INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                                WHERE pd.id_componente = ic.id_componente
+                                AND ped.id_presupuesto = p.id_presupuesto
+                                AND pd.es_excedente = 0
+                            ), 0), 4) as disponible,
                         FROM det_presupuesto dp
                         JOIN presupuestos p ON dp.id_presupuesto = p.id_presupuesto
                         JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
@@ -1533,9 +1581,24 @@ try {
                             AVG(ic.precio_unitario) as precio_unitario,
                             p.id_presupuesto,
                             ROUND(SUM(dp.cantidad * ic.cantidad), 4) as total_necesario,
-                            0.0000 as ya_pedido,
-                            ROUND(SUM(dp.cantidad * ic.cantidad), 4) as disponible,
-                            GROUP_CONCAT(DISTINCT c.nombre_cap ORDER BY c.nombre_cap SEPARATOR ', ') as capitulos,
+                            COALESCE((
+                                SELECT ROUND(SUM(pd.cantidad), 4)
+                                FROM pedidos_detalle pd
+                                INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                                INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
+                                WHERE ic2.descripcion = ic.descripcion
+                                AND ic2.tipo_componente = ic.tipo_componente
+                                AND ped.id_presupuesto = p.id_presupuesto
+                            ), 0.0000) as ya_pedido,
+                            ROUND(SUM(dp.cantidad * ic.cantidad) - COALESCE((
+                                SELECT SUM(pd.cantidad)
+                                FROM pedidos_detalle pd
+                                INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                                INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
+                                WHERE ic2.descripcion = ic.descripcion
+                                AND ic2.tipo_componente = ic.tipo_componente
+                                AND ped.id_presupuesto = p.id_presupuesto
+                            ), 0), 4) as disponible,
                             COUNT(DISTINCT i.id_item) as cantidad_items,
                             COUNT(DISTINCT c.id_capitulo) as cantidad_capitulos
                         FROM det_presupuesto dp
@@ -1576,7 +1639,7 @@ try {
         }
 
         $sql = "SELECT 
-                    ic.id_componente,
+                    MIN(ic.id_componente) as id_componente,
                     ic.descripcion as nombre_componente,
                     ic.tipo_componente,
                     ic.unidad as unidad_componente,
@@ -1584,24 +1647,26 @@ try {
                     p.id_presupuesto,
                     ROUND(SUM(dp.cantidad * ic.cantidad), 4) as total_necesario,
                     
-                    -- NUEVO: Calcular lo ya pedido sumando las cantidades de pedidos aprobados
+                    -- Calcular lo ya pedido sumando TODAS las cantidades de pedidos (sin filtro de estado)
                     COALESCE(ROUND((
                         SELECT SUM(pd.cantidad) 
                         FROM pedidos_detalle pd
                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
-                        WHERE pd.id_componente = ic.id_componente
+                        INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
+                        WHERE ic2.descripcion = ic.descripcion
+                        AND ic2.tipo_componente = ic.tipo_componente
                         AND ped.id_presupuesto = p.id_presupuesto
-                        AND ped.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
                     ), 4), 0.0000) as ya_pedido,
                     
-                    -- NUEVO: Calcular disponible restando lo ya pedido
+                    -- Calcular disponible restando lo ya pedido
                     ROUND(SUM(dp.cantidad * ic.cantidad) - COALESCE((
                         SELECT SUM(pd.cantidad) 
                         FROM pedidos_detalle pd
                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
-                        WHERE pd.id_componente = ic.id_componente
+                        INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
+                        WHERE ic2.descripcion = ic.descripcion
+                        AND ic2.tipo_componente = ic.tipo_componente
                         AND ped.id_presupuesto = p.id_presupuesto
-                        AND ped.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
                     ), 0), 4) as disponible,
                         GROUP_CONCAT(DISTINCT 
                             CONCAT(
@@ -1618,10 +1683,11 @@ try {
                                     SELECT SUM(pd.cantidad)
                                     FROM pedidos_detalle pd
                                     INNER JOIN pedidos ped2 ON pd.id_pedido = ped2.id_pedido
-                                    WHERE pd.id_componente = ic.id_componente
+                                    INNER JOIN item_componentes ic3 ON pd.id_componente = ic3.id_componente
+                                    WHERE ic3.descripcion = ic.descripcion
+                                    AND ic3.tipo_componente = ic.tipo_componente
                                     AND pd.id_item = i.id_item
                                     AND ped2.id_presupuesto = p.id_presupuesto
-                                    AND ped2.estado IN ('aprobado', 'entregado_parcial', 'entregado_total')
                                 ), 0)
                             )
                             ORDER BY i.codigo_item, c.nombre_cap
@@ -1636,7 +1702,7 @@ try {
                 AND ic.idestado = 1 
                 AND p.idestado = 1
                 AND p.id_presupuesto = ?
-                GROUP BY ic.id_componente, ic.descripcion, ic.tipo_componente, ic.unidad, p.id_presupuesto
+                GROUP BY ic.descripcion, ic.tipo_componente, ic.unidad, p.id_presupuesto
                 ORDER BY ic.tipo_componente, ic.descripcion";
         
         $stmt = $connection->prepare($sql);
@@ -1655,6 +1721,325 @@ try {
         ]);
     }
     break;
+
+        // ============================================
+        // ENDPOINTS PARA ADMINISTRACIÓN DE PEDIDOS
+        // ============================================
+
+        case 'getAllPedidosAdmin':
+            try {
+                // Obtener parámetros de filtrado
+                $proyectoId = $_GET['proyecto'] ?? '';
+                $estado = $_GET['estado'] ?? '';
+                $fechaDesde = $_GET['fechaDesde'] ?? '';
+                $fechaHasta = $_GET['fechaHasta'] ?? '';
+                $busqueda = $_GET['busqueda'] ?? '';
+                $pagina = (int)($_GET['pagina'] ?? 1);
+                $porPagina = 20;
+                $offset = ($pagina - 1) * $porPagina;
+
+                // Construir consulta base
+                $sql = "SELECT 
+                            p.id_pedido,
+                            p.fecha_pedido,
+                            p.estado,
+                            p.total,
+                            p.observaciones,
+                            pr.nombre as nombre_proyecto,
+                            pr.id_proyecto,
+                            pres.id_presupuesto,
+                            u.u_nombre as nombre_usuario,
+                            u.u_id as id_usuario,
+                            COUNT(pd.id_detalle_pedido) as total_items
+                        FROM pedidos p
+                        INNER JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
+                        INNER JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
+                        LEFT JOIN gr_usuarios u ON p.idusuario = u.u_id
+                        LEFT JOIN pedidos_detalle pd ON p.id_pedido = pd.id_pedido
+                        WHERE 1=1";
+
+                $params = [];
+
+                // Aplicar filtros
+                if (!empty($proyectoId)) {
+                    $sql .= " AND pr.id_proyecto = ?";
+                    $params[] = $proyectoId;
+                }
+
+                if (!empty($estado)) {
+                    $sql .= " AND p.estado = ?";
+                    $params[] = $estado;
+                }
+
+                if (!empty($fechaDesde)) {
+                    $sql .= " AND DATE(p.fecha_pedido) >= ?";
+                    $params[] = $fechaDesde;
+                }
+
+                if (!empty($fechaHasta)) {
+                    $sql .= " AND DATE(p.fecha_pedido) <= ?";
+                    $params[] = $fechaHasta;
+                }
+
+                if (!empty($busqueda)) {
+                    $sql .= " AND (p.id_pedido LIKE ? OR u.u_nombre LIKE ? OR pr.nombre LIKE ?)";
+                    $searchTerm = "%{$busqueda}%";
+                    $params[] = $searchTerm;
+                    $params[] = $searchTerm;
+                    $params[] = $searchTerm;
+                }
+
+                $sql .= " GROUP BY p.id_pedido, p.fecha_pedido, p.estado, p.total, p.observaciones,
+                                   pr.nombre, pr.id_proyecto, pres.id_presupuesto, u.u_nombre, u.u_id
+                          ORDER BY p.fecha_pedido DESC
+                          LIMIT ? OFFSET ?";
+
+                $params[] = $porPagina;
+                $params[] = $offset;
+
+                $stmt = $connection->prepare($sql);
+                $stmt->execute($params);
+                $pedidos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // Contar total de pedidos (sin paginación)
+                $sqlCount = "SELECT COUNT(DISTINCT p.id_pedido) as total
+                             FROM pedidos p
+                             INNER JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
+                             INNER JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
+                             LEFT JOIN gr_usuarios u ON p.idusuario = u.u_id
+                             WHERE 1=1";
+
+                $paramsCount = [];
+                if (!empty($proyectoId)) {
+                    $sqlCount .= " AND pr.id_proyecto = ?";
+                    $paramsCount[] = $proyectoId;
+                }
+                if (!empty($estado)) {
+                    $sqlCount .= " AND p.estado = ?";
+                    $paramsCount[] = $estado;
+                }
+                if (!empty($fechaDesde)) {
+                    $sqlCount .= " AND DATE(p.fecha_pedido) >= ?";
+                    $paramsCount[] = $fechaDesde;
+                }
+                if (!empty($fechaHasta)) {
+                    $sqlCount .= " AND DATE(p.fecha_pedido) <= ?";
+                    $paramsCount[] = $fechaHasta;
+                }
+                if (!empty($busqueda)) {
+                    $sqlCount .= " AND (p.id_pedido LIKE ? OR u.u_nombre LIKE ? OR pr.nombre LIKE ?)";
+                    $paramsCount[] = $searchTerm;
+                    $paramsCount[] = $searchTerm;
+                    $paramsCount[] = $searchTerm;
+                }
+
+                $stmtCount = $connection->prepare($sqlCount);
+                $stmtCount->execute($paramsCount);
+                $totalPedidos = $stmtCount->fetch(\PDO::FETCH_ASSOC)['total'];
+                $totalPaginas = ceil($totalPedidos / $porPagina);
+
+                echo json_encode([
+                    'success' => true,
+                    'pedidos' => $pedidos,
+                    'total' => $totalPedidos,
+                    'totalPaginas' => $totalPaginas,
+                    'paginaActual' => $pagina
+                ]);
+
+            } catch (\Exception $e) {
+                error_log("ERROR en getAllPedidosAdmin: " . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getEstadisticasPedidos':
+            try {
+                // Estadísticas generales
+                $sql = "SELECT 
+                            COUNT(*) as total,
+                            SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) as pendientes,
+                            SUM(CASE WHEN estado = 'aprobado' THEN 1 ELSE 0 END) as aprobados,
+                            SUM(CASE WHEN estado = 'rechazado' THEN 1 ELSE 0 END) as rechazados
+                        FROM pedidos";
+
+                $stmt = $connection->prepare($sql);
+                $stmt->execute();
+                $stats = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+                echo json_encode([
+                    'success' => true,
+                    'data' => $stats
+                ]);
+
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getPedidoDetalleAdmin':
+            try {
+                $idPedido = $_GET['id_pedido'] ?? null;
+
+                if (!$idPedido) {
+                    throw new \Exception('ID de pedido requerido');
+                }
+
+                // Obtener información del pedido
+                $sql = "SELECT 
+                            p.id_pedido,
+                            p.fecha_pedido,
+                            p.estado,
+                            p.total,
+                            p.observaciones,
+                            pr.nombre as nombre_proyecto,
+                            pr.id_proyecto,
+                            pres.id_presupuesto,
+                            u.u_nombre as nombre_usuario,
+                            u.u_id as id_usuario
+                        FROM pedidos p
+                        INNER JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
+                        INNER JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
+                        LEFT JOIN gr_usuarios u ON p.idusuario = u.u_id
+                        WHERE p.id_pedido = ?";
+
+                $stmt = $connection->prepare($sql);
+                $stmt->execute([$idPedido]);
+                $pedido = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+                if (!$pedido) {
+                    throw new \Exception('Pedido no encontrado');
+                }
+
+                // Obtener componentes del pedido
+                $sqlComponentes = "SELECT 
+                                    pd.id_detalle_pedido,
+                                    pd.id_componente,
+                                    pd.tipo_componente,
+                                    pd.cantidad,
+                                    pd.precio_unitario,
+                                    pd.subtotal,
+                                    pd.justificacion,
+                                    pd.es_excedente,
+                                    ic.descripcion,
+                                    ic.unidad
+                                FROM pedidos_detalle pd
+                                LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
+                                WHERE pd.id_pedido = ?
+                                ORDER BY pd.es_excedente ASC, ic.descripcion ASC";
+
+                $stmtComp = $connection->prepare($sqlComponentes);
+                $stmtComp->execute([$idPedido]);
+                $componentes = $stmtComp->fetchAll(\PDO::FETCH_ASSOC);
+
+                $pedido['componentes'] = $componentes;
+
+                echo json_encode([
+                    'success' => true,
+                    'data' => $pedido
+                ]);
+
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'aprobarPedido':
+            try {
+                $data = json_decode(file_get_contents('php://input'), true);
+                $idPedido = $data['id_pedido'] ?? null;
+                $comentarios = $data['comentarios'] ?? '';
+
+                if (!$idPedido) {
+                    throw new \Exception('ID de pedido requerido');
+                }
+
+                session_start();
+                $idUsuarioAdmin = $_SESSION['u_id'] ?? 1;
+
+                // Actualizar estado del pedido
+                $sql = "UPDATE pedidos 
+                        SET estado = 'aprobado',
+                            observaciones = CONCAT(COALESCE(observaciones, ''), '\n[APROBADO] ', ?)
+                        WHERE id_pedido = ?";
+
+                $stmt = $connection->prepare($sql);
+                $comentarioFinal = date('Y-m-d H:i:s') . " - Admin ID: {$idUsuarioAdmin}";
+                if (!empty($comentarios)) {
+                    $comentarioFinal .= " - {$comentarios}";
+                }
+                $stmt->execute([$comentarioFinal, $idPedido]);
+
+                if ($stmt->rowCount() === 0) {
+                    throw new \Exception('No se pudo aprobar el pedido');
+                }
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Pedido aprobado correctamente'
+                ]);
+
+            } catch (\Exception $e) {
+                error_log("ERROR en aprobarPedido: " . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'rechazarPedido':
+            try {
+                $data = json_decode(file_get_contents('php://input'), true);
+                $idPedido = $data['id_pedido'] ?? null;
+                $motivo = $data['motivo'] ?? '';
+
+                if (!$idPedido) {
+                    throw new \Exception('ID de pedido requerido');
+                }
+
+                if (empty($motivo)) {
+                    throw new \Exception('El motivo de rechazo es requerido');
+                }
+
+                session_start();
+                $idUsuarioAdmin = $_SESSION['u_id'] ?? 1;
+
+                // Actualizar estado del pedido
+                $sql = "UPDATE pedidos 
+                        SET estado = 'rechazado',
+                            observaciones = CONCAT(COALESCE(observaciones, ''), '\n[RECHAZADO] ', ?)
+                        WHERE id_pedido = ?";
+
+                $stmt = $connection->prepare($sql);
+                $comentarioFinal = date('Y-m-d H:i:s') . " - Admin ID: {$idUsuarioAdmin} - Motivo: {$motivo}";
+                $stmt->execute([$comentarioFinal, $idPedido]);
+
+                if ($stmt->rowCount() === 0) {
+                    throw new \Exception('No se pudo rechazar el pedido');
+                }
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Pedido rechazado correctamente'
+                ]);
+
+            } catch (\Exception $e) {
+                error_log("ERROR en rechazarPedido: " . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
 
         default:
             http_response_code(404);
@@ -1691,3 +2076,4 @@ try {
 }
 
 exit;
+
