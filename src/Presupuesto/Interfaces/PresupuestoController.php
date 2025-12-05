@@ -2041,7 +2041,164 @@ try {
             }
             break;
 
+        case 'getAllMateriales':
+            try {
+                // Obtener TODOS los materiales activos con precio
+                $sql = "SELECT 
+                            m.id_material,
+                            m.cod_material,
+                            CAST(m.nombremat AS CHAR) AS nombre_material,
+                            tm.desc_tipo AS tipo_material,
+                            tm.id_tipo_material,
+                            u.unidesc AS unidad,
+                            u.idunidad,
+                            mp.valor AS precio_actual
+                        FROM materiales m
+                        INNER JOIN tipo_material tm ON m.id_tipo_material = tm.id_tipo_material
+                        INNER JOIN gr_unidad u ON m.idunidad = u.idunidad
+                        INNER JOIN material_precio mp ON m.id_material = mp.id_material
+                        WHERE m.idestado = 1 
+                        AND mp.estado = 1
+                        AND mp.id_mat_precio IN (
+                            SELECT MAX(mp2.id_mat_precio) 
+                            FROM material_precio mp2 
+                            WHERE mp2.id_material = m.id_material 
+                            AND mp2.estado = 1
+                        )
+                        ORDER BY m.cod_material";
+                
+                $stmt = $connection->prepare($sql);
+                $stmt->execute();
+                $materiales = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $materiales
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'buscarMateriales':
+            try {
+                $query = $_GET['query'] ?? '';
+                $limit = (int)($_GET['limit'] ?? 10);
+                
+                if (strlen($query) < 2) {
+                    echo json_encode([
+                        'success' => true,
+                        'data' => []
+                    ]);
+                    break;
+                }
+                
+                // Buscar por código o nombre
+                $sql = "SELECT 
+                            m.id_material,
+                            m.cod_material,
+                            CAST(m.nombremat AS CHAR) AS nombre_material,
+                            tm.desc_tipo AS tipo_material,
+                            tm.id_tipo_material,
+                            u.unidesc AS unidad,
+                            u.idunidad,
+                            mp.valor AS precio_actual
+                        FROM materiales m
+                        INNER JOIN tipo_material tm ON m.id_tipo_material = tm.id_tipo_material
+                        INNER JOIN gr_unidad u ON m.idunidad = u.idunidad
+                        INNER JOIN material_precio mp ON m.id_material = mp.id_material
+                        WHERE m.idestado = 1 
+                        AND mp.estado = 1
+                        AND mp.id_mat_precio IN (
+                            SELECT MAX(mp2.id_mat_precio) 
+                            FROM material_precio mp2 
+                            WHERE mp2.id_material = m.id_material 
+                            AND mp2.estado = 1
+                        )
+                        AND (
+                            m.cod_material LIKE ? 
+                            OR CAST(m.nombremat AS CHAR) LIKE ?
+                        )
+                        ORDER BY m.cod_material
+                        LIMIT ?";
+                
+                $searchTerm = '%' . $query . '%';
+                $stmt = $connection->prepare($sql);
+                $stmt->execute([$searchTerm, $searchTerm, $limit]);
+                $materiales = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $materiales
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getMaterialDetalle':
+            try {
+                $idMaterial = $_GET['id_material'] ?? null;
+                
+                if (!$idMaterial) {
+                    throw new \Exception('ID de material requerido');
+                }
+                
+                $sql = "SELECT 
+                            m.id_material,
+                            m.cod_material,
+                            CAST(m.nombremat AS CHAR) AS nombre_material,
+                            tm.desc_tipo AS tipo_material,
+                            tm.id_tipo_material,
+                            u.unidesc AS unidad,
+                            u.idunidad,
+                            mp.valor AS precio_actual,
+                            mp.fecha AS fecha_precio
+                        FROM materiales m
+                        INNER JOIN tipo_material tm ON m.id_tipo_material = tm.id_tipo_material
+                        INNER JOIN gr_unidad u ON m.idunidad = u.idunidad
+                        INNER JOIN material_precio mp ON m.id_material = mp.id_material
+                        WHERE m.id_material = ?
+                        AND m.idestado = 1 
+                        AND mp.estado = 1
+                        AND mp.id_mat_precio IN (
+                            SELECT MAX(mp2.id_mat_precio) 
+                            FROM material_precio mp2 
+                            WHERE mp2.id_material = m.id_material 
+                            AND mp2.estado = 1
+                        )";
+                
+                $stmt = $connection->prepare($sql);
+                $stmt->execute([$idMaterial]);
+                $material = $stmt->fetch(\PDO::FETCH_ASSOC);
+                
+                if (!$material) {
+                    throw new \Exception('Material no encontrado');
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $material
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
         default:
+
             http_response_code(404);
             echo json_encode([
                 'error' => 'Acción no válida',

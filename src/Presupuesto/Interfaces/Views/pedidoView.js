@@ -1937,47 +1937,78 @@ function filtrarMateriales() {
   }
 }
 
+let busquedaMaterialTimeout = null;
+let materialSeleccionadoData = null;
+
 function mostrarModalNuevoItem() {
-  document.getElementById("formNuevoItem").reset();
-  const modal = new bootstrap.Modal(document.getElementById("modalNuevoItem"));
+  // Limpiar formulario
+  document.getElementById('formNuevoItem').reset();
+
+  document.getElementById('vistaPreviewMaterial').style.display = 'none';
+
+  materialSeleccionadoData = null;
+
+  // Cargar capítulos
+  cargarTodosMateriales();
+  cargarCapitulosParaMaterialExtra();
+  const select = document.getElementById('selectMaterial');
+  select.addEventListener('change', onMaterialSeleccionado);
+
+  // Mostrar modal
+  const modal = new bootstrap.Modal(document.getElementById('modalNuevoItem'));
   modal.show();
 }
 
 function solicitarMaterialExtra() {
-  const codigo = document.getElementById("codigoMaterial").value;
-  const descripcion = document.getElementById("descripcionMaterial").value;
-  const cantidad = document.getElementById("cantidadMaterial").value;
-  const unidad = document.getElementById("unidadMaterial").value;
-  const precio = document.getElementById("precioMaterial").value;
-  const tipo = document.getElementById("tipoMaterial").value;
-  const justificacion = document.getElementById("justificacionMaterial").value;
+  const idMaterial = document.getElementById('selectMaterial').value;
+  const idCapitulo = document.getElementById('capituloMaterialExtra').value;
+  const cantidad = document.getElementById('cantidadMaterialExtra').value;
+  const justificacion = document.getElementById('justificacionMaterial').value;
 
-  if (!codigo || !descripcion || !cantidad || !unidad || !justificacion) {
-    alert("Por favor complete todos los campos obligatorios (*)");
+  if (!idMaterial || !materialSeleccionadoData) {
+    alert('Por favor seleccione un material de la lista');
     return;
   }
 
+  if (!idCapitulo) {
+    alert('Por favor seleccione un capítulo');
+    return;
+  }
+
+  if (!cantidad || parseFloat(cantidad) <= 0) {
+    alert('Por favor ingrese una cantidad válida');
+    return;
+  }
+
+  if (!justificacion.trim()) {
+    alert('Por favor ingrese una justificación');
+    return;
+  }
+
+  // Crear objeto de material extra con datos completos
   const materialExtra = {
-    codigo,
-    descripcion,
-    cantidad: parseInt(cantidad),
-    unidad:
-      document.getElementById("unidadMaterial").selectedOptions[0].textContent,
-    precio: parseFloat(precio) || 0,
-    tipo,
-    justificacion,
-    estado: "pendiente",
-    fecha: new Date().toISOString().split("T")[0],
+    id_material: materialSeleccionadoData.id_material,
+    id_componente: materialSeleccionadoData.id_material, // Usar id_material como id_componente
+    codigo: materialSeleccionadoData.cod_material,
+    descripcion: materialSeleccionadoData.nombre_material,
+    cantidad: parseFloat(cantidad),
+    unidad: materialSeleccionadoData.unidad,
+    precio_unitario: parseFloat(materialSeleccionadoData.precio_actual),
+    tipo_componente: materialSeleccionadoData.id_tipo_material,
+    tipo_material: materialSeleccionadoData.tipo_material,
+    id_capitulo: parseInt(idCapitulo),
+    justificacion: justificacion,
+    estado: 'pendiente',
+    fecha: new Date().toISOString().split('T')[0]
   };
 
   materialesExtra.push(materialExtra);
   actualizarEstadisticas();
 
-  const modal = bootstrap.Modal.getInstance(
-    document.getElementById("modalNuevoItem")
-  );
+  const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevoItem'));
   modal.hide();
-  alert("Material extra solicitado para aprobación");
+
+  alert('Material extra solicitado para aprobación');
 }
 
 function eliminarMaterialExtra(index) {
@@ -3541,3 +3572,161 @@ window.generarHojaDetallePorItemsExcel = generarHojaDetallePorItemsExcel;
 window.generarHojaHistorialPedidosExcel = generarHojaHistorialPedidosExcel;
 window.obtenerHistorialPedidos = obtenerHistorialPedidos;
 window.extraerExcedentesDesdeHistorial = extraerExcedentesDesdeHistorial;
+
+function buscarMaterialesAutocompletar() {
+  const input = document.getElementById('buscarMaterial');
+  const query = input.value.trim();
+  const resultados = document.getElementById('resultadosBusqueda');
+
+  // Limpiar timeout anterior
+  if (busquedaMaterialTimeout) {
+    clearTimeout(busquedaMaterialTimeout);
+  }
+
+  // Si la búsqueda es muy corta, ocultar resultados
+  if (query.length < 2) {
+    resultados.style.display = 'none';
+    return;
+  }
+
+  // Debounce de 300ms
+  busquedaMaterialTimeout = setTimeout(async () => {
+    try {
+      const response = await fetch(
+        `${API_PRESUPUESTOS}?action=buscarMateriales&query=${encodeURIComponent(query)}&limit=10`
+      );
+      const data = await response.json();
+
+      if (data.success && data.data.length > 0) {
+        mostrarResultadosBusqueda(data.data);
+      } else {
+        resultados.innerHTML = '<div class="list-group-item text-muted">No se encontraron materiales</div>';
+        resultados.style.display = 'block';
+      }
+    } catch (error) {
+      console.error('Error buscando materiales:', error);
+      resultados.innerHTML = '<div class="list-group-item text-danger">Error en la búsqueda</div>';
+      resultados.style.display = 'block';
+    }
+  }, 300);
+}
+function mostrarResultadosBusqueda(materiales) {
+  const resultados = document.getElementById('resultadosBusqueda');
+  let html = '';
+
+  materiales.forEach(material => {
+    html += `
+            <button type="button" class="list-group-item list-group-item-action" 
+                    onclick="seleccionarMaterial(${material.id_material})">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>${material.cod_material}</strong> - ${material.nombre_material}
+                        <br>
+                        <small class="text-muted">${material.tipo_material} | ${material.unidad}</small>
+                    </div>
+                    <span class="badge bg-primary">$${parseFloat(material.precio_actual).toFixed(2)}</span>
+                </div>
+            </button>
+        `;
+  });
+
+  resultados.innerHTML = html;
+  resultados.style.display = 'block';
+}
+
+async function seleccionarMaterial(idMaterial) {
+  try {
+    const response = await fetch(
+      `${API_PRESUPUESTOS}?action=getMaterialDetalle&id_material=${idMaterial}`
+    );
+    const data = await response.json();
+
+    if (data.success) {
+      materialSeleccionadoData = data.data;
+
+      // Actualizar campos ocultos
+      document.getElementById('idMaterialSeleccionado').value = data.data.id_material;
+
+      // Actualizar input de búsqueda
+      document.getElementById('buscarMaterial').value =
+        `${data.data.cod_material} - ${data.data.nombre_material}`;
+
+      // Ocultar resultados
+      document.getElementById('resultadosBusqueda').style.display = 'none';
+
+      // Mostrar vista previa
+      document.getElementById('previewCodigo').textContent = data.data.cod_material;
+      document.getElementById('previewDescripcion').textContent = data.data.nombre_material;
+      document.getElementById('previewUnidad').textContent = data.data.unidad;
+      document.getElementById('previewPrecio').textContent = parseFloat(data.data.precio_actual).toFixed(2);
+      document.getElementById('previewTipo').textContent = data.data.tipo_material;
+      document.getElementById('vistaPreviewMaterial').style.display = 'block';
+    }
+  } catch (error) {
+    console.error('Error cargando detalles del material:', error);
+    alert('Error al cargar los detalles del material');
+  }
+}
+
+async function cargarCapitulosParaMaterialExtra() {
+  const presupuestoId = seleccionActual?.datos?.presupuestoId;
+  if (!presupuestoId) return;
+
+  try {
+    const formData = new FormData();
+    formData.append('id_presupuesto', presupuestoId);
+
+    const response = await fetch(API_PRESUPUESTOS + '?action=getCapitulosByPresupuesto', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      const select = document.getElementById('capituloMaterialExtra');
+      select.innerHTML = '<option value="">Seleccionar capítulo...</option>';
+
+      data.data.forEach(capitulo => {
+        const option = document.createElement('option');
+        option.value = capitulo.id_capitulo;
+        option.textContent = `${capitulo.numero_ordinal}. ${capitulo.nombre_cap}`;
+        select.appendChild(option);
+      });
+    }
+  } catch (error) {
+    console.error('Error cargando capítulos:', error);
+  }
+}
+
+async function cargarTodosMateriales() {
+  const response = await fetch(`${API_PRESUPUESTOS}?action=getAllMateriales`);
+  const data = await response.json();
+  if (data.success) {
+    const select = document.getElementById('selectMaterial');
+    select.innerHTML = '<option value="">Seleccionar...</option>';
+    data.data.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id_material;
+      opt.textContent = `${m.cod_material} - ${m.nombre_material}`;
+      opt.dataset.material = JSON.stringify(m);
+      select.appendChild(opt);
+    });
+  }
+}
+
+function onMaterialSeleccionado() {
+  const select = document.getElementById('selectMaterial');
+  const opt = select.options[select.selectedIndex];
+  if (!opt.value) {
+    document.getElementById('vistaPreviewMaterial').style.display = 'none';
+    return;
+  }
+  materialSeleccionadoData = JSON.parse(opt.dataset.material);
+  document.getElementById('previewCodigo').textContent = materialSeleccionadoData.cod_material;
+  document.getElementById('previewDescripcion').textContent = materialSeleccionadoData.nombre_material;
+  document.getElementById('previewUnidad').textContent = materialSeleccionadoData.unidad;
+  document.getElementById('previewPrecio').textContent = parseFloat(materialSeleccionadoData.precio_actual).toFixed(2);
+  document.getElementById('previewTipo').textContent = materialSeleccionadoData.tipo_material;
+  document.getElementById('vistaPreviewMaterial').style.display = 'block';
+}

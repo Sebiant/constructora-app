@@ -269,55 +269,53 @@
                 </div>
                 <div class="modal-body">
                     <form id="formNuevoItem">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Código del Material *</label>
-                                    <input type="text" class="form-control" id="codigoMaterial" placeholder="Ej: EXT-001" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Unidad de Medida *</label>
-                                    <select class="form-select" id="unidadMaterial" required>
-                                        <option value="">Seleccionar...</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Selección de Material -->
                         <div class="mb-3">
-                            <label class="form-label">Descripción del Material *</label>
-                            <input type="text" class="form-control" id="descripcionMaterial" placeholder="Nombre y especificaciones del material" required>
+                            <label class="form-label">Seleccionar Material *</label>
+                            <select class="form-select" id="selectMaterial" required>
+                                <option value="">Cargando materiales...</option>
+                            </select>
                         </div>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Cantidad Requerida *</label>
-                                    <input type="number" class="form-control" id="cantidadMaterial" placeholder="0" min="1" required>
+                        
+                        <!-- Vista Previa del Material Seleccionado -->
+                        <div id="vistaPreviewMaterial" class="alert alert-info" style="display: none;">
+                            <h6 class="alert-heading"><i class="bi bi-info-circle"></i> Material Seleccionado</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Código:</strong> <span id="previewCodigo">-</span></p>
+                                    <p class="mb-1"><strong>Descripción:</strong> <span id="previewDescripcion">-</span></p>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Precio Unitario Estimado</label>
-                                    <input type="number" class="form-control" id="precioMaterial" placeholder="0" min="0" step="0.01">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Tipo de Material</label>
-                                    <select class="form-select" id="tipoMaterial">
-                                        <option value="2">Material</option>
-                                        <option value="1">Mano de Obra</option>
-                                        <option value="3">Equipo</option>
-                                        <option value="4">Otros</option>
-                                    </select>
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Unidad:</strong> <span id="previewUnidad">-</span></p>
+                                    <p class="mb-1"><strong>Precio:</strong> $<span id="previewPrecio">0.00</span></p>
+                                    <p class="mb-1"><strong>Tipo:</strong> <span id="previewTipo">-</span></p>
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Capítulo -->
+                        <div class="mb-3">
+                            <label class="form-label">Capítulo *</label>
+                            <select class="form-select" id="capituloMaterialExtra" required>
+                                <option value="">Seleccionar capítulo...</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Cantidad -->
+                        <div class="mb-3">
+                            <label class="form-label">Cantidad Requerida *</label>
+                            <input type="number" class="form-control" id="cantidadMaterialExtra" 
+                                   placeholder="0" min="0.0001" step="0.0001" required>
+                        </div>
+                        
+                        <!-- Justificación -->
                         <div class="mb-3">
                             <label class="form-label">Justificación *</label>
-                            <textarea class="form-control" id="justificacionMaterial" rows="3" placeholder="Explique por qué necesita este material fuera del presupuesto original..." required></textarea>
+                            <textarea class="form-control" id="justificacionMaterial" rows="3" 
+                                      placeholder="Explique por qué necesita este material fuera del presupuesto original..." 
+                                      required></textarea>
                         </div>
+                        
                         <div class="alert alert-warning">
                             <small>Este material requerirá aprobación antes de ser incluido en el pedido.</small>
                         </div>
