@@ -566,6 +566,7 @@ function actualizarPedidoItemDesdeInput(input, cantidad) {
   actualizarResumenComponente(componente);
   actualizarCarrito();
   actualizarEstadisticas();
+  renderMaterialesExtraCard();
 }
 
 function actualizarTotalesDesglose(componente) {
@@ -778,10 +779,8 @@ function cargarComponentesParaPedido(itemId) {
                  step="0.0001"
                  data-componente-id="${componente.id_componente}"
                  data-item-id="${itemId}"
-                 title="${pedidoExtra
-        ? "Tiene un pedido extra pendiente de aprobación"
-        : "Ingrese la cantidad a pedir"
-      }">
+                 data-precio="${componente.precio_unitario}"
+                 data-unidad="${componente.unidad}">
           <span class="input-group-text">${componente.unidad}</span>
         </div>
         <small class="text-muted">Máx: ${cantidadMaxima.toFixed(4)}</small>
@@ -867,6 +866,7 @@ function actualizarCantidadComponente(componenteId, cantidad, itemId) {
   actualizarEstadisticas();
   actualizarCarrito();
   actualizarBotonDesglose(itemId);
+  renderMaterialesExtraCard();
 }
 
 function agregarTodoComponente(componenteId, itemId) {
@@ -1161,6 +1161,13 @@ async function cargarItems() {
       mostrarItemsConComponentes(items);
       actualizarEstadisticas();
       mostrarInformacionProyecto(proyecto, presupuesto);
+
+      cargarMaterialesExtraDesdeDB().then(materialesExtraDB => {
+        materialesExtra.length = 0;
+        materialesExtra.push(...materialesExtraDB);
+        actualizarEstadisticas();
+        renderMaterialesExtraCard();
+      });
     } catch (error) {
       console.error("Error cargando items:", error);
       mostrarErrorItems();
@@ -1624,7 +1631,6 @@ function actualizarEstadisticas() {
   }
 
   const btnDisabled = componentesSeleccionados === 0 &&
-    materialesExtra.length === 0 &&
     pedidosFueraPresupuesto.length === 0;
 
   document.getElementById("btnConfirmarPedido").disabled = btnDisabled;
@@ -1666,6 +1672,7 @@ function actualizarCarrito() {
       </div>
     `;
     cardCarrito.style.display = "none";
+    renderMaterialesExtraCard();
     return;
   }
 
@@ -1835,6 +1842,7 @@ function actualizarCarrito() {
   document.getElementById(
     "contadorCarrito"
   ).textContent = `${componentesEnCarrito.length} componentes`;
+  renderMaterialesExtraCard();
 }
 
 function quitarComponenteDelCarrito(componenteId, itemId) {
@@ -1985,30 +1993,52 @@ function solicitarMaterialExtra() {
     return;
   }
 
-  // Crear objeto de material extra con datos completos
-  const materialExtra = {
-    id_material: materialSeleccionadoData.id_material,
-    id_componente: materialSeleccionadoData.id_material, // Usar id_material como id_componente
-    codigo: materialSeleccionadoData.cod_material,
-    descripcion: materialSeleccionadoData.nombre_material,
-    cantidad: parseFloat(cantidad),
-    unidad: materialSeleccionadoData.unidad,
-    precio_unitario: parseFloat(materialSeleccionadoData.precio_actual),
-    tipo_componente: materialSeleccionadoData.id_tipo_material,
-    tipo_material: materialSeleccionadoData.tipo_material,
-    id_capitulo: parseInt(idCapitulo),
-    justificacion: justificacion,
-    estado: 'pendiente',
-    fecha: new Date().toISOString().split('T')[0]
-  };
+  // Guardar en base de datos
+  const formData = new FormData();
+  formData.append('id_presupuesto', seleccionActual.datos.presupuestoId);
+  formData.append('id_material', materialSeleccionadoData.id_material);
+  formData.append('id_capitulo', idCapitulo);
+  formData.append('cantidad', cantidad);
+  formData.append('justificacion', justificacion);
 
-  materialesExtra.push(materialExtra);
-  actualizarEstadisticas();
-
-  const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevoItem'));
-  modal.hide();
-
-  alert('Material extra solicitado para aprobación');
+  fetch(API_PRESUPUESTOS + '?action=guardarMaterialExtra', {
+    method: 'POST',
+    body: formData
+  })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        const materialExtra = {
+          id_material: materialSeleccionadoData.id_material,
+          id_componente: materialSeleccionadoData.id_material,
+          codigo: materialSeleccionadoData.cod_material,
+          descripcion: materialSeleccionadoData.nombre_material,
+          cantidad: parseFloat(cantidad),
+          unidad: materialSeleccionadoData.unidad,
+          precio_unitario: parseFloat(materialSeleccionadoData.precio_actual),
+          tipo_componente: materialSeleccionadoData.id_tipo_material,
+          tipo_material: materialSeleccionadoData.tipo_material,
+          id_capitulo: parseInt(idCapitulo),
+          justificacion: justificacion,
+          estado: 'pendiente',
+          fecha: new Date().toISOString().split('T')[0],
+          es_material_extra: true
+        };
+        materialesExtra.push(materialExtra);
+        actualizarEstadisticas();
+        renderMaterialesExtraCard();
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevoItem'));
+        modal.hide();
+        alert('Material guardado en el presupuesto');
+        cargarItems();
+      } else {
+        alert('Error: ' + data.message);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Error al guardar');
+    });
 }
 
 function eliminarMaterialExtra(index) {
@@ -2016,6 +2046,7 @@ function eliminarMaterialExtra(index) {
     materialesExtra.splice(index, 1);
     actualizarEstadisticas();
     actualizarCarrito();
+    renderMaterialesExtraCard();
   }
 }
 
@@ -2440,6 +2471,7 @@ function actualizarCantidadComponenteAgrupado(input) {
 
   actualizarCarrito();
   actualizarEstadisticas();
+  renderMaterialesExtraCard();
 }
 
 
@@ -2662,6 +2694,51 @@ function generarDatosResumen(excedentes = []) {
       ? (itemData.cantidadCompletadaGlobal / itemData.cantidadTotalGlobal) * 100
       : 0;
   });
+
+  // Agregar materiales extra como un item separado
+  if (materialesExtra && materialesExtra.length > 0) {
+    const materialesExtraItem = {
+      codigoItem: 'EXTRA',
+      nombreItem: 'MATERIALES EXTRA (Fuera de Presupuesto)',
+      capitulo: 'Varios',
+      componentes: [],
+      valorTotal: 0,
+      cantidadTotalGlobal: 0,
+      cantidadCompletadaGlobal: 0,
+      porcentajeGlobal: 0
+    };
+
+    materialesExtra.forEach(extra => {
+      const cantidad = parseFloat(extra.cantidad) || 0;
+      const precio = parseFloat(extra.precio_unitario) || 0;
+      const subtotal = cantidad * precio;
+
+      materialesExtraItem.componentes.push({
+        nombre: `${extra.codigo} - ${extra.descripcion}`,
+        tipo: extra.tipo_material || 'Material',
+        unidad: extra.unidad || 'UND',
+        cantidadTotal: cantidad,
+        yaPedido: 0,
+        pedidoActual: cantidad,
+        excedente: 0,
+        justificacion: extra.justificacion || '',
+        pendiente: 0,
+        porcentaje: 100,
+        precioUnitario: precio,
+        subtotal: subtotal
+      });
+
+      materialesExtraItem.valorTotal += subtotal;
+      materialesExtraItem.cantidadTotalGlobal += cantidad;
+      materialesExtraItem.cantidadCompletadaGlobal += cantidad;
+      valorTotalGlobal += subtotal;
+      totalComponentesContados++;
+      componentesCompletados++;
+    });
+
+    materialesExtraItem.porcentajeGlobal = 100;
+    componentesPorItem.set('EXTRA', materialesExtraItem);
+  }
 
   return {
     totalItems: componentesPorItem.size,
@@ -3118,9 +3195,9 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
       let primeraFilaItem = true;
 
       item.componentes.forEach((comp) => {
-        const fila = worksheet.getRow(filaActual);
         const porcentaje = comp.porcentaje || 0;
 
+        const fila = worksheet.getRow(filaActual);
         fila.values = [
           primeraFilaItem ? item.codigoItem : '',
           primeraFilaItem ? item.nombreItem : '',
@@ -3146,7 +3223,7 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
 
           // Alineación y formato numérico
           if (colNum >= 8 && colNum <= 12) {
-            cell.numFmt = '#,##0.0000';
+            cell.numFmt = colNum === 11 ? '#,##0.0000' : '#,##0.00';
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
           }
           if (colNum === 13) {
@@ -3192,10 +3269,10 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
     const filaTotal = worksheet.getRow(filaActual);
     const totalDetalleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
     filaTotal.values = ['', '', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL:', datosResumen.valorTotal];
-    filaTotal.font = { bold: true, size: 11 };
+    filaTotal.font = { bold: true };
     filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
     filaTotal.height = 22;
-    filaTotal.eachCell((cell, colNumber) => {
+    filaTotal.eachCell((cell) => {
       cell.border = borderCompleto();
       cell.fill = totalDetalleFill;
       if (colNumber === 15) {
@@ -3712,6 +3789,42 @@ async function cargarTodosMateriales() {
       opt.dataset.material = JSON.stringify(m);
       select.appendChild(opt);
     });
+  }
+}
+
+// Cargar materiales extra del presupuesto desde la BD
+async function cargarMaterialesExtraDesdeDB() {
+  const presupuestoId = seleccionActual?.datos?.presupuestoId;
+  if (!presupuestoId) return [];
+
+  try {
+    const response = await fetch(
+      `${API_PRESUPUESTOS}?action=getMaterialesExtra&id_presupuesto=${presupuestoId}`
+    );
+    const data = await response.json();
+
+    if (data.success && data.data) {
+      return data.data.map(extra => ({
+        id_material: extra.id_material,
+        id_componente: extra.id_material,
+        codigo: extra.cod_material,
+        descripcion: extra.nombre_material,
+        cantidad: parseFloat(extra.cantidad),
+        unidad: extra.unidad,
+        precio_unitario: parseFloat(extra.precio_unitario),
+        tipo_componente: extra.tipo_material,
+        tipo_material: extra.tipo_material,
+        id_capitulo: extra.id_capitulo,
+        justificacion: extra.justificacion,
+        estado: extra.estado,
+        fecha: extra.fecha_agregado,
+        es_material_extra: true
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.error('Error:', error);
+    return [];
   }
 }
 

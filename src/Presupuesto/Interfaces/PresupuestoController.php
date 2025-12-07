@@ -2197,6 +2197,141 @@ try {
             }
             break;
 
+        case 'guardarMaterialExtra':
+            try {
+                session_start();
+                $idUsuario = $_SESSION['u_id'] ?? null;
+                
+                $idPresupuesto = $_POST['id_presupuesto'] ?? null;
+                $idMaterial = $_POST['id_material'] ?? null;
+                $idCapitulo = $_POST['id_capitulo'] ?? null;
+                $cantidad = $_POST['cantidad'] ?? null;
+                $justificacion = $_POST['justificacion'] ?? null;
+                
+                // Validaciones
+                if (!$idPresupuesto || !$idMaterial || !$cantidad || !$justificacion) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'Faltan datos requeridos'
+                    ]);
+                    break;
+                }
+                
+                // Obtener precio actual del material
+                $sqlPrecio = "SELECT mp.valor 
+                             FROM material_precio mp
+                             WHERE mp.id_material = ? 
+                             AND mp.estado = 1
+                             AND mp.id_mat_precio IN (
+                                 SELECT MAX(mp2.id_mat_precio) 
+                                 FROM material_precio mp2 
+                                 WHERE mp2.id_material = mp.id_material 
+                                 AND mp2.estado = 1
+                             )";
+                
+                $stmtPrecio = $connection->prepare($sqlPrecio);
+                $stmtPrecio->execute([$idMaterial]);
+                $precio = $stmtPrecio->fetch(\PDO::FETCH_COLUMN);
+                
+                if (!$precio) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'No se encontró precio para el material'
+                    ]);
+                    break;
+                }
+                
+                // Insertar material extra
+                $sqlInsert = "INSERT INTO materiales_extra_presupuesto 
+                             (id_presupuesto, id_material, id_capitulo, cantidad, precio_unitario, justificacion, estado, usuario_agrego)
+                             VALUES (?, ?, ?, ?, ?, ?, 'pendiente', ?)";
+                
+                $stmtInsert = $connection->prepare($sqlInsert);
+                $stmtInsert->execute([
+                    $idPresupuesto,
+                    $idMaterial,
+                    $idCapitulo,
+                    $cantidad,
+                    $precio,
+                    $justificacion,
+                    $idUsuario
+                ]);
+                
+                $idMaterialExtra = $connection->lastInsertId();
+                
+                // Obtener datos del material para respuesta
+                $sqlMaterial = "SELECT m.cod_material, CAST(m.nombremat AS CHAR) AS nombre_material
+                               FROM materiales m
+                               WHERE m.id_material = ?";
+                $stmtMaterial = $connection->prepare($sqlMaterial);
+                $stmtMaterial->execute([$idMaterial]);
+                $material = $stmtMaterial->fetch(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Material extra agregado correctamente',
+                    'data' => [
+                        'id_material_extra' => $idMaterialExtra,
+                        'codigo_material' => $material['cod_material'],
+                        'nombre_material' => $material['nombre_material']
+                    ]
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Error al guardar material extra: ' . $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getMaterialesExtra':
+            try {
+                $idPresupuesto = $_GET['id_presupuesto'] ?? null;
+                
+                if (!$idPresupuesto) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'ID de presupuesto requerido'
+                    ]);
+                    break;
+                }
+                
+                $sql = "SELECT 
+                            mep.*,
+                            m.cod_material,
+                            CAST(m.nombremat AS CHAR) AS nombre_material,
+                            tm.desc_tipo AS tipo_material,
+                            u.unidesc AS unidad,
+                            c.nombre_cap AS nombre_capitulo,
+                            usr.u_nombre,
+                            usr.u_apellido
+                        FROM materiales_extra_presupuesto mep
+                        INNER JOIN materiales m ON mep.id_material = m.id_material
+                        INNER JOIN tipo_material tm ON m.id_tipo_material = tm.id_tipo_material
+                        INNER JOIN gr_unidad u ON m.idunidad = u.idunidad
+                        LEFT JOIN capitulos c ON mep.id_capitulo = c.id_capitulo
+                        LEFT JOIN gr_usuarios usr ON mep.usuario_agrego = usr.u_id
+                        WHERE mep.id_presupuesto = ?
+                        ORDER BY mep.fecha_agregado DESC";
+                
+                $stmt = $connection->prepare($sql);
+                $stmt->execute([$idPresupuesto]);
+                $materialesExtra = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $materialesExtra
+                ]);
+                
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Error al obtener materiales extra: ' . $e->getMessage()
+                ]);
+            }
+            break;
+
         default:
 
             http_response_code(404);
