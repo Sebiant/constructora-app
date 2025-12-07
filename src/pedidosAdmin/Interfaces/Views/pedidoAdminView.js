@@ -272,7 +272,9 @@ function renderizarDetallePedido(pedido) {
 
     // Renderizar componentes
     const tbodyComponentes = document.getElementById('detalleComponentes');
-    tbodyComponentes.innerHTML = pedido.componentes.map(comp => `
+    tbodyComponentes.innerHTML = pedido.componentes.map(comp => {
+        const esExcedente = parseInt(comp.es_excedente, 10) === 1;
+        return `
         <tr>
             <td>${comp.descripcion}</td>
             <td>${comp.tipo_componente}</td>
@@ -280,13 +282,13 @@ function renderizarDetallePedido(pedido) {
             <td class="text-end">${formatearMoneda(comp.precio_unitario)}</td>
             <td class="text-end">${formatearMoneda(comp.subtotal)}</td>
             <td class="text-center">
-                ${comp.es_excedente ? '<span class="badge bg-warning">Sí</span>' : '<span class="badge bg-success">No</span>'}
+                ${esExcedente ? '<span class="badge bg-warning">Sí</span>' : '<span class="badge bg-success">No</span>'}
             </td>
-        </tr>
-    `).join('');
+        </tr>`;
+    }).join('');
 
     // Mostrar/ocultar sección de excedentes
-    const excedentes = pedido.componentes.filter(c => c.es_excedente);
+    const excedentes = pedido.componentes.filter(c => parseInt(c.es_excedente, 10) === 1);
     if (excedentes.length > 0) {
         document.getElementById('seccionExcedentes').style.display = 'block';
         const tbodyExcedentes = document.getElementById('detalleExcedentes');

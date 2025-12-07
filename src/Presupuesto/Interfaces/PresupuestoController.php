@@ -602,9 +602,9 @@ try {
                 }
 
                 // 2. DETERMINAR ESTADO DEL PEDIDO
-                // Si hay pedidos fuera de presupuesto → estado: pendiente (1)
-                // Si solo hay pedidos normales → estado: aprobado (2)
-                $tienePedidosAdicionales = count($pedidosFueraPresupuesto) > 0;
+                // Si hay pedidos fuera de presupuesto o materiales extra → estado: pendiente
+                // Si solo hay pedidos normales → estado: aprobado
+                $tienePedidosAdicionales = count($pedidosFueraPresupuesto) > 0 || count($materialesExtra) > 0;
                 $idEstadoPedido = $tienePedidosAdicionales ? 1 : 2; // 1=Pendiente, 2=Aprobado
                 $estadoTexto = $tienePedidosAdicionales ? 'pendiente' : 'aprobado';
 
@@ -710,6 +710,8 @@ try {
                     }
 
                     // 8. INSERTAR MATERIALES EXTRA (si existen)
+                    // Estos materiales provienen de la tabla materiales_extra_presupuesto
+                    // y deben quedar registrados como "extra" en el historial de pedidos.
                     foreach ($materialesExtra as $extra) {
                         $cantidad = (float)($extra['cantidad'] ?? 0);
                         if ($cantidad <= 0) continue;
@@ -720,7 +722,10 @@ try {
                         $idItem = isset($extra['id_item']) && $extra['id_item'] > 0 ? (int)$extra['id_item'] : null;
                         $precioUnitario = (float)($extra['precio_unitario'] ?? 0);
                         $subtotal = $cantidad * $precioUnitario;
+                        $justificacionExtra = $extra['justificacion'] ?? null;
 
+                        // Importante: marcar como excedente (=1) para que se identifique
+                        // claramente en el historial y en los reportes de Excel.
                         $stmtDetalle->execute([
                             $idPedido,
                             $idComponente,
@@ -729,8 +734,8 @@ try {
                             $cantidad,
                             $precioUnitario,
                             $subtotal,
-                            null,
-                            0
+                            $justificacionExtra,
+                            1
                         ]);
 
                         $detallesInsertados++;
@@ -2200,7 +2205,8 @@ try {
         case 'guardarMaterialExtra':
             try {
                 session_start();
-                $idUsuario = $_SESSION['u_id'] ?? null;
+                // Usar el mismo criterio que en guardarPedido: si no hay sesión, usar 1 por defecto
+                $idUsuario = $_SESSION['u_id'] ?? 1;
                 
                 $idPresupuesto = $_POST['id_presupuesto'] ?? null;
                 $idMaterial = $_POST['id_material'] ?? null;
@@ -2241,41 +2247,93 @@ try {
                     break;
                 }
                 
-                // Insertar material extra
-                $sqlInsert = "INSERT INTO materiales_extra_presupuesto 
-                             (id_presupuesto, id_material, id_capitulo, cantidad, precio_unitario, justificacion, estado, usuario_agrego)
-                             VALUES (?, ?, ?, ?, ?, ?, 'pendiente', ?)";
-                
-                $stmtInsert = $connection->prepare($sqlInsert);
-                $stmtInsert->execute([
-                    $idPresupuesto,
-                    $idMaterial,
-                    $idCapitulo,
-                    $cantidad,
-                    $precio,
-                    $justificacion,
-                    $idUsuario
-                ]);
-                
-                $idMaterialExtra = $connection->lastInsertId();
-                
-                // Obtener datos del material para respuesta
-                $sqlMaterial = "SELECT m.cod_material, CAST(m.nombremat AS CHAR) AS nombre_material
-                               FROM materiales m
-                               WHERE m.id_material = ?";
-                $stmtMaterial = $connection->prepare($sqlMaterial);
-                $stmtMaterial->execute([$idMaterial]);
-                $material = $stmtMaterial->fetch(\PDO::FETCH_ASSOC);
-                
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Material extra agregado correctamente',
-                    'data' => [
-                        'id_material_extra' => $idMaterialExtra,
-                        'codigo_material' => $material['cod_material'],
-                        'nombre_material' => $material['nombre_material']
-                    ]
-                ]);
+                // Iniciar transacción: material extra + pedido pendiente + detalle excedente
+                $connection->beginTransaction();
+
+                try {
+                    // Insertar material extra en su tabla de trazabilidad
+                    $sqlInsert = "INSERT INTO materiales_extra_presupuesto 
+                                 (id_presupuesto, id_material, id_capitulo, cantidad, precio_unitario, justificacion, estado, usuario_agrego)
+                                 VALUES (?, ?, ?, ?, ?, ?, 'pendiente', ?)";
+
+                    $stmtInsert = $connection->prepare($sqlInsert);
+                    $stmtInsert->execute([
+                        $idPresupuesto,
+                        $idMaterial,
+                        $idCapitulo,
+                        $cantidad,
+                        $precio,
+                        $justificacion,
+                        $idUsuario
+                    ]);
+
+                    $idMaterialExtra = $connection->lastInsertId();
+
+                    // Crear un pedido pendiente solo para este material extra
+                    $subtotal = (float)$cantidad * (float)$precio;
+
+                    $sqlPedidoExtra = "INSERT INTO pedidos
+                                      (id_presupuesto, fecha_pedido, estado, total, observaciones, idusuario, fechareg, fechaupdate)
+                                      VALUES (?, NOW(), 'pendiente', ?, ?, ?, NOW(), NOW())";
+
+                    $observacionesExtra = 'Pedido de material extra desde materiales_extra_presupuesto (ID ME: ' . $idMaterialExtra . ')';
+
+                    $stmtPedidoExtra = $connection->prepare($sqlPedidoExtra);
+                    $stmtPedidoExtra->execute([
+                        $idPresupuesto,
+                        $subtotal,
+                        $observacionesExtra,
+                        $idUsuario
+                    ]);
+
+                    $idPedidoExtra = $connection->lastInsertId();
+
+                    if (!$idPedidoExtra) {
+                        throw new \Exception('No se pudo crear el pedido para el material extra');
+                    }
+
+                    // Insertar detalle del pedido marcado como excedente
+                    $sqlDetalleExtra = "INSERT INTO pedidos_detalle
+                                        (id_pedido, id_componente, tipo_componente, id_item, cantidad, precio_unitario, subtotal, justificacion, es_excedente, fechareg)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())";
+
+                    $stmtDetalleExtra = $connection->prepare($sqlDetalleExtra);
+                    $stmtDetalleExtra->execute([
+                        $idPedidoExtra,
+                        null,           // id_componente NULL para no violar FK hacia item_componentes
+                        'material',     // tipo_componente
+                        null,           // id_item no aplica aquí
+                        $cantidad,
+                        $precio,
+                        $subtotal,
+                        $justificacion
+                    ]);
+
+                    // Obtener datos del material para respuesta
+                    $sqlMaterial = "SELECT m.cod_material, CAST(m.nombremat AS CHAR) AS nombre_material
+                                   FROM materiales m
+                                   WHERE m.id_material = ?";
+                    $stmtMaterial = $connection->prepare($sqlMaterial);
+                    $stmtMaterial->execute([$idMaterial]);
+                    $material = $stmtMaterial->fetch(\PDO::FETCH_ASSOC);
+
+                    $connection->commit();
+
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Material extra agregado correctamente y pedido pendiente creado',
+                        'data' => [
+                            'id_material_extra' => $idMaterialExtra,
+                            'id_pedido_extra' => $idPedidoExtra,
+                            'codigo_material' => $material['cod_material'],
+                            'nombre_material' => $material['nombre_material']
+                        ]
+                    ]);
+
+                } catch (\Exception $e) {
+                    $connection->rollBack();
+                    throw $e;
+                }
                 
             } catch (\Exception $e) {
                 echo json_encode([

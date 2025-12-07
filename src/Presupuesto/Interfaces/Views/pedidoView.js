@@ -1462,6 +1462,9 @@ async function cargarUnidades() {
 
     if (result.success) {
       const selectUnidad = document.getElementById("unidadMaterial");
+      // En algunas vistas este select no existe; evitar que falle toda la carga
+      if (!selectUnidad) return;
+
       result.data.forEach((unidad) => {
         const option = document.createElement("option");
         option.value = unidad.idunidad;
@@ -1591,7 +1594,7 @@ function organizarComponentesPorTipo(componentes) {
 function formatCurrency(amount) {
   return parseFloat(amount || 0)
     .toFixed(2)
-    .replace(/\d(?=(\d{3})+\.)/g, "$&,");
+    .replace(/\d(?=(\d{3})+\.)/g, "$$&,");
 }
 
 function actualizarEstadisticas() {
@@ -1599,7 +1602,7 @@ function actualizarEstadisticas() {
   let totalCantidad = 0;
   let valorTotal = 0;
 
-  if (itemsData.componentesAgrupados) {
+  if (itemsData && itemsData.componentesAgrupados) {
     itemsData.componentesAgrupados.forEach((componente) => {
       if (componente.pedido > 0) {
         componentesSeleccionados++;
@@ -1609,276 +1612,92 @@ function actualizarEstadisticas() {
     });
   }
 
-  document.getElementById("statSeleccionados").textContent =
-    componentesSeleccionados;
-  document.getElementById("statTotalItems").textContent =
-    totalCantidad.toFixed(2);
-  document.getElementById(
-    "statValorTotal"
-  ).textContent = `$${valorTotal.toFixed(2)}`;
-  document.getElementById("statExtras").textContent = materialesExtra.length;
+  const statSel = document.getElementById("statSeleccionados");
+  if (statSel) statSel.textContent = componentesSeleccionados;
+
+  const statTotalItems = document.getElementById("statTotalItems");
+  if (statTotalItems) statTotalItems.textContent = totalCantidad.toFixed(2);
+
+  const statValorTotal = document.getElementById("statValorTotal");
+  if (statValorTotal) statValorTotal.textContent = `$${valorTotal.toFixed(2)}`;
+
+  const statExtras = document.getElementById("statExtras");
+  if (statExtras) statExtras.textContent = (materialesExtra || []).length;
 
   const alertPendientes = document.getElementById(
     "alertPendientesAutorizacion"
   );
-  const statPendientes = document.getElementById("statPendientesAutorizacion");
+  const statPendientes = document.getElementById(
+    "statPendientesAutorizacion"
+  );
 
-  if (pedidosFueraPresupuesto.length > 0) {
-    alertPendientes.style.display = "block";
-    statPendientes.textContent = pedidosFueraPresupuesto.length;
-  } else {
-    alertPendientes.style.display = "none";
+  if (alertPendientes && statPendientes) {
+    if (pedidosFueraPresupuesto && pedidosFueraPresupuesto.length > 0) {
+      alertPendientes.style.display = "block";
+      statPendientes.textContent = pedidosFueraPresupuesto.length;
+    } else {
+      alertPendientes.style.display = "none";
+    }
   }
 
-  const btnDisabled = componentesSeleccionados === 0 &&
-    pedidosFueraPresupuesto.length === 0;
-
-  document.getElementById("btnConfirmarPedido").disabled = btnDisabled;
+  const btnConfirmar = document.getElementById("btnConfirmarPedido");
+  if (btnConfirmar) {
+    const btnDisabled =
+      componentesSeleccionados === 0 &&
+      (!pedidosFueraPresupuesto || pedidosFueraPresupuesto.length === 0);
+    btnConfirmar.disabled = btnDisabled;
+  }
 }
 
-function actualizarCarrito() {
-  const componentesEnCarrito = [];
+function resetarGestion() {
+  // Reiniciar estructuras en memoria
+  itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
+  materialesExtra = [];
+  pedidosFueraPresupuesto = [];
 
-  if (itemsData.componentesAgrupados) {
-    itemsData.componentesAgrupados.forEach((componente) => {
-      if (componente.pedido > 0) {
-        componentesEnCarrito.push({
-          id_componente: componente.id_componente,
-          descripcion: componente.nombre_componente,
-          tipo_componente: componente.tipo_componente,
-          unidad: componente.unidad_componente,
-          pedido: componente.pedido,
-          precio_unitario: componente.precio_unitario,
-          codigo_item_padre: "Varios items",
-          nombre_item_padre: `Usado en ${componente.cantidad_items} item(s)`,
-          capitulos: componente.capitulos,
-        });
-      }
-    });
+  // Mensajes base en las listas
+  const materialesList = document.getElementById("materialesList");
+  if (materialesList) {
+    materialesList.innerHTML = `
+      <div class="text-center text-muted py-5">
+        <div class="spinner-border text-muted" role="status"></div>
+        <p class="mt-3">Seleccione un proyecto y presupuesto para ver los componentes</p>
+      </div>
+    `;
   }
 
-  const container = document.getElementById("carritoList");
-  const cardCarrito = document.getElementById("cardCarrito");
-
-  if (
-    componentesEnCarrito.length === 0 &&
-    pedidosFueraPresupuesto.length === 0 &&
-    materialesExtra.length === 0
-  ) {
-    container.innerHTML = `
+  const carritoList = document.getElementById("carritoList");
+  if (carritoList) {
+    carritoList.innerHTML = `
       <div class="text-center text-muted py-4">
         <div class="spinner-border text-muted" role="status"></div>
         <p class="mt-3">Agregue componentes del presupuesto para verlos aquí</p>
       </div>
     `;
-    cardCarrito.style.display = "none";
-    renderMaterialesExtraCard();
-    return;
   }
 
-  cardCarrito.style.display = "block";
-
-  let html = "";
-  let totalGeneral = 0;
-
-  if (componentesEnCarrito.length > 0) {
-    componentesEnCarrito.forEach((componente) => {
-      const subtotal = componente.pedido * componente.precio_unitario;
-      totalGeneral += subtotal;
-
-      const icono = obtenerIconoTipoComponente(componente.tipo_componente);
-      const badgeClass = obtenerClaseBadgeTipo(componente.tipo_componente);
-      const nombreTipo = obtenerNombreTipoComponente(
-        componente.tipo_componente
-      );
-
-      html += `
-        <div class="card mb-2 border-info">
-          <div class="card-body py-2">
-            <div class="row align-items-center">
-              <div class="col-md-4">
-                <div class="d-flex align-items-center">
-                  <i class="${icono} me-2 text-muted"></i>
-                  <div>
-                    <strong class="text-info">${componente.descripcion}</strong>
-                    <p class="mb-0 small">
-                      <span class="badge ${badgeClass} me-1">${nombreTipo}</span>
-                      De: ${componente.codigo_item_padre}
-                    </p>
-                    <small class="text-muted">${componente.unidad}</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-2 text-center">
-                <span class="badge bg-info">${componente.pedido} ${componente.unidad
-        }</span>
-              </div>
-              <div class="col-md-2">
-                <small>$${formatCurrency(
-          componente.precio_unitario
-        )} c/u</small>
-              </div>
-              <div class="col-md-2">
-                <strong class="text-info">$${formatCurrency(subtotal)}</strong>
-              </div>
-              <div class="col-md-2 text-end">
-                <button class="btn btn-sm btn-outline-danger" onclick="quitarComponenteDelCarrito(${componente.id_componente
-        }, ${componente.id_item_padre})">
-                  Quitar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    });
+  const currentInfo = document.getElementById("currentSelectionInfo");
+  if (currentInfo) {
+    currentInfo.textContent = "Seleccione un proyecto y presupuesto para comenzar";
   }
 
-  if (pedidosFueraPresupuesto.length > 0) {
-    html += `
-      <div class="mt-4 pt-3 border-top border-warning">
-        <div class="alert alert-warning mb-3">
-          <h6 class="text-warning mb-2">
-            <i class="bi bi-exclamation-triangle-fill"></i> Pedidos Fuera de Presupuesto (Pendientes de Autorización)
-          </h6>
-          <small>Estos pedidos están separados del carrito principal y requieren aprobación antes de ser procesados.</small>
-        </div>
-    `;
+  const btnAgregarExtra = document.getElementById("btnAgregarExtra");
+  if (btnAgregarExtra) btnAgregarExtra.disabled = true;
 
-    let totalPendiente = 0;
-    pedidosFueraPresupuesto.forEach((pedido, index) => {
-      const subtotalExtra = pedido.cantidad_extra * pedido.precio_unitario;
-      totalPendiente += subtotalExtra;
-
-      const icono = obtenerIconoTipoComponente(pedido.tipo_componente);
-      const badgeClass = obtenerClaseBadgeTipo(pedido.tipo_componente);
-      const nombreTipo = obtenerNombreTipoComponente(pedido.tipo_componente);
-
-      html += `
-        <div class="card mb-2 border-warning bg-light">
-          <div class="card-body py-2">
-            <div class="row align-items-center">
-              <div class="col-md-4">
-                <div class="d-flex align-items-center">
-                  <i class="${icono} me-2 text-warning"></i>
-                  <div>
-                    <strong class="text-warning">${pedido.descripcion_componente
-        }</strong>
-                    <p class="mb-0 small">
-                      <span class="badge ${badgeClass} me-1">${nombreTipo}</span>
-                      De: ${pedido.codigo_item}
-                    </p>
-                    <small class="text-muted">${pedido.unidad}</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-2 text-center">
-                <span class="badge bg-warning text-dark">
-                  <i class="bi bi-hourglass-split"></i> Pendiente
-                </span>
-                <div class="mt-1">
-                  <small class="d-block">Extra: +${pedido.cantidad_extra.toFixed(
-          4
-        )}</small>
-                </div>
-              </div>
-              <div class="col-md-2">
-                <small>$${formatCurrency(pedido.precio_unitario)} c/u</small>
-              </div>
-              <div class="col-md-2">
-                <strong class="text-warning">$${formatCurrency(
-          subtotalExtra
-        )}</strong>
-                <small class="d-block text-muted">(solo extra)</small>
-              </div>
-              <div class="col-md-2 text-end">
-                <button class="btn btn-sm btn-outline-danger" onclick="eliminarPedidoExtra(${index})" title="Cancelar pedido extra">
-                  <i class="bi bi-x-circle"></i> Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    });
-
-    html += `
-        <div class="alert alert-info mt-2">
-          <div class="row">
-            <div class="col-md-8">
-              <small><strong>Total adicional pendiente de aprobación:</strong></small>
-            </div>
-            <div class="col-md-4 text-end">
-              <strong class="text-warning">$${formatCurrency(
-      totalPendiente
-    )}</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  html += `
-    <div class="mt-3 pt-3 border-top">
-      <div class="row">
-        <div class="col-md-8"><strong class="text-dark">TOTAL DEL CARRITO:</strong></div>
-        <div class="col-md-4 text-end"><h5 class="text-success">$${formatCurrency(
-    totalGeneral
-  )}</h5></div>
-      </div>
-      ${pedidosFueraPresupuesto.length > 0
-      ? `
-      <div class="row mt-2">
-        <div class="col-md-8"><small class="text-warning">Los pedidos adicionales requieren aprobación</small></div>
-      </div>
-      `
-      : ""
-    }
-    </div>
-  `;
-
-  container.innerHTML = html;
-  document.getElementById(
-    "contadorCarrito"
-  ).textContent = `${componentesEnCarrito.length} componentes`;
-  renderMaterialesExtraCard();
-}
-
-function quitarComponenteDelCarrito(componenteId, itemId) {
-  actualizarCantidadComponente(componenteId, 0, itemId);
-}
-
-function resetarGestion() {
-  itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
-  materialesExtra = [];
-  pedidosFueraPresupuesto = [];
-
-  document.getElementById("materialesList").innerHTML = `
-        <div class="text-center text-muted py-5">
-            <div class="spinner-border text-muted" role="status"></div>
-            <p class="mt-3">Seleccione un proyecto y presupuesto para ver los componentes</p>
-        </div>
-    `;
-
-  document.getElementById("carritoList").innerHTML = `
-        <div class="text-center text-muted py-4">
-            <div class="spinner-border text-muted" role="status"></div>
-            <p class="mt-3">Agregue componentes del presupuesto para verlos aquí</p>
-        </div>
-    `;
-
-  document.getElementById("currentSelectionInfo").textContent =
-    "Seleccione un proyecto y presupuesto para comenzar";
-  document.getElementById("btnAgregarExtra").disabled = true;
   const btnResumen = document.getElementById("btnVerResumen");
-  if (btnResumen) {
-    btnResumen.disabled = true;
-  }
-  document.getElementById("btnConfirmarPedido").disabled = true;
-  document.getElementById("filterCapitulo").disabled = true;
-  document.getElementById("cardCarrito").style.display = "none";
-  document.getElementById("cardExtras").style.display = "none";
+  if (btnResumen) btnResumen.disabled = true;
+
+  const btnConfirmar = document.getElementById("btnConfirmarPedido");
+  if (btnConfirmar) btnConfirmar.disabled = true;
+
+  const filterCapitulo = document.getElementById("filterCapitulo");
+  if (filterCapitulo) filterCapitulo.disabled = true;
+
+  const cardCarrito = document.getElementById("cardCarrito");
+  if (cardCarrito) cardCarrito.style.display = "none";
+
+  const cardExtras = document.getElementById("cardExtras");
+  if (cardExtras) cardExtras.style.display = "none";
 
   const paginacionContainer = document.getElementById("paginacionContainer");
   if (paginacionContainer) paginacionContainer.style.display = "none";
@@ -1886,9 +1705,77 @@ function resetarGestion() {
   actualizarEstadisticas();
 }
 
-function reintentarCargaItems() {
-  const presupuestoId = document.getElementById("selectPresupuesto").value;
-  if (presupuestoId) cargarItems();
+function renderMaterialesExtraCard() {
+  const card = document.getElementById("cardExtras");
+  const list = document.getElementById("materialesExtraList");
+
+  if (!card || !list) return;
+
+  if (!materialesExtra || materialesExtra.length === 0) {
+    card.style.display = "none";
+    list.innerHTML = `
+      <div class="text-center text-muted py-4">
+        <i class="bi bi-plus-circle"></i>
+        <p class="mt-2 mb-0">No hay materiales extra presupuestados.</p>
+      </div>
+    `;
+    return;
+  }
+
+  card.style.display = "block";
+  let html = "";
+
+  materialesExtra.forEach((extra) => {
+    const cantidad = parseFloat(extra.cantidad) || 0;
+    const precio = parseFloat(extra.precio_unitario) || 0;
+    const subtotal = cantidad * precio;
+    const estado = (extra.estado || "pendiente").toUpperCase();
+    const fechaTexto = extra.fecha
+      ? new Date(extra.fecha).toLocaleDateString("es-CO")
+      : "-";
+
+    html += `
+      <div class="card mb-2 border-warning">
+        <div class="card-body py-2">
+          <div class="row align-items-center">
+            <div class="col-md-5">
+              <strong>${extra.codigo} - ${extra.descripcion}</strong>
+              <p class="text-muted mb-0 small">Capítulo: ${
+                extra.nombre_capitulo || "N/A"
+              }</p>
+            </div>
+            <div class="col-md-2">
+              <small>Cantidad</small>
+              <div class="fw-bold">${cantidad.toFixed(4)} ${
+                extra.unidad || "UND"
+              }</div>
+            </div>
+            <div class="col-md-2">
+              <small>Vr. Unitario</small>
+              <div class="fw-bold">$${formatCurrency(precio)}</div>
+            </div>
+            <div class="col-md-2 text-end">
+              <small>Subtotal</small>
+              <div class="fw-bold text-warning">$${formatCurrency(
+                subtotal
+              )}</div>
+            </div>
+            <div class="col-md-1 text-center">
+              <span class="badge bg-warning text-dark">${estado}</span>
+              <div><small>${fechaTexto}</small></div>
+            </div>
+          </div>
+          ${
+            extra.justificacion
+              ? `<div class="mt-2"><small class="text-muted">${extra.justificacion}</small></div>`
+              : ""
+          }
+        </div>
+      </div>
+    `;
+  });
+
+  list.innerHTML = html;
 }
 
 function filtrarMateriales() {
@@ -3272,10 +3159,10 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
     filaTotal.font = { bold: true };
     filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
     filaTotal.height = 22;
-    filaTotal.eachCell((cell) => {
+    filaTotal.eachCell((cell, col) => {
       cell.border = borderCompleto();
       cell.fill = totalDetalleFill;
-      if (colNumber === 15) {
+      if (col === 15) {
         cell.numFmt = '#,##0.00';
       }
     });
@@ -3391,16 +3278,42 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
 
     pedido.detalles.forEach((detalle) => {
       const fila = worksheet.getRow(filaActual);
+
+      const esExcedente = parseInt(detalle.es_excedente, 10) === 1;
+      const sinItemAsociado = !detalle.codigo_item && !detalle.nombre_item;
+
+      const capitulo = sinItemAsociado
+        ? 'MATERIAL EXTRA'
+        : (detalle.nombre_capitulo || 'N/A');
+
+      const codigoItem = sinItemAsociado
+        ? 'EXTRA'
+        : (detalle.codigo_item || '');
+
+      const nombreItem = sinItemAsociado
+        ? 'MATERIAL EXTRA FUERA DE PRESUPUESTO'
+        : (detalle.nombre_item || '');
+
+      const descripcionComponente = sinItemAsociado
+        ? (detalle.justificacion
+            ? `Material extra: ${detalle.justificacion}`
+            : 'Material extra sin descripción detallada')
+        : (detalle.descripcion_componente || 'Sin descripción');
+
+      const tipoComponente = sinItemAsociado
+        ? 'MATERIAL EXTRA'
+        : obtenerNombreTipoComponente(detalle.tipo_componente || 'material');
+
       fila.values = [
         pedido.id_pedido,
         fechaTexto,
         estadoTexto,
         pedido.nombre_usuario || 'N/A',
-        detalle.nombre_capitulo || 'N/A',
-        detalle.codigo_item || '',
-        detalle.nombre_item || '',
-        detalle.descripcion_componente || 'Sin descripción',
-        obtenerNombreTipoComponente(detalle.tipo_componente || 'material'),
+        capitulo,
+        codigoItem,
+        nombreItem,
+        descripcionComponente,
+        tipoComponente,
         detalle.unidad_componente || detalle.unidad_item || 'UND',
         detalle.cantidad || 0,
         detalle.precio_unitario || 0,
@@ -3408,7 +3321,6 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
         detalle.justificacion || ''
       ];
 
-      const esExcedente = parseInt(detalle.es_excedente, 10) === 1;
       aplicarEstiloFilaHistorial(fila, estadoColor, esExcedente);
       filaActual++;
     });
