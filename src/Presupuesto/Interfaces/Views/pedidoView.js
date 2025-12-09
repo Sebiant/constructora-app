@@ -1592,9 +1592,13 @@ function organizarComponentesPorTipo(componentes) {
 }
 
 function formatCurrency(amount) {
-  return parseFloat(amount || 0)
+  const value = parseFloat(amount || 0);
+  if (Number.isNaN(value)) return '0.00';
+
+  // Formato: 1,234,567.89
+  return value
     .toFixed(2)
-    .replace(/\d(?=(\d{3})+\.)/g, "$$&,");
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 function actualizarEstadisticas() {
@@ -1906,6 +1910,9 @@ function solicitarMaterialExtra() {
           tipo_componente: materialSeleccionadoData.id_tipo_material,
           tipo_material: materialSeleccionadoData.tipo_material,
           id_capitulo: parseInt(idCapitulo),
+          nombre_capitulo:
+            document.querySelector('#capituloMaterialExtra option:checked')?.textContent?.trim() ||
+            'N/A',
           justificacion: justificacion,
           estado: 'pendiente',
           fecha: new Date().toISOString().split('T')[0],
@@ -3282,16 +3289,20 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
       const esExcedente = parseInt(detalle.es_excedente, 10) === 1;
       const sinItemAsociado = !detalle.codigo_item && !detalle.nombre_item;
 
+      const tieneMaterialExtra = !!(detalle.codigo_material_extra && detalle.nombre_material_extra);
+
       const capitulo = sinItemAsociado
         ? 'MATERIAL EXTRA'
         : (detalle.nombre_capitulo || 'N/A');
 
       const codigoItem = sinItemAsociado
-        ? 'EXTRA'
+        ? (tieneMaterialExtra ? detalle.codigo_material_extra : 'EXTRA')
         : (detalle.codigo_item || '');
 
       const nombreItem = sinItemAsociado
-        ? 'MATERIAL EXTRA FUERA DE PRESUPUESTO'
+        ? (tieneMaterialExtra
+            ? detalle.nombre_material_extra
+            : 'MATERIAL EXTRA FUERA DE PRESUPUESTO')
         : (detalle.nombre_item || '');
 
       const descripcionComponente = sinItemAsociado
@@ -3718,15 +3729,16 @@ async function cargarMaterialesExtraDesdeDB() {
     if (data.success && data.data) {
       return data.data.map(extra => ({
         id_material: extra.id_material,
-        id_componente: extra.id_material,
+        id_componente: null,
         codigo: extra.cod_material,
         descripcion: extra.nombre_material,
         cantidad: parseFloat(extra.cantidad),
         unidad: extra.unidad,
         precio_unitario: parseFloat(extra.precio_unitario),
-        tipo_componente: extra.tipo_material,
+        tipo_componente: 'material',
         tipo_material: extra.tipo_material,
         id_capitulo: extra.id_capitulo,
+        nombre_capitulo: extra.nombre_capitulo || 'N/A',
         justificacion: extra.justificacion,
         estado: extra.estado,
         fecha: extra.fecha_agregado,
