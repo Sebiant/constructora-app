@@ -1663,7 +1663,81 @@ try {
                     p.id_presupuesto,
                     ROUND(SUM(dp.cantidad * ic.cantidad), 4) as total_necesario,
                     
-                    -- Calcular lo ya pedido sumando TODAS las cantidades de pedidos (sin filtro de estado)
+                    -- PEDIDOS NORMALES (es_excedente = 0) POR ESTADO
+                    COALESCE(ROUND((
+                        SELECT SUM(pd.cantidad) 
+                        FROM pedidos_detalle pd
+                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                        INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
+                        WHERE ic2.descripcion = ic.descripcion
+                        AND ic2.tipo_componente = ic.tipo_componente
+                        AND ped.id_presupuesto = p.id_presupuesto
+                        AND pd.es_excedente = 0
+                        AND ped.estado = 'aprobado'
+                    ), 4), 0.0000) as ya_pedido_aprobado,
+                    
+                    COALESCE(ROUND((
+                        SELECT SUM(pd.cantidad) 
+                        FROM pedidos_detalle pd
+                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                        INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
+                        WHERE ic2.descripcion = ic.descripcion
+                        AND ic2.tipo_componente = ic.tipo_componente
+                        AND ped.id_presupuesto = p.id_presupuesto
+                        AND pd.es_excedente = 0
+                        AND ped.estado = 'rechazado'
+                    ), 4), 0.0000) as ya_pedido_rechazado,
+                    
+                    COALESCE(ROUND((
+                        SELECT SUM(pd.cantidad) 
+                        FROM pedidos_detalle pd
+                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                        INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
+                        WHERE ic2.descripcion = ic.descripcion
+                        AND ic2.tipo_componente = ic.tipo_componente
+                        AND ped.id_presupuesto = p.id_presupuesto
+                        AND pd.es_excedente = 0
+                        AND ped.estado = 'pendiente'
+                    ), 4), 0.0000) as ya_pedido_pendiente,
+                    
+                    -- PEDIDOS EXCEDENTES (es_excedente = 1) POR ESTADO
+                    COALESCE(ROUND((
+                        SELECT SUM(pd.cantidad) 
+                        FROM pedidos_detalle pd
+                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                        INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
+                        WHERE ic2.descripcion = ic.descripcion
+                        AND ic2.tipo_componente = ic.tipo_componente
+                        AND ped.id_presupuesto = p.id_presupuesto
+                        AND pd.es_excedente = 1
+                        AND ped.estado = 'aprobado'
+                    ), 4), 0.0000) as excedente_aprobado,
+                    
+                    COALESCE(ROUND((
+                        SELECT SUM(pd.cantidad) 
+                        FROM pedidos_detalle pd
+                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                        INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
+                        WHERE ic2.descripcion = ic.descripcion
+                        AND ic2.tipo_componente = ic.tipo_componente
+                        AND ped.id_presupuesto = p.id_presupuesto
+                        AND pd.es_excedente = 1
+                        AND ped.estado = 'rechazado'
+                    ), 4), 0.0000) as excedente_rechazado,
+                    
+                    COALESCE(ROUND((
+                        SELECT SUM(pd.cantidad) 
+                        FROM pedidos_detalle pd
+                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                        INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
+                        WHERE ic2.descripcion = ic.descripcion
+                        AND ic2.tipo_componente = ic.tipo_componente
+                        AND ped.id_presupuesto = p.id_presupuesto
+                        AND pd.es_excedente = 1
+                        AND ped.estado = 'pendiente'
+                    ), 4), 0.0000) as excedente_pendiente,
+                    
+                    -- Total ya pedido (suma de todos los estados y tipos)
                     COALESCE(ROUND((
                         SELECT SUM(pd.cantidad) 
                         FROM pedidos_detalle pd
@@ -1674,7 +1748,7 @@ try {
                         AND ped.id_presupuesto = p.id_presupuesto
                     ), 4), 0.0000) as ya_pedido,
                     
-                    -- Calcular disponible restando lo ya pedido
+                    -- Calcular disponible restando solo lo aprobado (normal + excedente)
                     ROUND(SUM(dp.cantidad * ic.cantidad) - COALESCE((
                         SELECT SUM(pd.cantidad) 
                         FROM pedidos_detalle pd
@@ -1683,32 +1757,34 @@ try {
                         WHERE ic2.descripcion = ic.descripcion
                         AND ic2.tipo_componente = ic.tipo_componente
                         AND ped.id_presupuesto = p.id_presupuesto
+                        AND ped.estado = 'aprobado'
                     ), 0), 4) as disponible,
-                        GROUP_CONCAT(DISTINCT 
-                            CONCAT(
-                                i.id_item, '|',
-                                i.codigo_item, '|',
-                                i.nombre_item, '|',
-                                c.nombre_cap, '|',
-                                ic.cantidad, '|',
-                                ic.unidad, '|',
-                                i.unidad, '|',
-                                dp.cantidad, '|',
-                                ROUND(dp.cantidad * ic.cantidad, 4), '|',
-                                COALESCE((
-                                    SELECT SUM(pd.cantidad)
-                                    FROM pedidos_detalle pd
-                                    INNER JOIN pedidos ped2 ON pd.id_pedido = ped2.id_pedido
-                                    INNER JOIN item_componentes ic3 ON pd.id_componente = ic3.id_componente
-                                    WHERE ic3.descripcion = ic.descripcion
-                                    AND ic3.tipo_componente = ic.tipo_componente
-                                    AND pd.id_item = i.id_item
-                                    AND ped2.id_presupuesto = p.id_presupuesto
-                                ), 0)
-                            )
-                            ORDER BY i.codigo_item, c.nombre_cap
-                            SEPARATOR '||'
-                        ) as detalle_serializado
+                    
+                    GROUP_CONCAT(DISTINCT 
+                        CONCAT(
+                            i.id_item, '|',
+                            i.codigo_item, '|',
+                            i.nombre_item, '|',
+                            c.nombre_cap, '|',
+                            ic.cantidad, '|',
+                            ic.unidad, '|',
+                            i.unidad, '|',
+                            dp.cantidad, '|',
+                            ROUND(dp.cantidad * ic.cantidad, 4), '|',
+                            COALESCE((
+                                SELECT SUM(pd.cantidad)
+                                FROM pedidos_detalle pd
+                                INNER JOIN pedidos ped2 ON pd.id_pedido = ped2.id_pedido
+                                INNER JOIN item_componentes ic3 ON pd.id_componente = ic3.id_componente
+                                WHERE ic3.descripcion = ic.descripcion
+                                AND ic3.tipo_componente = ic.tipo_componente
+                                AND pd.id_item = i.id_item
+                                AND ped2.id_presupuesto = p.id_presupuesto
+                            ), 0)
+                        )
+                        ORDER BY i.codigo_item, c.nombre_cap
+                        SEPARATOR '||'
+                    ) as detalle_serializado
                 FROM det_presupuesto dp
                 JOIN presupuestos p ON dp.id_presupuesto = p.id_presupuesto
                 JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
@@ -1737,6 +1813,7 @@ try {
         ]);
     }
     break;
+
 
         // ============================================
         // ENDPOINTS PARA ADMINISTRACIÓN DE PEDIDOS

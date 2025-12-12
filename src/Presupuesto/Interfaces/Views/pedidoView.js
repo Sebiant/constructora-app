@@ -315,31 +315,54 @@ class PaginadorPresupuestos {
         </div>
         <div class="card-body">
           <div class="row mb-3">
-            <div class="col-md-3">
-              <small class="text-muted">Cantidad Total Necesaria</small>
-              <div><strong>${parseFloat(cantidadTotal).toFixed(
-          4
-        )} ${unidad}</strong></div>
-              <div class="mt-1">
-                <small class="text-muted">
-                  <i class="bi bi-check-circle text-success"></i> Ya pedido: 
-                  <strong class="text-success">${parseFloat(yaPedido).toFixed(
-          4
-        )} ${unidad}</strong>
-                  (${porcentajeYaPedido.toFixed(1)}%)
-                </small>
+            <div class="col-md-12">
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th class="text-center">Presupuestado</th>
+                      <th class="text-center bg-success text-white">Aprobado</th>
+                      <th class="text-center bg-warning">Pendiente</th>
+                      <th class="text-center bg-danger text-white">Rechazado</th>
+                      <th class="text-center bg-primary text-white">Total Pedido</th>
+                      <th class="text-center bg-secondary text-white">Disponible</th>
+                      <th class="text-center">Precio Unit.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="text-center"><strong>${parseFloat(cantidadTotal).toFixed(4)} ${unidad}</strong></td>
+                      <td class="text-center ${(parseFloat(comp.ya_pedido_aprobado || 0) + parseFloat(comp.excedente_aprobado || 0)) > 0 ? 'table-success' : ''}">
+                        <strong>${(parseFloat(comp.ya_pedido_aprobado || 0) + parseFloat(comp.excedente_aprobado || 0)).toFixed(4)}</strong>
+                      </td>
+                      <td class="text-center ${(parseFloat(comp.ya_pedido_pendiente || 0) + parseFloat(comp.excedente_pendiente || 0)) > 0 ? 'table-warning' : ''}">
+                        <strong>${(parseFloat(comp.ya_pedido_pendiente || 0) + parseFloat(comp.excedente_pendiente || 0)).toFixed(4)}</strong>
+                      </td>
+                      <td class="text-center ${(parseFloat(comp.ya_pedido_rechazado || 0) + parseFloat(comp.excedente_rechazado || 0)) > 0 ? 'table-danger' : ''}">
+                        <strong>${(parseFloat(comp.ya_pedido_rechazado || 0) + parseFloat(comp.excedente_rechazado || 0)).toFixed(4)}</strong>
+                      </td>
+                      <td class="text-center ${parseFloat(yaPedido) > 0 ? 'table-primary' : ''}">
+                        <strong>${parseFloat(yaPedido).toFixed(4)}</strong>
+                        <br><small class="text-muted">(${porcentajeYaPedido.toFixed(1)}%)</small>
+                      </td>
+                      <td class="text-center table-secondary">
+                        <strong>${parseFloat(comp.disponible || 0).toFixed(4)}</strong>
+                      </td>
+                      <td class="text-center">
+                        <strong>$${formatCurrency(comp.precio_unitario)}</strong>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-            </div>
-            <div class="col-md-2">
-              <small class="text-muted">Precio Unitario</small>
-              <div><strong>$${formatCurrency(
-          comp.precio_unitario
-        )}</strong></div>
-            </div>
-            <div class="col-md-7">
-              <div class="alert alert-info mb-0">
+              <div class="alert alert-info mt-2 mb-0">
                 <small>
-                  Este componente se debe pedir item por item. Use el botón "Desglose" para registrar cantidades específicas.
+                  <i class="bi bi-info-circle"></i> Este componente se debe pedir item por item. Use el botón "Desglose" para registrar cantidades específicas.
+                  ${parseFloat(yaPedido) > 0 ? `<br><strong>Total pedido: ${parseFloat(yaPedido).toFixed(4)} ${unidad}</strong> = 
+                    ${(parseFloat(comp.ya_pedido_aprobado || 0) + parseFloat(comp.excedente_aprobado || 0)) > 0 ? `Aprobado: ${(parseFloat(comp.ya_pedido_aprobado || 0) + parseFloat(comp.excedente_aprobado || 0)).toFixed(4)}` : ''}
+                    ${(parseFloat(comp.ya_pedido_pendiente || 0) + parseFloat(comp.excedente_pendiente || 0)) > 0 ? ` + Pendiente: ${(parseFloat(comp.ya_pedido_pendiente || 0) + parseFloat(comp.excedente_pendiente || 0)).toFixed(4)}` : ''}
+                    ${(parseFloat(comp.ya_pedido_rechazado || 0) + parseFloat(comp.excedente_rechazado || 0)) > 0 ? ` + Rechazado: ${(parseFloat(comp.ya_pedido_rechazado || 0) + parseFloat(comp.excedente_rechazado || 0)).toFixed(4)}` : ''}
+                  ` : ''}
                 </small>
               </div>
             </div>
@@ -1274,6 +1297,14 @@ function agruparComponentesPorNombre(componentes) {
       existente.ya_pedido += comp.ya_pedido;
       existente.disponible += comp.disponible;
 
+      // Sumar campos de estado de pedidos
+      existente.ya_pedido_aprobado += comp.ya_pedido_aprobado || 0;
+      existente.ya_pedido_pendiente += comp.ya_pedido_pendiente || 0;
+      existente.ya_pedido_rechazado += comp.ya_pedido_rechazado || 0;
+      existente.excedente_aprobado += comp.excedente_aprobado || 0;
+      existente.excedente_pendiente += comp.excedente_pendiente || 0;
+      existente.excedente_rechazado += comp.excedente_rechazado || 0;
+
       // Promediar precio (no es crítico, es solo para display)
       existente.precio_unitario = (existente.precio_unitario + comp.precio_unitario) / 2;
 
@@ -1325,7 +1356,16 @@ async function obtenerComponentesAgrupados(presupuestoId, capituloId = null) {
           precio_unitario: parseFloat(comp.precio_unitario) || 0,
           total_necesario: cantidadTotal,
           disponible: parseFloat(comp.disponible) || 0,
-          ya_pedido: parseFloat(comp.ya_pedido) || 0,  // Temporal, se recalcula abajo
+          ya_pedido: parseFloat(comp.ya_pedido) || 0,
+
+          // Nuevos campos de estado de pedidos
+          ya_pedido_aprobado: parseFloat(comp.ya_pedido_aprobado) || 0,
+          ya_pedido_pendiente: parseFloat(comp.ya_pedido_pendiente) || 0,
+          ya_pedido_rechazado: parseFloat(comp.ya_pedido_rechazado) || 0,
+          excedente_aprobado: parseFloat(comp.excedente_aprobado) || 0,
+          excedente_pendiente: parseFloat(comp.excedente_pendiente) || 0,
+          excedente_rechazado: parseFloat(comp.excedente_rechazado) || 0,
+
           pedido_inicial: parseFloat(comp.pedido_inicial) || 0,
           capitulos: comp.capitulos || [],
           cantidad_items: comp.cantidad_items || 0,
@@ -2464,7 +2504,7 @@ function abrirModalResumen() {
 
         if (porcentaje >= 100) {
           badgeClass = 'bg-success';
-          badgeText = '✓ Completo';
+          badgeText = 'Completo';
         } else if (porcentaje >= 70) {
           badgeClass = 'bg-info';
           badgeText = `${porcentaje.toFixed(1)}%`;
