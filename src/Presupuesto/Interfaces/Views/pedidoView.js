@@ -564,7 +564,9 @@ function actualizarPedidoItemDesdeInput(input, cantidad) {
 
   actualizarTotalesDesglose(componente);
   actualizarResumenComponente(componente);
-  actualizarCarrito();
+  if (typeof actualizarCarrito === 'function') {
+    actualizarCarrito();
+  }
   actualizarEstadisticas();
   renderMaterialesExtraCard();
 }
@@ -864,7 +866,9 @@ function actualizarCantidadComponente(componenteId, cantidad, itemId) {
 
   actualizarTotalComponentesItem(itemId);
   actualizarEstadisticas();
-  actualizarCarrito();
+  if (typeof actualizarCarrito === 'function') {
+    actualizarCarrito();
+  }
   actualizarBotonDesglose(itemId);
   renderMaterialesExtraCard();
 }
@@ -1744,15 +1748,13 @@ function renderMaterialesExtraCard() {
           <div class="row align-items-center">
             <div class="col-md-5">
               <strong>${extra.codigo} - ${extra.descripcion}</strong>
-              <p class="text-muted mb-0 small">Capítulo: ${
-                extra.nombre_capitulo || "N/A"
-              }</p>
+              <p class="text-muted mb-0 small">Capítulo: ${extra.nombre_capitulo || "N/A"
+      }</p>
             </div>
             <div class="col-md-2">
               <small>Cantidad</small>
-              <div class="fw-bold">${cantidad.toFixed(4)} ${
-                extra.unidad || "UND"
-              }</div>
+              <div class="fw-bold">${cantidad.toFixed(4)} ${extra.unidad || "UND"
+      }</div>
             </div>
             <div class="col-md-2">
               <small>Vr. Unitario</small>
@@ -1761,19 +1763,18 @@ function renderMaterialesExtraCard() {
             <div class="col-md-2 text-end">
               <small>Subtotal</small>
               <div class="fw-bold text-warning">$${formatCurrency(
-                subtotal
-              )}</div>
+        subtotal
+      )}</div>
             </div>
             <div class="col-md-1 text-center">
               <span class="badge bg-warning text-dark">${estado}</span>
               <div><small>${fechaTexto}</small></div>
             </div>
           </div>
-          ${
-            extra.justificacion
-              ? `<div class="mt-2"><small class="text-muted">${extra.justificacion}</small></div>`
-              : ""
-          }
+          ${extra.justificacion
+        ? `<div class="mt-2"><small class="text-muted">${extra.justificacion}</small></div>`
+        : ""
+      }
         </div>
       </div>
     `;
@@ -1939,7 +1940,9 @@ function eliminarMaterialExtra(index) {
   if (confirm("¿Está seguro de eliminar este material extra?")) {
     materialesExtra.splice(index, 1);
     actualizarEstadisticas();
-    actualizarCarrito();
+    if (typeof actualizarCarrito === 'function') {
+      actualizarCarrito();
+    }
     renderMaterialesExtraCard();
   }
 }
@@ -1948,7 +1951,9 @@ function eliminarPedidoExtra(index) {
   if (confirm("¿Está seguro de cancelar este pedido fuera de presupuesto?")) {
     pedidosFueraPresupuesto.splice(index, 1);
     actualizarEstadisticas();
-    actualizarCarrito();
+    if (typeof actualizarCarrito === 'function') {
+      actualizarCarrito();
+    }
   }
 }
 
@@ -1992,87 +1997,117 @@ function solicitarJustificacionPedidoExtra(
 }
 
 function confirmarPedidoExtra() {
-  const justificacion = document
-    .getElementById("justificacionPedidoExtra")
-    .value.trim();
+  try {
+    const justificacion = document
+      .getElementById("justificacionPedidoExtra")
+      .value.trim();
 
-  if (!justificacion) {
-    alert(
-      "Debe proporcionar una justificación para el pedido fuera de presupuesto"
+    if (!justificacion) {
+      alert(
+        "Debe proporcionar una justificación para el pedido fuera de presupuesto"
+      );
+      return;
+    }
+
+    // Validar que existe window.pedidoExtraTemp
+    if (!window.pedidoExtraTemp) {
+      console.error("No hay datos temporales del pedido extra");
+      alert("Error: No se encontraron los datos del pedido. Por favor, intente nuevamente.");
+      return;
+    }
+
+    const { componente, item, cantidadSolicitada, cantidadMaxima } =
+      window.pedidoExtraTemp;
+
+    // Validar que todos los datos necesarios existen
+    if (!componente || !item) {
+      console.error("Datos incompletos en pedidoExtraTemp:", window.pedidoExtraTemp);
+      alert("Error: Datos incompletos. Por favor, intente nuevamente.");
+      return;
+    }
+
+    const pedidoExtra = {
+      id_componente: componente.id_componente,
+      id_item: item.id_item,
+      codigo_item: item.codigo_item,
+      nombre_item: item.nombre_item,
+      descripcion_componente: componente.descripcion || componente.nombre_componente,
+      tipo_componente: componente.tipo_componente,
+      unidad: componente.unidad || componente.unidad_componente,
+      cantidad_maxima: cantidadMaxima,
+      cantidad_solicitada: cantidadSolicitada,
+      cantidad_extra: cantidadSolicitada - cantidadMaxima,
+      precio_unitario: componente.precio_unitario,
+      justificacion: justificacion,
+      estado: "pendiente_aprobacion",
+      fecha: new Date().toISOString(),
+    };
+
+    const indexExistente = pedidosFueraPresupuesto.findIndex(
+      (p) =>
+        p.id_componente === componente.id_componente && p.id_item === item.id_item
     );
-    return;
-  }
 
-  const { componente, item, cantidadSolicitada, cantidadMaxima } =
-    window.pedidoExtraTemp;
+    if (indexExistente >= 0) {
+      pedidosFueraPresupuesto[indexExistente] = pedidoExtra;
+    } else {
+      pedidosFueraPresupuesto.push(pedidoExtra);
+    }
 
-  const pedidoExtra = {
-    id_componente: componente.id_componente,
-    id_item: item.id_item,
-    codigo_item: item.codigo_item,
-    nombre_item: item.nombre_item,
-    descripcion_componente: componente.descripcion,
-    tipo_componente: componente.tipo_componente,
-    unidad: componente.unidad,
-    cantidad_maxima: cantidadMaxima,
-    cantidad_solicitada: cantidadSolicitada,
-    cantidad_extra: cantidadSolicitada - cantidadMaxima,
-    precio_unitario: componente.precio_unitario,
-    justificacion: justificacion,
-    estado: "pendiente_aprobacion",
-    fecha: new Date().toISOString(),
-  };
+    // Actualizar el pedido normal al máximo permitido
+    item.pedido_actual = cantidadMaxima;
 
-  const indexExistente = pedidosFueraPresupuesto.findIndex(
-    (p) =>
-      p.id_componente === componente.id_componente && p.id_item === item.id_item
-  );
+    // Actualizar input específico del item
+    const input = document.querySelector(
+      `input.cantidad-componente-item[data-componente-id="${componente.id_componente}"][data-item-id="${item.id_item}"]`
+    );
 
-  if (indexExistente >= 0) {
-    pedidosFueraPresupuesto[indexExistente] = pedidoExtra;
-  } else {
-    pedidosFueraPresupuesto.push(pedidoExtra);
-  }
+    if (input) {
+      input.value = cantidadMaxima.toFixed(4);
 
-  // Actualizar el pedido normal al máximo permitido
-  item.pedido_actual = cantidadMaxima;
-
-  // Actualizar input específico del item
-  const input = document.querySelector(
-    `input.cantidad-componente-item[data-componente-id="${componente.id_componente}"][data-item-id="${item.id_item}"]`
-  );
-
-  if (input) {
-    input.value = cantidadMaxima.toFixed(4);
-
-    // Actualizar subtotal en la fila
-    const row = input.closest("tr");
-    if (row) {
-      const subtotalElement = row.querySelector(".subtotal-item");
-      if (subtotalElement) {
-        subtotalElement.textContent = `$${formatCurrency(
-          cantidadMaxima * componente.precio_unitario
-        )}`;
+      // Actualizar subtotal en la fila
+      const row = input.closest("tr");
+      if (row) {
+        const subtotalElement = row.querySelector(".subtotal-item");
+        if (subtotalElement) {
+          subtotalElement.textContent = `$${formatCurrency(
+            cantidadMaxima * componente.precio_unitario
+          )}`;
+        }
       }
     }
+
+    // Actualizar totales
+    if (typeof actualizarTotalesDesglose === 'function') {
+      actualizarTotalesDesglose(componente);
+    }
+    if (typeof actualizarResumenComponente === 'function') {
+      actualizarResumenComponente(componente);
+    }
+
+    actualizarEstadisticas();
+
+    if (typeof actualizarCarrito === 'function') {
+      actualizarCarrito();
+    }
+
+    delete window.pedidoExtraTemp;
+
+    alert("Pedido fuera de presupuesto agregado. Requiere aprobación.");
+  } catch (error) {
+    console.error("Error en confirmarPedidoExtra:", error);
+    alert("Error al procesar el pedido extra: " + error.message);
+  } finally {
+    // SIEMPRE cerrar el modal, incluso si hay errores
+    const modal = bootstrap.Modal.getInstance(
+      document.getElementById("modalJustificacionExtra")
+    );
+    if (modal) {
+      modal.hide();
+    }
   }
-
-  // Actualizar totales
-  actualizarTotalesDesglose(componente);
-  actualizarResumenComponente(componente);
-
-  actualizarEstadisticas();
-  actualizarCarrito();
-
-  const modal = bootstrap.Modal.getInstance(
-    document.getElementById("modalJustificacionExtra")
-  );
-  modal.hide();
-
-  delete window.pedidoExtraTemp;
-
-  alert("Pedido fuera de presupuesto agregado. Requiere aprobación.");
 }
+
 
 async function confirmarPedido() {
   const btn = document.getElementById("btnConfirmarPedido");
@@ -2183,7 +2218,9 @@ async function confirmarPedido() {
         );
       }
 
-      actualizarCarrito();
+      if (typeof actualizarCarrito === 'function') {
+        actualizarCarrito();
+      }
       actualizarEstadisticas();
 
       // Recargar los datos del presupuesto actual para reflejar ya_pedido actualizado
@@ -2193,7 +2230,10 @@ async function confirmarPedido() {
     }
   } catch (error) {
     console.error("Error confirmando pedido:", error);
-    alert("Error al confirmar el pedido");
+    // Solo mostrar alert si realmente hay un error crítico
+    if (error.message && !error.message.includes('pedidoExtraTemp')) {
+      alert("Error al confirmar el pedido: " + error.message);
+    }
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -2268,7 +2308,12 @@ function actualizarCantidadComponenteAgrupado(input) {
   const maxPermitido = Math.max(0, totalNecesario - yaPedido);
 
   if (nuevaCantidad > maxPermitido) {
-    solicitarJustificacionPedidoExtra(componente, nuevaCantidad, maxPermitido);
+    // Usar el primer item de items_que_usan como representante
+    const itemRepresentante = componente.items_que_usan && componente.items_que_usan.length > 0
+      ? componente.items_que_usan[0]
+      : { id_item: null, codigo_item: 'N/A', nombre_item: 'Componente Agrupado' };
+
+    solicitarJustificacionPedidoExtra(componente, itemRepresentante, nuevaCantidad, maxPermitido);
     input.value = componente.pedido || 0;
     return;
   }
@@ -2363,7 +2408,9 @@ function actualizarCantidadComponenteAgrupado(input) {
     }
   }
 
-  actualizarCarrito();
+  if (typeof actualizarCarrito === 'function') {
+    actualizarCarrito();
+  }
   actualizarEstadisticas();
   renderMaterialesExtraCard();
 }
@@ -3301,14 +3348,14 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
 
       const nombreItem = sinItemAsociado
         ? (tieneMaterialExtra
-            ? detalle.nombre_material_extra
-            : 'MATERIAL EXTRA FUERA DE PRESUPUESTO')
+          ? detalle.nombre_material_extra
+          : 'MATERIAL EXTRA FUERA DE PRESUPUESTO')
         : (detalle.nombre_item || '');
 
       const descripcionComponente = sinItemAsociado
         ? (detalle.justificacion
-            ? `Material extra: ${detalle.justificacion}`
-            : 'Material extra sin descripción detallada')
+          ? `Material extra: ${detalle.justificacion}`
+          : 'Material extra sin descripción detallada')
         : (detalle.descripcion_componente || 'Sin descripción');
 
       const tipoComponente = sinItemAsociado

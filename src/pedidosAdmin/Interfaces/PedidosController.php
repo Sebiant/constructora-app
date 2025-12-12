@@ -15,7 +15,13 @@ try {
     $db = new Database();
     $connection = $db->getConnection();
 
-    $action = $_GET['action'] ?? $_POST['action'] ?? '';
+    $rawInput = file_get_contents('php://input');
+    $jsonInput = json_decode($rawInput, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        $jsonInput = null;
+    }
+
+    $action = $_GET['action'] ?? $_POST['action'] ?? ($jsonInput['action'] ?? '');
 
     switch ($action) {
         
@@ -248,7 +254,7 @@ try {
 
         case 'aprobarPedido':
             try {
-                $data = json_decode(file_get_contents('php://input'), true);
+                $data = $jsonInput ?? json_decode($rawInput, true) ?? [];
                 $idPedido = $data['id_pedido'] ?? null;
                 $comentarios = $data['comentarios'] ?? '';
 
@@ -292,7 +298,7 @@ try {
 
         case 'rechazarPedido':
             try {
-                $data = json_decode(file_get_contents('php://input'), true);
+                $data = $jsonInput ?? json_decode($rawInput, true) ?? [];
                 $idPedido = $data['id_pedido'] ?? null;
                 $motivo = $data['motivo'] ?? '';
 
