@@ -3250,7 +3250,7 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
     const filaTotal = worksheet.getRow(filaActual);
     const totalDetalleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
     filaTotal.values = ['', '', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL:', datosResumen.valorTotal];
-    filaTotal.font = { bold: true };
+    filaTotal.font = { bold: true, size: 11 };
     filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
     filaTotal.height = 22;
     filaTotal.eachCell((cell, col) => {
@@ -3265,8 +3265,10 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
     fila.values = ['No hay datos para mostrar'];
     worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
     const celda = worksheet.getCell(`A${filaActual}`);
+
     celda.alignment = { horizontal: 'center', vertical: 'middle' };
     celda.font = { italic: true, color: { argb: 'FF757575' } };
+    fila.height = 30;
   }
 }
 
@@ -3287,34 +3289,20 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
     { key: 'cantidad', width: 12 },
     { key: 'precio_unit', width: 14 },
     { key: 'subtotal', width: 16 },
-    { key: 'justificacion', width: 45 }
+    { key: 'justificacion_detalle', width: 35 },
+    { key: 'motivo_estado', width: 40 }
   ];
 
   let filaActual = 1;
 
-  worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
+  worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
+
   const titulo = worksheet.getCell(`A${filaActual}`);
   titulo.value = 'Historial de Pedidos del Presupuesto';
   titulo.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
   titulo.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF38598B' } };
   titulo.alignment = { horizontal: 'center', vertical: 'middle' };
-  titulo.border = borderCompleto();
-  worksheet.getRow(filaActual).height = 24;
-  filaActual++;
 
-  const filaProyecto = worksheet.getRow(filaActual);
-  filaProyecto.getCell(1).value = 'Proyecto:';
-  filaProyecto.getCell(1).font = { bold: true };
-  filaProyecto.getCell(2).value = seleccionActual?.proyecto || 'N/A';
-  filaProyecto.getCell(5).value = 'Presupuesto:';
-  filaProyecto.getCell(5).font = { bold: true };
-  filaProyecto.getCell(6).value = seleccionActual?.presupuesto || 'N/A';
-  filaActual++;
-
-  const filaFecha = worksheet.getRow(filaActual);
-  filaFecha.getCell(1).value = 'Fecha Exportación:';
-  filaFecha.getCell(1).font = { bold: true };
-  filaFecha.getCell(2).value = new Date().toLocaleString('es-CO');
   filaActual += 2;
 
   const encabezados = worksheet.getRow(filaActual);
@@ -3322,7 +3310,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
   encabezados.values = [
     'ID Pedido', 'Fecha', 'Estado', 'Responsable', 'Capítulo',
     'Código Item', 'Nombre Item', 'Componente', 'Tipo', 'Unidad',
-    'Cantidad', 'Precio Unit.', 'Subtotal', 'Justificación'
+    'Cantidad', 'Precio Unit.', 'Subtotal', 'Justificación Detalle',
+    'Motivo aprobación/rechazo'
   ];
   encabezados.font = { bold: true, size: 10 };
   encabezados.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -3335,7 +3324,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
 
   if (!Array.isArray(pedidosHistorial) || pedidosHistorial.length === 0) {
     worksheet.getRow(filaActual).values = ['Sin pedidos registrados'];
-    worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
+    worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
+
     const celda = worksheet.getCell(`A${filaActual}`);
     celda.alignment = { horizontal: 'center', vertical: 'middle' };
     celda.font = { italic: true, color: { argb: 'FF757575' } };
@@ -3363,8 +3353,10 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
         0,
         0,
         0,
+        '',
         pedido.observaciones || ''
       ];
+
       aplicarEstiloFilaHistorial(fila, estadoColor, false);
       filaActual++;
       return;
@@ -3372,7 +3364,6 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
 
     pedido.detalles.forEach((detalle) => {
       const fila = worksheet.getRow(filaActual);
-
       const esExcedente = parseInt(detalle.es_excedente, 10) === 1;
       const sinItemAsociado = !detalle.codigo_item && !detalle.nombre_item;
 
@@ -3416,7 +3407,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
         detalle.cantidad || 0,
         detalle.precio_unitario || 0,
         detalle.subtotal || 0,
-        detalle.justificacion || ''
+        detalle.justificacion || '',
+        pedido.observaciones || ''
       ];
 
       aplicarEstiloFilaHistorial(fila, estadoColor, esExcedente);
@@ -3429,7 +3421,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
   });
 
   const totalFila = worksheet.getRow(filaActual + 1);
-  totalFila.values = ['', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', calcularTotalHistorial(pedidosHistorial), ''];
+  totalFila.values = ['', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', calcularTotalHistorial(pedidosHistorial), '', ''];
+
   totalFila.font = { bold: true };
   totalFila.alignment = { horizontal: 'right', vertical: 'middle' };
   totalFila.eachCell((cell) => {
