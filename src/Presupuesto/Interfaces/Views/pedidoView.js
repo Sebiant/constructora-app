@@ -4,6 +4,21 @@ let materialesExtra = [];
 let pedidosFueraPresupuesto = [];
 let seleccionActual = null;
 
+function obtenerClaseBadgeEstadoMaterial(estado = 'pendiente') {
+  switch ((estado || '').toLowerCase()) {
+    case 'aprobado':
+      return 'badge bg-success';
+    case 'rechazado':
+      return 'badge bg-danger';
+    case 'en_proceso':
+    case 'en_progreso':
+    case 'proceso':
+      return 'badge bg-primary';
+    default:
+      return 'badge bg-warning text-dark';
+  }
+}
+
 class PaginadorPresupuestos {
   constructor() {
     this.elementosPorPagina = 10;
@@ -1748,9 +1763,6 @@ function resetarGestion() {
   if (cardExtras) cardExtras.style.display = "none";
 
   const paginacionContainer = document.getElementById("paginacionContainer");
-  if (paginacionContainer) paginacionContainer.style.display = "none";
-
-  actualizarEstadisticas();
 }
 
 function renderMaterialesExtraCard() {
@@ -1759,8 +1771,9 @@ function renderMaterialesExtraCard() {
 
   if (!card || !list) return;
 
+  card.style.display = "block";
+
   if (!materialesExtra || materialesExtra.length === 0) {
-    card.style.display = "none";
     list.innerHTML = `
       <div class="text-center text-muted py-4">
         <i class="bi bi-plus-circle"></i>
@@ -1770,14 +1783,14 @@ function renderMaterialesExtraCard() {
     return;
   }
 
-  card.style.display = "block";
   let html = "";
 
   materialesExtra.forEach((extra) => {
     const cantidad = parseFloat(extra.cantidad) || 0;
     const precio = parseFloat(extra.precio_unitario) || 0;
     const subtotal = cantidad * precio;
-    const estado = (extra.estado || "pendiente").toUpperCase();
+    const estadoRaw = (extra.estado || "pendiente").toUpperCase();
+    const badgeClass = obtenerClaseBadgeEstadoMaterial(estadoRaw);
     const fechaTexto = extra.fecha
       ? new Date(extra.fecha).toLocaleDateString("es-CO")
       : "-";
@@ -1807,7 +1820,7 @@ function renderMaterialesExtraCard() {
       )}</div>
             </div>
             <div class="col-md-1 text-center">
-              <span class="badge bg-warning text-dark">${estado}</span>
+              <span class="${badgeClass}">${estadoRaw}</span>
               <div><small>${fechaTexto}</small></div>
             </div>
           </div>
@@ -1821,6 +1834,42 @@ function renderMaterialesExtraCard() {
   });
 
   list.innerHTML = html;
+}
+
+async function refrescarMaterialesExtra(btn) {
+  if (!seleccionActual?.datos?.presupuestoId) {
+    alert('Seleccione un presupuesto antes de refrescar los materiales extra.');
+    return;
+  }
+
+  const originalHtml = btn ? btn.innerHTML : null;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Actualizando...';
+  }
+
+  try {
+    document.getElementById("materialesExtraList").innerHTML = `
+      <div class="text-center text-muted py-3">
+        <div class="spinner-border text-warning" role="status"></div>
+        <p class="mt-2 mb-0">Actualizando información...</p>
+      </div>
+    `;
+
+    const materialesExtraDB = await cargarMaterialesExtraDesdeDB();
+    materialesExtra.length = 0;
+    materialesExtra.push(...materialesExtraDB);
+    actualizarEstadisticas();
+    renderMaterialesExtraCard();
+  } catch (error) {
+    console.error('Error refrescando materiales extra:', error);
+    alert('No se pudieron actualizar los materiales extra. Intente nuevamente.');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  }
 }
 
 function filtrarMateriales() {
@@ -3802,8 +3851,10 @@ async function cargarMaterialesExtraDesdeDB() {
 
   try {
     const response = await fetch(
-      `${API_PRESUPUESTOS}?action=getMaterialesExtra&id_presupuesto=${presupuestoId}`
+      `${API_PRESUPUESTOS}?action=getMaterialesExtra&id_presupuesto=${presupuestoId}&_=${Date.now()}`,
+      { cache: 'no-store' }
     );
+
     const data = await response.json();
 
     if (data.success && data.data) {

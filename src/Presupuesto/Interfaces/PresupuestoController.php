@@ -2391,7 +2391,7 @@ try {
                         null,           // id_componente NULL para no violar FK hacia item_componentes
                         'material',     // tipo_componente
                         null,           // id_item no aplica aquí
-                        $idMaterial,    // id_material_extra para poder identificar el material en el historial
+                        $idMaterialExtra,    // Relacionar directamente con la tabla materiales_extra_presupuesto
                         $cantidad,
                         $precio,
                         $subtotal,

@@ -23,6 +23,42 @@ try {
 
     $action = $_GET['action'] ?? $_POST['action'] ?? ($jsonInput['action'] ?? '');
 
+    /**
+     * Actualiza el estado de los materiales extra asociados a un pedido
+     */
+    function actualizarEstadoMaterialesExtraPorPedido(\PDO $connection, $idPedido, $nuevoEstado)
+    {
+        if (!$idPedido || !$nuevoEstado) {
+            return;
+        }
+
+        $sql = "UPDATE materiales_extra_presupuesto mep
+                INNER JOIN pedidos_detalle pd ON pd.id_material_extra = mep.id_material_extra
+                SET mep.estado = ?
+                WHERE pd.id_pedido = ?";
+
+        $stmt = $connection->prepare($sql);
+        $stmt->execute([$nuevoEstado, $idPedido]);
+
+        if ($stmt->rowCount() === 0) {
+            $stmtPedido = $connection->prepare("SELECT observaciones FROM pedidos WHERE id_pedido = ?");
+            $stmtPedido->execute([$idPedido]);
+            $observaciones = $stmtPedido->fetch(\PDO::FETCH_COLUMN);
+
+            if ($observaciones) {
+                if (preg_match_all('/ID ME:\s*(\d+)/i', $observaciones, $matches) && !empty($matches[1])) {
+                    $ids = array_unique($matches[1]);
+                    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+                    $sqlFallback = "UPDATE materiales_extra_presupuesto 
+                                    SET estado = ?
+                                    WHERE id_material_extra IN ($placeholders)";
+                    $stmtFallback = $connection->prepare($sqlFallback);
+                    $stmtFallback->execute(array_merge([$nuevoEstado], $ids));
+                }
+            }
+        }
+    }
+
     switch ($action) {
         
         // ============================================
@@ -226,12 +262,16 @@ try {
                                     pd.subtotal,
                                     pd.justificacion,
                                     pd.es_excedente,
-                                    ic.descripcion,
-                                    ic.unidad
+                                    COALESCE(ic.descripcion, CAST(m.nombremat AS CHAR)) AS descripcion,
+                                    COALESCE(ic.unidad, u.unidesc) AS unidad,
+                                    m.cod_material AS codigo_material_extra,
+                                    CAST(m.nombremat AS CHAR) AS nombre_material_extra
                                 FROM pedidos_detalle pd
                                 LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
+                                LEFT JOIN materiales m ON pd.id_material_extra = m.id_material
+                                LEFT JOIN gr_unidad u ON m.idunidad = u.idunidad
                                 WHERE pd.id_pedido = ?
-                                ORDER BY pd.es_excedente ASC, ic.descripcion ASC";
+                                ORDER BY pd.es_excedente ASC, COALESCE(ic.descripcion, m.nombremat) ASC";
 
                 $stmtComp = $connection->prepare($sqlComponentes);
                 $stmtComp->execute([$idPedido]);
@@ -282,6 +322,8 @@ try {
                     throw new \Exception('No se pudo aprobar el pedido');
                 }
 
+                actualizarEstadoMaterialesExtraPorPedido($connection, $idPedido, 'aprobado');
+
                 echo json_encode([
                     'success' => true,
                     'message' => 'Pedido aprobado correctamente'
@@ -326,6 +368,8 @@ try {
                 if ($stmt->rowCount() === 0) {
                     throw new \Exception('No se pudo rechazar el pedido');
                 }
+
+                actualizarEstadoMaterialesExtraPorPedido($connection, $idPedido, 'rechazado');
 
                 echo json_encode([
                     'success' => true,

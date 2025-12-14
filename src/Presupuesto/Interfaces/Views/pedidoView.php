@@ -200,10 +200,13 @@
 
                                 <!-- Materiales Extra -->
                                 <div class="card shadow-sm mt-3" id="cardExtras" style="display: none;">
-                                    <div class="card-header bg-warning text-dark">
+                                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
                                         <h6 class="mb-0">
                                             <i class="bi bi-plus-circle"></i> Materiales Extra (Fuera de Presupuesto)
                                         </h6>
+                                        <button type="button" class="btn btn-sm btn-outline-dark" onclick="refrescarMaterialesExtra(this)">
+                                            <i class="bi bi-arrow-repeat"></i> Actualizar
+                                        </button>
                                     </div>
                                     <div class="card-body">
                                         <div id="materialesExtraList">
