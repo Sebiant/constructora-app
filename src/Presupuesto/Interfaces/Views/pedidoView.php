@@ -146,6 +146,7 @@
                                             <span>Materiales extra:</span>
                                             <strong id="statExtras">0</strong>
                                         </div>
+                                        <div id="resumenCarritoList" class="mt-3"></div>
                                         <hr>
                                         <div class="alert alert-warning py-2 mb-2" id="alertPendientesAutorizacion" style="display: none;">
                                             <small>

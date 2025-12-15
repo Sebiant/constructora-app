@@ -1118,11 +1118,20 @@ async function cargarPresupuestos() {
   selectPresupuesto.innerHTML =
     '<option value="">-- Seleccionar Presupuesto --</option>';
   selectPresupuesto.disabled = true;
-  projectInfo.style.display = "none";
-  resetarGestion();
+  if (projectInfo) {
+    projectInfo.style.display = "none";
+  }
+  try {
+    resetarGestion();
+  } catch (e) {
+    console.error('Error en resetarGestion al cambiar proyecto:', e);
+  }
 
   if (proyectoId) {
     try {
+      selectPresupuesto.innerHTML =
+        '<option value="">Cargando presupuestos...</option>';
+
       const formData = new FormData();
       formData.append("proyecto_id", proyectoId);
 
@@ -1134,21 +1143,48 @@ async function cargarPresupuestos() {
         }
       );
 
-      const result = await response.json();
-      if (!result.success) throw new Error(result.error);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} al cargar presupuestos`);
+      }
 
-      selectPresupuesto.disabled = false;
-      result.data.forEach((presupuesto) => {
-        const option = document.createElement("option");
-        option.value = presupuesto.id_presupuesto;
-        option.textContent = `${presupuesto.nombre_proyecto || presupuesto.nombre
-          } - $${parseFloat(presupuesto.monto_total || 0).toLocaleString()}`;
-        option.setAttribute("data-presupuesto", JSON.stringify(presupuesto));
-        selectPresupuesto.appendChild(option);
-      });
+      const rawText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(rawText);
+      } catch (e) {
+        console.error('Respuesta no-JSON al cargar presupuestos. Preview:', rawText?.slice(0, 300));
+        throw new Error('Respuesta inválida del servidor (no es JSON). Revise logs del servidor.');
+      }
+
+      if (!result?.success) throw new Error(result?.error || result?.message || 'No se pudieron cargar los presupuestos');
+
+      const presupuestos = result?.data || result?.presupuestos || [];
+
+      selectPresupuesto.innerHTML =
+        '<option value="">-- Seleccionar Presupuesto --</option>';
+
+      if (Array.isArray(presupuestos) && presupuestos.length > 0) {
+        selectPresupuesto.disabled = false;
+        presupuestos.forEach((presupuesto) => {
+          const option = document.createElement("option");
+          option.value = presupuesto.id_presupuesto;
+          option.textContent = `${presupuesto.nombre_proyecto || presupuesto.nombre || ('Presupuesto ' + presupuesto.id_presupuesto)
+            } - $${parseFloat(presupuesto.monto_total || 0).toLocaleString()}`;
+          option.setAttribute("data-presupuesto", JSON.stringify(presupuesto));
+          selectPresupuesto.appendChild(option);
+        });
+      } else {
+        selectPresupuesto.disabled = true;
+        selectPresupuesto.innerHTML =
+          '<option value="">No hay presupuestos para este proyecto</option>';
+      }
     } catch (error) {
       console.error("Error cargando presupuestos:", error);
       alert("Error al cargar los presupuestos: " + error.message);
+
+      selectPresupuesto.disabled = true;
+      selectPresupuesto.innerHTML =
+        '<option value="">Error al cargar presupuestos</option>';
     }
   }
 }
@@ -1202,7 +1238,12 @@ async function cargarItems() {
 
       cargarMaterialesExtraDesdeDB().then(materialesExtraDB => {
         materialesExtra.length = 0;
-        materialesExtra.push(...materialesExtraDB);
+        materialesExtra.push(
+          ...(materialesExtraDB || []).map((m) => ({
+            ...m,
+            en_pedido_actual: false,
+          }))
+        );
         actualizarEstadisticas();
         renderMaterialesExtraCard();
       });
@@ -1706,130 +1747,146 @@ function actualizarEstadisticas() {
       (!pedidosFueraPresupuesto || pedidosFueraPresupuesto.length === 0);
     btnConfirmar.disabled = btnDisabled;
   }
+
+  renderResumenCarrito();
 }
 
-function resetarGestion() {
-  // Reiniciar estructuras en memoria
-  itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
-  materialesExtra = [];
-  pedidosFueraPresupuesto = [];
+function renderResumenCarrito() {
+  const container = document.getElementById('resumenCarritoList');
+  if (!container) return;
 
-  // Mensajes base en las listas
-  const materialesList = document.getElementById("materialesList");
-  if (materialesList) {
-    materialesList.innerHTML = `
-      <div class="text-center text-muted py-5">
-        <div class="spinner-border text-muted" role="status"></div>
-        <p class="mt-3">Seleccione un proyecto y presupuesto para ver los componentes</p>
-      </div>
-    `;
+  const itemsCarrito = [];
+  const itemsFueraPresupuesto = [];
+
+  if (itemsData && Array.isArray(itemsData.componentesAgrupados)) {
+    itemsData.componentesAgrupados.forEach((componente) => {
+      if (!Array.isArray(componente.items_que_usan)) return;
+      componente.items_que_usan.forEach((item) => {
+        const cantidad = parseFloat(item.pedido_actual) || 0;
+        if (cantidad <= 0) return;
+
+        const precio = parseFloat(componente.precio_unitario) || 0;
+        itemsCarrito.push({
+          titulo: `${item.codigo_item} - ${componente.nombre_componente}`,
+          detalle: item.nombre_item,
+          unidad: componente.unidad_componente || componente.unidad || 'UND',
+          cantidad,
+          subtotal: cantidad * precio,
+        });
+      });
+    });
   }
 
-  const carritoList = document.getElementById("carritoList");
-  if (carritoList) {
-    carritoList.innerHTML = `
-      <div class="text-center text-muted py-4">
-        <div class="spinner-border text-muted" role="status"></div>
-        <p class="mt-3">Agregue componentes del presupuesto para verlos aquí</p>
-      </div>
-    `;
+  if (Array.isArray(materialesExtra) && materialesExtra.length > 0) {
+    materialesExtra.forEach((extra) => {
+      if (!extra || extra.en_pedido_actual !== true) return;
+      const cantidad = parseFloat(extra.cantidad) || 0;
+      if (cantidad <= 0) return;
+      const precio = parseFloat(extra.precio_unitario) || 0;
+      itemsCarrito.push({
+        titulo: `${extra.codigo || 'EXTRA'} - ${extra.descripcion || ''}`,
+        detalle: 'Material extra',
+        unidad: extra.unidad || 'UND',
+        cantidad,
+        subtotal: cantidad * precio,
+      });
+    });
   }
 
-  const currentInfo = document.getElementById("currentSelectionInfo");
-  if (currentInfo) {
-    currentInfo.textContent = "Seleccione un proyecto y presupuesto para comenzar";
+  if (Array.isArray(pedidosFueraPresupuesto) && pedidosFueraPresupuesto.length > 0) {
+    pedidosFueraPresupuesto.forEach((p) => {
+      if (!p) return;
+      const cantidad = parseFloat(p.cantidad_extra ?? p.cantidad_solicitada ?? 0) || 0;
+      if (cantidad <= 0) return;
+      const precio = parseFloat(p.precio_unitario) || 0;
+      itemsFueraPresupuesto.push({
+        titulo: `${p.codigo_item || ''} - ${p.descripcion_componente || ''}`.trim(),
+        detalle: `${p.nombre_item || ''} (pendiente aprobación)`.trim(),
+        unidad: p.unidad || 'UND',
+        cantidad,
+        subtotal: cantidad * precio,
+      });
+    });
   }
 
-  const btnAgregarExtra = document.getElementById("btnAgregarExtra");
-  if (btnAgregarExtra) btnAgregarExtra.disabled = true;
-
-  const btnResumen = document.getElementById("btnVerResumen");
-  if (btnResumen) btnResumen.disabled = true;
-
-  const btnConfirmar = document.getElementById("btnConfirmarPedido");
-  if (btnConfirmar) btnConfirmar.disabled = true;
-
-  const filterCapitulo = document.getElementById("filterCapitulo");
-  if (filterCapitulo) filterCapitulo.disabled = true;
-
-  const cardCarrito = document.getElementById("cardCarrito");
-  if (cardCarrito) cardCarrito.style.display = "none";
-
-  const cardExtras = document.getElementById("cardExtras");
-  if (cardExtras) cardExtras.style.display = "none";
-
-  const paginacionContainer = document.getElementById("paginacionContainer");
-}
-
-function renderMaterialesExtraCard() {
-  const card = document.getElementById("cardExtras");
-  const list = document.getElementById("materialesExtraList");
-
-  if (!card || !list) return;
-
-  card.style.display = "block";
-
-  if (!materialesExtra || materialesExtra.length === 0) {
-    list.innerHTML = `
-      <div class="text-center text-muted py-4">
-        <i class="bi bi-plus-circle"></i>
-        <p class="mt-2 mb-0">No hay materiales extra presupuestados.</p>
+  if (itemsCarrito.length === 0 && itemsFueraPresupuesto.length === 0) {
+    container.innerHTML = `
+      <div class="text-muted small">
+        <i class="bi bi-cart"></i> Carrito vacío
       </div>
     `;
     return;
   }
 
-  let html = "";
+  const total = itemsCarrito.reduce((sum, it) => sum + (parseFloat(it.subtotal) || 0), 0);
+  const totalFuera = itemsFueraPresupuesto.reduce((sum, it) => sum + (parseFloat(it.subtotal) || 0), 0);
 
-  materialesExtra.forEach((extra) => {
-    const cantidad = parseFloat(extra.cantidad) || 0;
-    const precio = parseFloat(extra.precio_unitario) || 0;
-    const subtotal = cantidad * precio;
-    const estadoRaw = (extra.estado || "pendiente").toUpperCase();
-    const badgeClass = obtenerClaseBadgeEstadoMaterial(estadoRaw);
-    const fechaTexto = extra.fecha
-      ? new Date(extra.fecha).toLocaleDateString("es-CO")
-      : "-";
-
-    html += `
-      <div class="card mb-2 border-warning">
-        <div class="card-body py-2">
-          <div class="row align-items-center">
-            <div class="col-md-5">
-              <strong>${extra.codigo} - ${extra.descripcion}</strong>
-              <p class="text-muted mb-0 small">Capítulo: ${extra.nombre_capitulo || "N/A"
-      }</p>
-            </div>
-            <div class="col-md-2">
-              <small>Cantidad</small>
-              <div class="fw-bold">${cantidad.toFixed(4)} ${extra.unidad || "UND"
-      }</div>
-            </div>
-            <div class="col-md-2">
-              <small>Vr. Unitario</small>
-              <div class="fw-bold">$${formatCurrency(precio)}</div>
-            </div>
-            <div class="col-md-2 text-end">
-              <small>Subtotal</small>
-              <div class="fw-bold text-warning">$${formatCurrency(
-        subtotal
-      )}</div>
-            </div>
-            <div class="col-md-1 text-center">
-              <span class="${badgeClass}">${estadoRaw}</span>
-              <div><small>${fechaTexto}</small></div>
-            </div>
+  const filas = itemsCarrito
+    .sort((a, b) => (b.subtotal || 0) - (a.subtotal || 0))
+    .slice(0, 8)
+    .map((it) => {
+      return `
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div class="me-2" style="min-width: 0;">
+            <div class="small fw-semibold text-truncate">${it.titulo}</div>
+            <div class="small text-muted text-truncate">${it.detalle}</div>
+            <div class="small text-muted">${it.cantidad.toFixed(4)} ${it.unidad}</div>
           </div>
-          ${extra.justificacion
-        ? `<div class="mt-2"><small class="text-muted">${extra.justificacion}</small></div>`
-        : ""
-      }
+          <div class="small fw-bold text-end">$${formatCurrency(it.subtotal)}</div>
         </div>
-      </div>
-    `;
-  });
+      `;
+    })
+    .join('');
 
-  list.innerHTML = html;
+  const extraCount = Math.max(0, itemsCarrito.length - 8);
+
+  const filasFuera = itemsFueraPresupuesto
+    .sort((a, b) => (b.subtotal || 0) - (a.subtotal || 0))
+    .slice(0, 5)
+    .map((it) => {
+      return `
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div class="me-2" style="min-width: 0;">
+            <div class="small fw-semibold text-truncate">${it.titulo}</div>
+            <div class="small text-muted text-truncate">${it.detalle}</div>
+            <div class="small text-muted">${it.cantidad.toFixed(4)} ${it.unidad}</div>
+          </div>
+          <div class="small fw-bold text-end">$${formatCurrency(it.subtotal)}</div>
+        </div>
+      `;
+    })
+    .join('');
+
+  const extraFueraCount = Math.max(0, itemsFueraPresupuesto.length - 5);
+
+  container.innerHTML = `
+    <div class="border rounded p-2" style="background: #f8f9fa;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="small fw-bold"><i class="bi bi-cart-check"></i> Carrito</div>
+        <div class="small text-muted">${itemsCarrito.length} items</div>
+      </div>
+      <div style="max-height: 260px; overflow: auto;">${filas}</div>
+      ${extraCount > 0 ? `<div class="small text-muted mt-2">+${extraCount} más...</div>` : ''}
+      ${itemsFueraPresupuesto.length > 0 ? `
+        <div class="mt-2 pt-2 border-top">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="small fw-bold text-warning"><i class="bi bi-exclamation-triangle"></i> Fuera de presupuesto</div>
+            <div class="small text-muted">${itemsFueraPresupuesto.length} items</div>
+          </div>
+          <div>${filasFuera}</div>
+          ${extraFueraCount > 0 ? `<div class="small text-muted mt-2">+${extraFueraCount} más...</div>` : ''}
+          <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+            <div class="small fw-bold text-warning">Total fuera de presupuesto</div>
+            <div class="small fw-bold text-warning">$${formatCurrency(totalFuera)}</div>
+          </div>
+        </div>
+      ` : ''}
+      <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+        <div class="small fw-bold">Total carrito</div>
+        <div class="small fw-bold">$${formatCurrency(total)}</div>
+      </div>
+    </div>
+  `;
 }
 
 async function refrescarMaterialesExtra(btn) {
@@ -1854,7 +1911,12 @@ async function refrescarMaterialesExtra(btn) {
 
     const materialesExtraDB = await cargarMaterialesExtraDesdeDB();
     materialesExtra.length = 0;
-    materialesExtra.push(...materialesExtraDB);
+    materialesExtra.push(
+      ...(materialesExtraDB || []).map((m) => ({
+        ...m,
+        en_pedido_actual: false,
+      }))
+    );
     actualizarEstadisticas();
     renderMaterialesExtraCard();
   } catch (error) {
@@ -1866,82 +1928,6 @@ async function refrescarMaterialesExtra(btn) {
       btn.innerHTML = originalHtml;
     }
   }
-}
-
-function filtrarMateriales() {
-  const filtroEstado = document.getElementById("filterEstado").value;
-  const filtroCapitulo = document.getElementById("filterCapitulo").value;
-  const filtroTipo = document.getElementById("filterTipo").value;
-  const searchTerm = document
-    .getElementById("searchMaterial")
-    .value.toLowerCase();
-
-  // Usar componentesAgrupados para filtrar
-  const componentesAgrupados = itemsData.componentesAgrupados || [];
-
-  const componentesFiltrados = componentesAgrupados.filter((componente) => {
-    const coincideEstado =
-      !filtroEstado ||
-      (filtroEstado === "disponible" && componente.disponible > 0) ||
-      (filtroEstado === "agotado" && componente.disponible <= 0) ||
-      (filtroEstado === "pedido" && (componente.pedido || 0) > 0);
-
-    const coincideCapitulo =
-      !filtroCapitulo ||
-      (componente.capitulos && componente.capitulos.includes(filtroCapitulo));
-
-    const coincideTipo =
-      !filtroTipo || componente.tipo_componente === filtroTipo;
-
-    const coincideBusqueda =
-      !searchTerm ||
-      componente.nombre_componente.toLowerCase().includes(searchTerm) ||
-      (componente.descripcion &&
-        componente.descripcion.toLowerCase().includes(searchTerm));
-
-    return (
-      coincideEstado && coincideCapitulo && coincideTipo && coincideBusqueda
-    );
-  });
-
-  mostrarItemsConComponentes({ componentesAgrupados: componentesFiltrados });
-
-  if (filtroTipo) {
-    document.querySelectorAll(".componente-card").forEach((card) => {
-      const tipoCard = card.dataset.tipo;
-      if (tipoCard === filtroTipo) {
-        card.style.display = "block";
-      } else {
-        card.style.display = "none";
-      }
-    });
-  } else {
-    document.querySelectorAll(".componente-card").forEach((card) => {
-      card.style.display = "block";
-    });
-  }
-}
-
-let busquedaMaterialTimeout = null;
-let materialSeleccionadoData = null;
-
-function mostrarModalNuevoItem() {
-  // Limpiar formulario
-  document.getElementById('formNuevoItem').reset();
-
-  document.getElementById('vistaPreviewMaterial').style.display = 'none';
-
-  materialSeleccionadoData = null;
-
-  // Cargar capítulos
-  cargarTodosMateriales();
-  cargarCapitulosParaMaterialExtra();
-  const select = document.getElementById('selectMaterial');
-  select.onchange = onMaterialSeleccionado;
-
-  // Mostrar modal
-  const modal = new bootstrap.Modal(document.getElementById('modalNuevoItem'));
-  modal.show();
 }
 
 function solicitarMaterialExtra() {
@@ -2004,7 +1990,8 @@ function solicitarMaterialExtra() {
           justificacion: justificacion,
           estado: 'pendiente',
           fecha: new Date().toISOString().split('T')[0],
-          es_material_extra: true
+          es_material_extra: true,
+          en_pedido_actual: true
         };
         materialesExtra.push(materialExtra);
 

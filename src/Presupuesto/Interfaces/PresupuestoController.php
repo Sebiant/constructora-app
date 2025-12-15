@@ -265,7 +265,6 @@ try {
                         FROM presupuestos p
                         INNER JOIN proyectos pr ON p.id_proyecto = pr.id_proyecto
                         WHERE p.id_proyecto = :proyecto_id 
-                        AND p.idestado = 1
                         ORDER BY p.fecha_creacion DESC";
 
                 $stmt = $connection->prepare($query);
