@@ -390,7 +390,7 @@ try {
             try {
                 $sql = "SELECT id_proyecto, nombre 
                         FROM proyectos 
-                        WHERE idestado = 1 
+                        WHERE estado = 1 
                         ORDER BY nombre ASC";
                 
                 $stmt = $connection->prepare($sql);

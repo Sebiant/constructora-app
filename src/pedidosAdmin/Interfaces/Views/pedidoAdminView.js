@@ -38,6 +38,25 @@ document.addEventListener('DOMContentLoaded', function () {
             aplicarFiltros();
         }
     });
+
+    // Búsqueda con botón y tipeo
+    const searchInput = document.getElementById('searchInput');
+    const searchButton = searchInput?.closest('.input-group')?.querySelector('button');
+    if (searchButton) {
+        searchButton.addEventListener('click', aplicarFiltros);
+    }
+
+    let searchTimeout = null;
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            searchTimeout = setTimeout(() => {
+                aplicarFiltros();
+            }, 350);
+        });
+    }
 });
 
 /**
@@ -48,11 +67,12 @@ function cargarProyectos() {
         .then(response => response.json())
         .then(data => {
             const select = document.getElementById('filterProyecto');
-            if (data.success && data.proyectos) {
-                data.proyectos.forEach(proyecto => {
+            const proyectos = data?.proyectos || data?.data || [];
+            if (data.success && Array.isArray(proyectos)) {
+                proyectos.forEach(proyecto => {
                     const option = document.createElement('option');
                     option.value = proyecto.id_proyecto;
-                    option.textContent = proyecto.nombre;
+                    option.textContent = proyecto.nombre || proyecto.nombre_proyecto || '';
                     select.appendChild(option);
                 });
             }
