@@ -268,7 +268,8 @@ try {
                                     CAST(m.nombremat AS CHAR) AS nombre_material_extra
                                 FROM pedidos_detalle pd
                                 LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
-                                LEFT JOIN materiales m ON pd.id_material_extra = m.id_material
+                                LEFT JOIN materiales_extra_presupuesto mep ON pd.id_material_extra = mep.id_material_extra
+                                LEFT JOIN materiales m ON mep.id_material = m.id_material
                                 LEFT JOIN gr_unidad u ON m.idunidad = u.idunidad
                                 WHERE pd.id_pedido = ?
                                 ORDER BY pd.es_excedente ASC, COALESCE(ic.descripcion, m.nombremat) ASC";

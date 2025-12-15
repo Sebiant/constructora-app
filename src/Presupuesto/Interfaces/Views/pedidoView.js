@@ -373,11 +373,7 @@ class PaginadorPresupuestos {
               <div class="alert alert-info mt-2 mb-0">
                 <small>
                   <i class="bi bi-info-circle"></i> Este componente se debe pedir item por item. Use el botón "Desglose" para registrar cantidades específicas.
-                  ${parseFloat(yaPedido) > 0 ? `<br><strong>Total pedido: ${parseFloat(yaPedido).toFixed(4)} ${unidad}</strong> = 
-                    ${(parseFloat(comp.ya_pedido_aprobado || 0) + parseFloat(comp.excedente_aprobado || 0)) > 0 ? `Aprobado: ${(parseFloat(comp.ya_pedido_aprobado || 0) + parseFloat(comp.excedente_aprobado || 0)).toFixed(4)}` : ''}
-                    ${(parseFloat(comp.ya_pedido_pendiente || 0) + parseFloat(comp.excedente_pendiente || 0)) > 0 ? ` + Pendiente: ${(parseFloat(comp.ya_pedido_pendiente || 0) + parseFloat(comp.excedente_pendiente || 0)).toFixed(4)}` : ''}
-                    ${(parseFloat(comp.ya_pedido_rechazado || 0) + parseFloat(comp.excedente_rechazado || 0)) > 0 ? ` + Rechazado: ${(parseFloat(comp.ya_pedido_rechazado || 0) + parseFloat(comp.excedente_rechazado || 0)).toFixed(4)}` : ''}
-                  ` : ''}
+                  ${parseFloat(yaPedido) > 0 ? `<br><strong>Total pedido (aprobado): ${parseFloat(yaPedido).toFixed(4)} ${unidad}</strong>` : ''}
                 </small>
               </div>
             </div>
@@ -1941,7 +1937,7 @@ function mostrarModalNuevoItem() {
   cargarTodosMateriales();
   cargarCapitulosParaMaterialExtra();
   const select = document.getElementById('selectMaterial');
-  select.addEventListener('change', onMaterialSeleccionado);
+  select.onchange = onMaterialSeleccionado;
 
   // Mostrar modal
   const modal = new bootstrap.Modal(document.getElementById('modalNuevoItem'));
@@ -1990,6 +1986,7 @@ function solicitarMaterialExtra() {
     .then(data => {
       if (data.success) {
         const materialExtra = {
+          id_material_extra: data.data?.id_material_extra,
           id_material: materialSeleccionadoData.id_material,
           id_componente: materialSeleccionadoData.id_material,
           codigo: materialSeleccionadoData.cod_material,
@@ -1997,6 +1994,7 @@ function solicitarMaterialExtra() {
           cantidad: parseFloat(cantidad),
           unidad: materialSeleccionadoData.unidad,
           precio_unitario: parseFloat(materialSeleccionadoData.precio_actual),
+
           tipo_componente: materialSeleccionadoData.id_tipo_material,
           tipo_material: materialSeleccionadoData.tipo_material,
           id_capitulo: parseInt(idCapitulo),
@@ -2009,6 +2007,7 @@ function solicitarMaterialExtra() {
           es_material_extra: true
         };
         materialesExtra.push(materialExtra);
+
         actualizarEstadisticas();
         renderMaterialesExtraCard();
         const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevoItem'));
@@ -2115,8 +2114,10 @@ function confirmarPedidoExtra() {
       return;
     }
 
+    const idComponenteReal = item.id_componente_original || componente.id_componente;
+
     const pedidoExtra = {
-      id_componente: componente.id_componente,
+      id_componente: idComponenteReal,
       id_item: item.id_item,
       codigo_item: item.codigo_item,
       nombre_item: item.nombre_item,
@@ -2134,7 +2135,7 @@ function confirmarPedidoExtra() {
 
     const indexExistente = pedidosFueraPresupuesto.findIndex(
       (p) =>
-        p.id_componente === componente.id_componente && p.id_item === item.id_item
+        String(p.id_componente) === String(idComponenteReal) && String(p.id_item) === String(item.id_item)
     );
 
     if (indexExistente >= 0) {
@@ -2197,7 +2198,6 @@ function confirmarPedidoExtra() {
   }
 }
 
-
 async function confirmarPedido() {
   const btn = document.getElementById("btnConfirmarPedido");
   const originalBtnHtml = btn ? btn.innerHTML : null;
@@ -2217,13 +2217,13 @@ async function confirmarPedido() {
             const idComponenteParaGuardar = item.id_componente_original || componente.id_componente;
 
             componentesConPedido.push({
-              id_componente: idComponenteParaGuardar,  // ID específico del item
+              id_componente: idComponenteParaGuardar, // ID específico del item
               nombre_componente: componente.nombre_componente,
               tipo_componente: componente.tipo_componente,
               unidad_componente: componente.unidad_componente,
               precio_unitario: componente.precio_unitario,
               pedido: cantidadItem,
-              id_item: item.id_item,  // ¡CRÍTICO! Agregar id_item
+              id_item: item.id_item, // ¡CRÍTICO! Agregar id_item
               total_necesario: componente.total_necesario,
               capitulos: componente.capitulos,
             });
@@ -2239,7 +2239,7 @@ async function confirmarPedido() {
           unidad_componente: componente.unidad_componente,
           precio_unitario: componente.precio_unitario,
           pedido: componente.pedido,
-          id_item: null,  // Sin id_item específico (pedidos antiguos)
+          id_item: null, // Sin id_item específico (pedidos antiguos)
           total_necesario: componente.total_necesario,
           capitulos: componente.capitulos,
         });
@@ -2267,7 +2267,7 @@ async function confirmarPedido() {
     const pedidoData = {
       seleccionActual,
       componentes: componentesConPedido,
-      materialesExtra,
+      materialesExtra: [],
       pedidosFueraPresupuesto,
       total: componentesConPedido.reduce(
         (sum, comp) => sum + (comp.pedido || 0) * comp.precio_unitario,
@@ -2664,8 +2664,8 @@ function generarDatosResumen(excedentes = []) {
       const pendiente = Math.max(0, cantidadTotal - yaPedido - pedidoActual);
       const precioUnitario = parseFloat(componente.precio_unitario) || 0;
 
-      const porcentaje = cantidadTotal > 0 ? ((yaPedido + pedidoActual) / cantidadTotal) * 100 : 0;
-      const subtotal = (yaPedido + pedidoActual) * precioUnitario;
+      const porcentaje = cantidadTotal > 0 ? (yaPedido / cantidadTotal) * 100 : 0;
+      const subtotal = yaPedido * precioUnitario;
 
       const excedenteClaveEspecifica = `${item.id_item || 'GLOBAL'}-${componente.id_componente}`;
       const excedenteClaveGeneral = `GLOBAL-${componente.id_componente}`;
@@ -2707,7 +2707,7 @@ function generarDatosResumen(excedentes = []) {
 
       itemData.valorTotal += subtotal;
       itemData.cantidadTotalGlobal += cantidadTotal;
-      itemData.cantidadCompletadaGlobal += (yaPedido + pedidoActual);
+      itemData.cantidadCompletadaGlobal += yaPedido;
 
       valorTotalGlobal += subtotal;
       totalComponentesContados++;
@@ -2741,7 +2741,7 @@ function generarDatosResumen(excedentes = []) {
     materialesExtra.forEach(extra => {
       const cantidad = parseFloat(extra.cantidad) || 0;
       const precio = parseFloat(extra.precio_unitario) || 0;
-      const subtotal = cantidad * precio;
+      const subtotal = 0;
 
       materialesExtraItem.componentes.push({
         nombre: `${extra.codigo} - ${extra.descripcion}`,
@@ -2882,14 +2882,6 @@ async function generarHojaResumenInsumosExcel(workbook, datosResumen) {
   celda2.alignment = { horizontal: 'center', vertical: 'middle' };
   celda2.border = borderCompleto();
   worksheet.getRow(filaActual).height = 22;
-  filaActual++;
-
-  // INFO PROCESO Y FECHA
-  const fila3 = worksheet.getRow(filaActual);
-  fila3.getCell(6).value = 'PROCESO No.';
-  fila3.getCell(7).value = '0';
-  aplicarEstiloCelda(fila3.getCell(6), { bold: true }, 'right');
-  aplicarEstiloCelda(fila3.getCell(7), {}, 'left');
   filaActual++;
 
   const fila4 = worksheet.getRow(filaActual);
@@ -3159,7 +3151,6 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
     { key: 'unidad', width: 10 },
     { key: 'cant_total', width: 12 },
     { key: 'ya_pedido', width: 12 },
-    { key: 'pedido_actual', width: 14 },
     { key: 'excedente', width: 12 },
     { key: 'pendiente', width: 12 },
     { key: 'porcentaje', width: 12 },
@@ -3170,7 +3161,7 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
   let filaActual = 1;
 
   // ENCABEZADO PRINCIPAL
-  worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
+  worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
   const celda1 = worksheet.getCell(`A${filaActual}`);
   celda1.value = proyectoNombre;
   celda1.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -3181,7 +3172,7 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
   filaActual++;
 
   // SUBTÍTULO
-  worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
+  worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
   const celda2 = worksheet.getCell(`A${filaActual}`);
   celda2.value = 'DETALLE DE COMPONENTES POR ITEM';
   celda2.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
@@ -3207,8 +3198,8 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
   const encabezadoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
   encabezados.values = [
     'COD. ITEM', 'NOMBRE ITEM', 'CAPITULO', 'COD. COMP', 'COMPONENTE',
-    'TIPO', 'UND', 'CANT. TOTAL', 'YA PEDIDO', 'PEDIDO ACTUAL',
-    'EXCEDENTE', 'PENDIENTE', '%', 'PRECIO UNIT.', 'SUBTOTAL'
+    'TIPO', 'UND', 'CANT. TOTAL', 'YA PEDIDO', 'EXCEDENTE',
+    'PENDIENTE', '%', 'PRECIO UNIT.', 'SUBTOTAL'
   ];
   encabezados.font = { bold: true, size: 9 };
   encabezados.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -3238,7 +3229,6 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
           comp.unidad,
           comp.cantidadTotal,
           comp.yaPedido,
-          comp.pedidoActual,
           comp.excedente || 0,
           comp.pendiente,
           porcentaje.toFixed(1) + '%',
@@ -3252,18 +3242,18 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
           cell.border = borderLigero();
 
           // Alineación y formato numérico
-          if (colNum >= 8 && colNum <= 12) {
-            cell.numFmt = colNum === 11 ? '#,##0.0000' : '#,##0.00';
+          if (colNum >= 8 && colNum <= 11) {
+            cell.numFmt = colNum === 10 ? '#,##0.0000' : '#,##0.00';
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
           }
-          if (colNum === 13) {
+          if (colNum === 12) {
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
           }
-          if (colNum === 14) {
+          if (colNum === 13) {
             cell.numFmt = '#,##0.00';
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
           }
-          if (colNum === 15) {
+          if (colNum === 14) {
             cell.numFmt = '#,##0.00';
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
           }
@@ -3298,21 +3288,21 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
     filaActual++;
     const filaTotal = worksheet.getRow(filaActual);
     const totalDetalleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
-    filaTotal.values = ['', '', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL:', datosResumen.valorTotal];
+    filaTotal.values = ['', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL:', datosResumen.valorTotal];
     filaTotal.font = { bold: true, size: 11 };
     filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
     filaTotal.height = 22;
     filaTotal.eachCell((cell, col) => {
       cell.border = borderCompleto();
       cell.fill = totalDetalleFill;
-      if (col === 15) {
+      if (col === 14) {
         cell.numFmt = '#,##0.00';
       }
     });
   } else {
     const fila = worksheet.getRow(filaActual);
     fila.values = ['No hay datos para mostrar'];
-    worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
+    worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
     const celda = worksheet.getCell(`A${filaActual}`);
 
     celda.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -3529,6 +3519,11 @@ function formatearFechaCorta(fecha) {
 function calcularTotalHistorial(pedidosHistorial = []) {
   let total = 0;
   pedidosHistorial.forEach((pedido) => {
+    const estado = String(pedido.estado || pedido.estado_descripcion || '').toLowerCase();
+    const esAprobado = estado.includes('aprob');
+    if (!esAprobado) {
+      return;
+    }
     if (Array.isArray(pedido.detalles)) {
       pedido.detalles.forEach((detalle) => {
         total += parseFloat(detalle.subtotal) || 0;
@@ -3638,7 +3633,7 @@ function agruparComponentesPorTipoParaExcel(datosResumen) {
       }
 
       const existente = componentesUnicos.get(clave);
-      existente.cantidad += (comp.yaPedido + comp.pedidoActual);
+      existente.cantidad += comp.yaPedido;
       existente.valorTotal += comp.subtotal;
     });
   });

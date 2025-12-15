@@ -601,12 +601,7 @@ try {
                     throw new \Exception('El presupuesto no existe o no pertenece al proyecto seleccionado');
                 }
 
-                // 2. DETERMINAR ESTADO DEL PEDIDO
-                // Si hay pedidos fuera de presupuesto o materiales extra → estado: pendiente
-                // Si solo hay pedidos normales → estado: aprobado
                 $tienePedidosAdicionales = count($pedidosFueraPresupuesto) > 0 || count($materialesExtra) > 0;
-                $idEstadoPedido = $tienePedidosAdicionales ? 1 : 2; // 1=Pendiente, 2=Aprobado
-                $estadoTexto = $tienePedidosAdicionales ? 'pendiente' : 'aprobado';
 
                 // 3. CALCULAR TOTALES
                 $totalComponentesNormales = 0;
@@ -632,20 +627,8 @@ try {
 
                 $totalGeneral = $totalComponentesNormales + $totalMaterialesExtra + $totalPedidosAdicionales;
 
-                // 4. CONSTRUIR OBSERVACIONES
-                $observaciones = [];
-                if ($tienePedidosAdicionales) {
-                    $observaciones[] = "Pedido con " . count($pedidosFueraPresupuesto) . " componente(s) fuera de presupuesto";
-                    $observaciones[] = "Total adicional: $" . number_format($totalPedidosAdicionales, 2);
-                }
-                if (count($materialesExtra) > 0) {
-                    $observaciones[] = "Incluye " . count($materialesExtra) . " material(es) extra";
-                }
-                if (count($componentes) > 0) {
-                    $observaciones[] = "Total componentes normales: " . count($componentes);
-                }
-
-                $observacionesTexto = implode(" | ", $observaciones);
+                $tieneComponentesNormales = $totalComponentesNormales > 0;
+                $tieneSoloAdicionales = !$tieneComponentesNormales && $tienePedidosAdicionales;
 
                 // Obtener ID de usuario de sesión (ajustar según tu sistema de autenticación)
                 session_start();
@@ -655,27 +638,15 @@ try {
                 $connection->beginTransaction();
 
                 try {
-                    // 6. INSERTAR PEDIDO PRINCIPAL
                     $sqlPedido = "INSERT INTO pedidos
                                   (id_presupuesto, fecha_pedido, estado, total, observaciones, idusuario, fechareg, fechaupdate)
                                   VALUES (?, NOW(), ?, ?, ?, ?, NOW(), NOW())";
 
                     $stmtPedido = $connection->prepare($sqlPedido);
-                    $stmtPedido->execute([
-                        $idPresupuesto,
-                        $estadoTexto,
-                        $totalGeneral,
-                        $observacionesTexto,
-                        $idUsuario
-                    ]);
 
-                    $idPedido = $connection->lastInsertId();
+                    $idPedidoNormal = null;
+                    $idPedidoAdicional = null;
 
-                    if (!$idPedido) {
-                        throw new \Exception('Error al crear el pedido principal');
-                    }
-
-                    // 7. INSERTAR DETALLES DE COMPONENTES NORMALES
                     $sqlDetalle = "INSERT INTO pedidos_detalle
                                    (id_pedido, id_componente, tipo_componente, id_item, id_material_extra, cantidad, precio_unitario, subtotal, justificacion, es_excedente, fechareg)
                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
@@ -683,100 +654,127 @@ try {
                     $stmtDetalle = $connection->prepare($sqlDetalle);
                     $detallesInsertados = 0;
 
-                    foreach ($componentes as $comp) {
-                        $cantidad = (float)($comp['pedido'] ?? 0);
-                        if ($cantidad <= 0) continue;
-
-                        $idComponente = (int)($comp['id_componente'] ?? 0);
-                        $tipoComponente = $comp['tipo_componente'] ?? 'material';
-                        // Si id_item es 0 o no existe, usar NULL para evitar error de foreign key
-                        $idItem = isset($comp['id_item']) && $comp['id_item'] > 0 ? (int)$comp['id_item'] : null;
-                        $precioUnitario = (float)($comp['precio_unitario'] ?? 0);
-                        $subtotal = $cantidad * $precioUnitario;
-
-                        $stmtDetalle->execute([
-                            $idPedido,
-                            $idComponente,
-                            $tipoComponente,
-                            $idItem,
-                            null,           // id_material_extra solo aplica para materiales extra
-                            $cantidad,
-                            $precioUnitario,
-                            $subtotal,
-                            null,
-                            0
+                    if ($tieneComponentesNormales) {
+                        $observacionesNormal = "Pedido normal (dentro de presupuesto) | Total componentes normales: " . count($componentes);
+                        $stmtPedido->execute([
+                            $idPresupuesto,
+                            'aprobado',
+                            $totalComponentesNormales,
+                            $observacionesNormal,
+                            $idUsuario
                         ]);
 
-                        $detallesInsertados++;
+                        $idPedidoNormal = $connection->lastInsertId();
+                        if (!$idPedidoNormal) {
+                            throw new \Exception('Error al crear el pedido normal');
+                        }
+
+                        foreach ($componentes as $comp) {
+                            $cantidad = (float)($comp['pedido'] ?? 0);
+                            if ($cantidad <= 0) continue;
+
+                            $idComponente = (int)($comp['id_componente'] ?? 0);
+                            $tipoComponente = $comp['tipo_componente'] ?? 'material';
+                            $idItem = isset($comp['id_item']) && $comp['id_item'] > 0 ? (int)$comp['id_item'] : null;
+                            $precioUnitario = (float)($comp['precio_unitario'] ?? 0);
+                            $subtotal = $cantidad * $precioUnitario;
+
+                            $stmtDetalle->execute([
+                                $idPedidoNormal,
+                                $idComponente,
+                                $tipoComponente,
+                                $idItem,
+                                null,
+                                $cantidad,
+                                $precioUnitario,
+                                $subtotal,
+                                null,
+                                0
+                            ]);
+
+                            $detallesInsertados++;
+                        }
                     }
 
-                    // 8. INSERTAR MATERIALES EXTRA (si existen)
-                    // Estos materiales provienen de la tabla materiales_extra_presupuesto
-                    // y deben quedar registrados como "extra" en el historial de pedidos.
-                    foreach ($materialesExtra as $extra) {
-                        $cantidad = (float)($extra['cantidad'] ?? 0);
-                        if ($cantidad <= 0) continue;
+                    if ($tienePedidosAdicionales) {
+                        $observacionesAdicional = [];
+                        if (count($pedidosFueraPresupuesto) > 0) {
+                            $observacionesAdicional[] = "Pedido con " . count($pedidosFueraPresupuesto) . " componente(s) fuera de presupuesto";
+                            $observacionesAdicional[] = "Total adicional: $" . number_format($totalPedidosAdicionales, 2);
+                        }
+                        if (count($materialesExtra) > 0) {
+                            $observacionesAdicional[] = "Incluye " . count($materialesExtra) . " material(es) extra";
+                        }
+                        $observacionesTextoAdicional = implode(" | ", $observacionesAdicional);
 
-                        // Los materiales extra no están asociados directamente a un item o componente
-                        // del presupuesto original, por lo que se registran sin id_item ni id_componente
-                        // para evitar joins incorrectos en los reportes.
-                        $idComponente = null;
-                        $tipoComponente = 'material';
-                        $idItem = null;
-                        $idMaterialExtra = $extra['id_material'] ?? null;
-
-                        $precioUnitario = (float)($extra['precio_unitario'] ?? 0);
-                        $subtotal = $cantidad * $precioUnitario;
-                        $justificacionExtra = $extra['justificacion'] ?? null;
-
-                        // Importante: marcar como excedente (=1) para que se identifique
-                        // claramente en el historial y en los reportes de Excel.
-                        $stmtDetalle->execute([
-                            $idPedido,
-                            $idComponente,
-                            $tipoComponente,
-                            $idItem,
-                            $idMaterialExtra,
-                            $cantidad,
-                            $precioUnitario,
-                            $subtotal,
-                            $justificacionExtra,
-                            1
+                        $stmtPedido->execute([
+                            $idPresupuesto,
+                            'pendiente',
+                            ($totalMaterialesExtra + $totalPedidosAdicionales),
+                            $observacionesTextoAdicional,
+                            $idUsuario
                         ]);
 
-                        $detallesInsertados++;
-                    }
+                        $idPedidoAdicional = $connection->lastInsertId();
+                        if (!$idPedidoAdicional) {
+                            throw new \Exception('Error al crear el pedido adicional');
+                        }
 
-                    // 9. INSERTAR PEDIDOS FUERA DE PRESUPUESTO
-                    // Estos se guardan en pedidos_detalle pero con una observación especial
-                    // o podrías crear una tabla separada pedidos_adicionales
-                    foreach ($pedidosFueraPresupuesto as $adicional) {
-                        $cantidadExtra = (float)($adicional['cantidad_extra'] ?? 0);
-                        if ($cantidadExtra <= 0) continue;
+                        foreach ($materialesExtra as $extra) {
+                            $cantidad = (float)($extra['cantidad'] ?? 0);
+                            if ($cantidad <= 0) continue;
 
-                        $idComponente = (int)($adicional['id_componente'] ?? 0);
-                        $tipoComponente = $adicional['tipo_componente'] ?? 'material';
-                        // Si id_item es 0 o no existe, usar NULL para evitar error de foreign key
-                        $idItem = isset($adicional['id_item']) && $adicional['id_item'] > 0 ? (int)$adicional['id_item'] : null;
-                        $precioUnitario = (float)($adicional['precio_unitario'] ?? 0);
-                        $subtotal = $cantidadExtra * $precioUnitario;
-                        $justificacion = $adicional['justificacion'] ?? '';
+                            $idComponente = null;
+                            $tipoComponente = 'material';
+                            $idItem = null;
+                            $idMaterialExtra = $extra['id_material_extra'] ?? null;
 
-                        // Insertar el detalle con la cantidad extra
-                        $stmtDetalle->execute([
-                            $idPedido,
-                            $idComponente,
-                            $tipoComponente,
-                            $idItem,
-                            null,              // id_material_extra no aplica en pedidos fuera de presupuesto por componente
-                            $cantidadExtra,
-                            $precioUnitario,
-                            $subtotal,
-                            $justificacion,
-                            1
-                        ]);
+                            $precioUnitario = (float)($extra['precio_unitario'] ?? 0);
+                            $subtotal = $cantidad * $precioUnitario;
+                            $justificacionExtra = $extra['justificacion'] ?? null;
 
-                        $detallesInsertados++;
+                            $stmtDetalle->execute([
+                                $idPedidoAdicional,
+                                $idComponente,
+                                $tipoComponente,
+                                $idItem,
+                                $idMaterialExtra,
+                                $cantidad,
+                                $precioUnitario,
+                                $subtotal,
+                                $justificacionExtra,
+                                1
+                            ]);
+
+                            $detallesInsertados++;
+                        }
+
+                        foreach ($pedidosFueraPresupuesto as $adicional) {
+                            $cantidadExtra = (float)($adicional['cantidad_extra'] ?? 0);
+                            if ($cantidadExtra <= 0) continue;
+
+                            $idComponente = (int)($adicional['id_componente'] ?? 0);
+                            $tipoComponente = $adicional['tipo_componente'] ?? 'material';
+                            $idItem = isset($adicional['id_item']) && $adicional['id_item'] > 0 ? (int)$adicional['id_item'] : null;
+                            $precioUnitario = (float)($adicional['precio_unitario'] ?? 0);
+                            $subtotal = $cantidadExtra * $precioUnitario;
+                            $justificacion = $adicional['justificacion'] ?? '';
+
+                            $stmtDetalle->execute([
+                                $idPedidoAdicional,
+                                $idComponente,
+                                $tipoComponente,
+                                $idItem,
+                                null,
+                                $cantidadExtra,
+                                $precioUnitario,
+                                $subtotal,
+                                $justificacion,
+                                1
+                            ]);
+
+                            $detallesInsertados++;
+                        }
                     }
 
                     // 10. VALIDAR QUE SE INSERTARON DETALLES
@@ -789,13 +787,14 @@ try {
 
                     // 12. PREPARAR RESPUESTA
                     $mensaje = $tienePedidosAdicionales
-                        ? "Pedido guardado con " . count($pedidosFueraPresupuesto) . " componente(s) adicional(es) pendiente(s) de autorización"
+                        ? "Pedido normal guardado" . ($idPedidoAdicional ? " y pedido adicional pendiente de autorización" : "")
                         : "Pedido guardado y aprobado correctamente";
 
                     echo json_encode([
                         'success' => true,
-                        'id_pedido' => $idPedido,
-                        'estado' => $estadoTexto,
+                        'id_pedido' => $idPedidoNormal ?? $idPedidoAdicional,
+                        'id_pedido_normal' => $idPedidoNormal,
+                        'id_pedido_adicional' => $idPedidoAdicional,
                         'tiene_adicionales' => $tienePedidosAdicionales,
                         'message' => $mensaje,
                         'detalles' => [
@@ -885,7 +884,8 @@ try {
                                     LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
                                     LEFT JOIN det_presupuesto dp ON dp.id_item = pd.id_item AND dp.id_presupuesto = ?
                                     LEFT JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
-                                    LEFT JOIN materiales m ON pd.id_material_extra = m.id_material
+                                    LEFT JOIN materiales_extra_presupuesto mep ON pd.id_material_extra = mep.id_material_extra
+                                    LEFT JOIN materiales m ON mep.id_material = m.id_material
                                     WHERE pd.id_pedido = ?
                                     ORDER BY pd.id_det_pedido";
 
@@ -1737,7 +1737,7 @@ try {
                         AND ped.estado = 'pendiente'
                     ), 4), 0.0000) as excedente_pendiente,
                     
-                    -- Total ya pedido (suma de todos los estados y tipos)
+                    -- Total ya pedido usado por la vista (solo APROBADO)
                     COALESCE(ROUND((
                         SELECT SUM(pd.cantidad) 
                         FROM pedidos_detalle pd
@@ -1746,6 +1746,7 @@ try {
                         WHERE ic2.descripcion = ic.descripcion
                         AND ic2.tipo_componente = ic.tipo_componente
                         AND ped.id_presupuesto = p.id_presupuesto
+                        AND ped.estado = 'aprobado'
                     ), 4), 0.0000) as ya_pedido,
                     
                     -- Calcular disponible restando solo lo aprobado (normal + excedente)
@@ -1780,6 +1781,7 @@ try {
                                 AND ic3.tipo_componente = ic.tipo_componente
                                 AND pd.id_item = i.id_item
                                 AND ped2.id_presupuesto = p.id_presupuesto
+                                AND ped2.estado = 'aprobado'
                             ), 0)
                         )
                         ORDER BY i.codigo_item, c.nombre_cap
@@ -1796,6 +1798,7 @@ try {
                 AND p.id_presupuesto = ?
                 GROUP BY ic.descripcion, ic.tipo_componente, ic.unidad, p.id_presupuesto
                 ORDER BY ic.tipo_componente, ic.descripcion";
+
         
         $stmt = $connection->prepare($sql);
         $stmt->execute([$presupuestoId]);
