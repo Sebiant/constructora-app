@@ -283,6 +283,7 @@ class PaginadorPresupuestos {
       const cantidadPedido = calcularTotalPedidoComponente(comp);
       comp.pedido = cantidadPedido;
       const subtotal = cantidadPedido * comp.precio_unitario;
+
       const totalCantidadNecesaria = (comp.items_que_usan || []).reduce(
         (sum, item) => sum + (parseFloat(item.cantidad_componente) || 0),
         0
@@ -340,7 +341,7 @@ class PaginadorPresupuestos {
                       <th class="text-center bg-warning">Pendiente</th>
                       <th class="text-center bg-danger text-white">Rechazado</th>
                       <th class="text-center bg-primary text-white">Total Pedido</th>
-                      <th class="text-center bg-secondary text-white">Disponible</th>
+                      <th class="text-center bg-secondary text-white">Comprado</th>
                       <th class="text-center">Precio Unit.</th>
                     </tr>
                   </thead>
@@ -361,7 +362,7 @@ class PaginadorPresupuestos {
                         <br><small class="text-muted">(${porcentajeYaPedido.toFixed(1)}%)</small>
                       </td>
                       <td class="text-center table-secondary">
-                        <strong>${parseFloat(comp.disponible || 0).toFixed(4)}</strong>
+                        <strong>${parseFloat(comp.ya_comprado || 0).toFixed(4)}</strong>
                       </td>
                       <td class="text-center">
                         <strong>$${formatCurrency(comp.precio_unitario)}</strong>
@@ -373,7 +374,7 @@ class PaginadorPresupuestos {
               <div class="alert alert-info mt-2 mb-0">
                 <small>
                   <i class="bi bi-info-circle"></i> Este componente se debe pedir item por item. Use el botón "Desglose" para registrar cantidades específicas.
-                  ${parseFloat(yaPedido) > 0 ? `<br><strong>Total pedido (aprobado): ${parseFloat(yaPedido).toFixed(4)} ${unidad}</strong>` : ''}
+                  ${parseFloat(yaPedido) > 0 ? `<br><strong>Total pedido (sin rechazados): ${parseFloat(yaPedido).toFixed(4)} ${unidad}</strong>` : ''}
                 </small>
               </div>
             </div>
@@ -1347,6 +1348,7 @@ function agruparComponentesPorNombre(componentes) {
       // Sumar totales
       existente.total_necesario += comp.total_necesario;
       existente.ya_pedido += comp.ya_pedido;
+      existente.ya_comprado = (parseFloat(existente.ya_comprado) || 0) + (parseFloat(comp.ya_comprado) || 0);
       existente.disponible += comp.disponible;
 
       // Sumar campos de estado de pedidos
@@ -1409,6 +1411,7 @@ async function obtenerComponentesAgrupados(presupuestoId, capituloId = null) {
           total_necesario: cantidadTotal,
           disponible: parseFloat(comp.disponible) || 0,
           ya_pedido: parseFloat(comp.ya_pedido) || 0,
+          ya_comprado: parseFloat(comp.ya_comprado) || 0,
 
           // Nuevos campos de estado de pedidos
           ya_pedido_aprobado: parseFloat(comp.ya_pedido_aprobado) || 0,
@@ -3306,6 +3309,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
     { key: 'fecha', width: 18 },
     { key: 'estado', width: 20 },
     { key: 'usuario', width: 28 },
+    { key: 'proveedor', width: 28 },
+    { key: 'factura', width: 18 },
     { key: 'capitulo', width: 22 },
     { key: 'codigo_item', width: 15 },
     { key: 'nombre_item', width: 30 },
@@ -3321,7 +3326,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
 
   let filaActual = 1;
 
-  worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
+  worksheet.mergeCells(`A${filaActual}:Q${filaActual}`);
 
   const titulo = worksheet.getCell(`A${filaActual}`);
   titulo.value = 'Historial de Pedidos del Presupuesto';
@@ -3334,11 +3339,12 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
   const encabezados = worksheet.getRow(filaActual);
   const encabezadoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
   encabezados.values = [
-    'ID Pedido', 'Fecha', 'Estado', 'Responsable', 'Capítulo',
-    'Código Item', 'Nombre Item', 'Componente', 'Tipo', 'Unidad',
+    'ID Pedido', 'Fecha', 'Estado', 'Responsable', 'Proveedor', 'Factura',
+    'Capítulo', 'Código Item', 'Nombre Item', 'Componente', 'Tipo', 'Unidad',
     'Cantidad', 'Precio Unit.', 'Subtotal', 'Justificación Detalle',
     'Motivo aprobación/rechazo'
   ];
+
   encabezados.font = { bold: true, size: 10 };
   encabezados.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
   encabezados.height = 22;
@@ -3350,7 +3356,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
 
   if (!Array.isArray(pedidosHistorial) || pedidosHistorial.length === 0) {
     worksheet.getRow(filaActual).values = ['Sin pedidos registrados'];
-    worksheet.mergeCells(`A${filaActual}:O${filaActual}`);
+    worksheet.mergeCells(`A${filaActual}:Q${filaActual}`);
 
     const celda = worksheet.getCell(`A${filaActual}`);
     celda.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -3362,6 +3368,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
     const estadoTexto = pedido.estado_descripcion || pedido.estado || 'N/A';
     const estadoColor = obtenerColorEstadoExcel(pedido.estado_color);
     const fechaTexto = formatearFechaCorta(pedido.fecha_pedido);
+    const proveedorTexto = pedido.nombre_provedor || 'N/A';
+    const facturaTexto = pedido.numero_factura || '';
 
     if (!pedido.detalles || pedido.detalles.length === 0) {
       const fila = worksheet.getRow(filaActual);
@@ -3370,6 +3378,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
         fechaTexto,
         estadoTexto,
         pedido.nombre_usuario || 'N/A',
+        proveedorTexto,
+        facturaTexto,
         'Sin detalles',
         '',
         '',
@@ -3389,9 +3399,10 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
     }
 
     pedido.detalles.forEach((detalle) => {
-      const fila = worksheet.getRow(filaActual);
       const esExcedente = parseInt(detalle.es_excedente, 10) === 1;
       const sinItemAsociado = !detalle.codigo_item && !detalle.nombre_item;
+
+      const fila = worksheet.getRow(filaActual);
 
       const tieneMaterialExtra = !!(detalle.codigo_material_extra && detalle.nombre_material_extra);
 
@@ -3424,6 +3435,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
         fechaTexto,
         estadoTexto,
         pedido.nombre_usuario || 'N/A',
+        proveedorTexto,
+        facturaTexto,
         capitulo,
         codigoItem,
         nombreItem,
@@ -3447,22 +3460,22 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
   });
 
   const totalFila = worksheet.getRow(filaActual + 1);
-  totalFila.values = ['', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', calcularTotalHistorial(pedidosHistorial), '', ''];
+  totalFila.values = ['', '', '', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', calcularTotalHistorial(pedidosHistorial), '', ''];
 
   totalFila.font = { bold: true };
   totalFila.alignment = { horizontal: 'right', vertical: 'middle' };
   totalFila.eachCell((cell) => {
     cell.border = borderCompleto();
   });
-  totalFila.getCell(13).numFmt = '#,##0.00';
+  totalFila.getCell(15).numFmt = '#,##0.00';
 }
 
 function aplicarEstiloFilaHistorial(fila, estadoColor, esExcedente) {
   fila.alignment = { vertical: 'middle' };
   fila.eachCell((cell, col) => {
     cell.border = borderLigero();
-    if (col >= 11 && col <= 13) {
-      cell.numFmt = col === 11 ? '#,##0.0000' : '#,##0.00';
+    if (col >= 13 && col <= 15) {
+      cell.numFmt = col === 13 ? '#,##0.0000' : '#,##0.00';
       cell.alignment = { horizontal: 'right', vertical: 'middle' };
     }
     if (col === 3 && estadoColor) {

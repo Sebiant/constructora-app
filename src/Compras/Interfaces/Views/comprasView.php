@@ -41,6 +41,57 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
               </div>
               <div class="card-body" id="listaPedidos" style="min-height: 240px;"></div>
             </div>
+
+            <div class="card border-0 shadow-sm mt-3">
+              <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <strong>Historial de compras</strong>
+                <button class="btn btn-outline-secondary btn-sm" id="btnRefrescarCompras">
+                  <i class="bi bi-arrow-repeat"></i> Refrescar
+                </button>
+              </div>
+              <div class="card-body">
+                <div class="row g-2 mb-2">
+                  <div class="col-md-4">
+                    <label class="form-label fw-bold">Proyecto</label>
+                    <select class="form-select" id="filterProyectoCompras">
+                      <option value="">Todos</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label fw-bold">Buscar</label>
+                    <input type="text" class="form-control" id="searchCompras" placeholder="# compra, # pedido, provedor, factura..." />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label fw-bold">Fecha (desde / hasta)</label>
+                    <div class="input-group">
+                      <input type="date" class="form-control" id="fechaDesdeCompras" />
+                      <input type="date" class="form-control" id="fechaHastaCompras" />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="table-responsive" style="max-height: 320px; overflow:auto;">
+                  <table class="table table-sm table-hover align-middle">
+                    <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                      <tr>
+                        <th>#</th>
+                        <th>Pedido</th>
+                        <th>Fecha</th>
+                        <th>Proyecto</th>
+                        <th>Provedor</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tablaCompras">
+                      <tr>
+                        <td colspan="7" class="text-center text-muted py-4">Cargando historial...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="col-lg-5">
@@ -59,26 +110,32 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                   <input type="hidden" id="idPedido" />
 
                   <div class="mb-2">
-                    <label class="form-label fw-bold">Proveedor (para contacto) *</label>
-                    <input class="form-control" id="proveedorNombre" required />
+                    <label class="form-label fw-bold">Provedor *</label>
+                    <div class="d-flex gap-2">
+                      <div class="form-control" style="height: 140px; overflow:auto;" id="provedoresMulti" aria-label="Lista de provedores"></div>
+                      <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalGestionProvedores">
+                        <i class="bi bi-plus-circle"></i> Crear provedor
+                      </button>
+                    </div>
+                    <div class="form-text">Selecciona uno o varios provedores.</div>
                   </div>
 
                   <div class="row g-2">
                     <div class="col-md-6">
                       <label class="form-label">Teléfono</label>
-                      <input class="form-control" id="proveedorTelefono" />
+                      <input class="form-control" id="proveedorTelefono" disabled />
                     </div>
                     <div class="col-md-6">
                       <label class="form-label">WhatsApp</label>
-                      <input class="form-control" id="proveedorWhatsapp" />
+                      <input class="form-control" id="proveedorWhatsapp" disabled />
                     </div>
                     <div class="col-md-6">
                       <label class="form-label">Email</label>
-                      <input type="email" class="form-control" id="proveedorEmail" />
+                      <input type="email" class="form-control" id="proveedorEmail" disabled />
                     </div>
                     <div class="col-md-6">
                       <label class="form-label">Contacto</label>
-                      <input class="form-control" id="proveedorContacto" />
+                      <input class="form-control" id="proveedorContacto" disabled />
                     </div>
                   </div>
 
@@ -88,12 +145,8 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                       <input class="form-control" id="numeroFactura" />
                     </div>
                     <div class="col-md-6">
-                      <label class="form-label">Estado compra</label>
-                      <select class="form-select" id="estadoCompra">
-                        <option value="pendiente">Pendiente</option>
-                        <option value="comprado">Comprado</option>
-                        <option value="cancelado">Cancelado</option>
-                      </select>
+                      <label class="form-label">Total compra</label>
+                      <input type="number" class="form-control" id="totalCompra" step="0.01" min="0" placeholder="0.00" />
                     </div>
                   </div>
 
@@ -103,15 +156,46 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                   </div>
 
                   <div class="d-flex gap-2 mt-3">
-                    <button type="button" class="btn btn-outline-primary" id="btnContactar" disabled>
-                      <i class="bi bi-telephone"></i> Contactar
-                    </button>
                     <button type="submit" class="btn btn-success" id="btnGuardarCompra" disabled>
                       <i class="bi bi-save"></i> Registrar compra
                     </button>
                   </div>
                 </form>
 
+                <div class="modal fade" id="modalGestionProvedores" tabindex="-1" aria-hidden="true">
+                  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title">Gestión de Provedores</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body p-0" style="height: 80vh;">
+                        <iframe
+                          src="/sgigescomnew/ejemplos/provedoresComponent.php"
+                          style="border:0; width:100%; height:100%;"
+                        ></iframe>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal fade" id="modalDetalleCompra" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Detalle de compra #<span id="detalleCompraId">-</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div id="detalleCompraContenido" class="text-muted">Cargando...</div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
               </div>
             </div>
           </div>

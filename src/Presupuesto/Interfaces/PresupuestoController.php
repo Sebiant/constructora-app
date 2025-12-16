@@ -841,7 +841,32 @@ try {
                             ep.desc_estado as estado_descripcion,
                             ep.color as estado_color,
                             COUNT(pd.id_det_pedido) as total_items,
-                            u.u_nombre as nombre_usuario
+                            u.u_nombre as nombre_usuario,
+
+                            -- Datos de compra (si el pedido fue comprado)
+                            (
+                                SELECT pv.nombre
+                                FROM compras c
+                                INNER JOIN provedores pv ON c.id_provedor = pv.id_provedor
+                                WHERE c.id_pedido = p.id_pedido
+                                ORDER BY c.fecha_compra DESC, c.id_compra DESC
+                                LIMIT 1
+                            ) as nombre_provedor,
+                            (
+                                SELECT pv.id_provedor
+                                FROM compras c
+                                INNER JOIN provedores pv ON c.id_provedor = pv.id_provedor
+                                WHERE c.id_pedido = p.id_pedido
+                                ORDER BY c.fecha_compra DESC, c.id_compra DESC
+                                LIMIT 1
+                            ) as id_provedor,
+                            (
+                                SELECT c.numero_factura
+                                FROM compras c
+                                WHERE c.id_pedido = p.id_pedido
+                                ORDER BY c.fecha_compra DESC, c.id_compra DESC
+                                LIMIT 1
+                            ) as numero_factura
                         FROM pedidos p
                         LEFT JOIN pedidos_detalle pd ON p.id_pedido = pd.id_pedido
                         LEFT JOIN estado_pedido ep ON p.estado = LOWER(ep.desc_estado)
@@ -1745,8 +1770,20 @@ try {
                         WHERE ic2.descripcion = ic.descripcion
                         AND ic2.tipo_componente = ic.tipo_componente
                         AND ped.id_presupuesto = p.id_presupuesto
-                        AND ped.estado = 'aprobado'
+                        AND ped.estado IN ('aprobado','pendiente','comprado')
                     ), 4), 0.0000) as ya_pedido,
+
+                    -- Total ya comprado (incluye normal y excedente)
+                    COALESCE(ROUND((
+                        SELECT SUM(pd.cantidad)
+                        FROM pedidos_detalle pd
+                        INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
+                        INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
+                        WHERE ic2.descripcion = ic.descripcion
+                        AND ic2.tipo_componente = ic.tipo_componente
+                        AND ped.id_presupuesto = p.id_presupuesto
+                        AND ped.estado = 'comprado'
+                    ), 4), 0.0000) as ya_comprado,
                     
                     -- Calcular disponible restando solo lo aprobado (normal + excedente)
                     ROUND(SUM(dp.cantidad * ic.cantidad) - COALESCE((
@@ -1780,7 +1817,7 @@ try {
                                 AND ic3.tipo_componente = ic.tipo_componente
                                 AND pd.id_item = i.id_item
                                 AND ped2.id_presupuesto = p.id_presupuesto
-                                AND ped2.estado = 'aprobado'
+                                AND ped2.estado IN ('aprobado','pendiente','comprado')
                             ), 0)
                         )
                         ORDER BY i.codigo_item, c.nombre_cap

@@ -1,8 +1,140 @@
 let pedidos = [];
 let pedidoSeleccionado = null;
+let provedores = [];
+let totalCompraTouched = false;
+let compras = [];
 
 function qs(id) {
   return document.getElementById(id);
+}
+
+function getFiltrosCompras() {
+  return {
+    proyecto: qs('filterProyectoCompras')?.value || '',
+    busqueda: qs('searchCompras')?.value?.trim?.() || '',
+    fechaDesde: qs('fechaDesdeCompras')?.value || '',
+    fechaHasta: qs('fechaHastaCompras')?.value || '',
+  };
+}
+
+async function cargarCompras() {
+  const tbody = qs('tablaCompras');
+  if (!tbody) return;
+
+  const filtros = getFiltrosCompras();
+  const params = new URLSearchParams();
+  params.set('action', 'getCompras');
+  if (filtros.proyecto) params.set('proyecto', filtros.proyecto);
+  if (filtros.busqueda) params.set('busqueda', filtros.busqueda);
+  if (filtros.fechaDesde) params.set('fechaDesde', filtros.fechaDesde);
+  if (filtros.fechaHasta) params.set('fechaHasta', filtros.fechaHasta);
+
+  tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Cargando historial...</td></tr>';
+
+  const data = await apiGet(`?${params.toString()}`);
+  compras = Array.isArray(data) ? data : [];
+  renderTablaCompras();
+}
+
+function renderTablaCompras() {
+  const tbody = qs('tablaCompras');
+  if (!tbody) return;
+
+  if (!compras.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay compras para los filtros seleccionados.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = compras
+    .map((c) => {
+      const fecha = c.fecha_compra ? new Date(c.fecha_compra).toLocaleString('es-CO') : '-';
+      return `
+        <tr>
+          <td>${escapeHtml(c.id_compra)}</td>
+          <td>${escapeHtml(c.id_pedido)}</td>
+          <td>${escapeHtml(fecha)}</td>
+          <td>${escapeHtml(c.nombre_proyecto || '')}</td>
+          <td>${escapeHtml(c.nombre_provedor || '')}</td>
+          <td class="text-end">$${formatMoney(c.total)}</td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-outline-primary" onclick="verDetalleCompra(${Number(c.id_compra)})">
+              <i class="bi bi-eye"></i> Ver
+            </button>
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+}
+
+async function verDetalleCompra(idCompra) {
+  try {
+    qs('detalleCompraId').textContent = String(idCompra);
+    qs('detalleCompraContenido').innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border" role="status"></div><div class="mt-2">Cargando...</div></div>';
+
+    const data = await apiGet(`?action=getCompraDetalle&id_compra=${encodeURIComponent(idCompra)}`);
+
+    const fecha = data.fecha_compra ? new Date(data.fecha_compra).toLocaleString('es-CO') : '-';
+    const detalles = Array.isArray(data.detalles) ? data.detalles : [];
+    const filas = detalles
+      .map((d) => `
+        <tr>
+          <td>${escapeHtml(d.descripcion)}</td>
+          <td class="text-end">${escapeHtml(Number(d.cantidad || 0).toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
+          <td class="text-end">$${formatMoney(d.precio_unitario)}</td>
+          <td class="text-end fw-bold">$${formatMoney(d.subtotal)}</td>
+        </tr>
+      `)
+      .join('');
+
+    qs('detalleCompraContenido').innerHTML = `
+      <div class="row g-2 mb-2">
+        <div class="col-md-3"><div class="text-muted small">Compra</div><div class="fw-bold">#${escapeHtml(data.id_compra)}</div></div>
+        <div class="col-md-3"><div class="text-muted small">Pedido</div><div class="fw-bold">#${escapeHtml(data.id_pedido)}</div></div>
+        <div class="col-md-3"><div class="text-muted small">Fecha</div><div class="fw-bold">${escapeHtml(fecha)}</div></div>
+        <div class="col-md-3"><div class="text-muted small">Total</div><div class="fw-bold">$${formatMoney(data.total)}</div></div>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-md-6"><div class="text-muted small">Proyecto</div><div class="fw-bold">${escapeHtml(data.nombre_proyecto || '')}</div></div>
+        <div class="col-md-6"><div class="text-muted small">Provedor</div><div class="fw-bold">${escapeHtml(data.nombre_provedor || '')}</div></div>
+      </div>
+      ${data.numero_factura ? `<div class="mb-2"><span class="text-muted small">Factura:</span> <strong>${escapeHtml(data.numero_factura)}</strong></div>` : ''}
+      ${data.observaciones ? `<div class="mb-2"><div class="text-muted small">Observaciones</div><div>${escapeHtml(data.observaciones)}</div></div>` : ''}
+      <div class="table-responsive" style="max-height: 420px; overflow:auto;">
+        <table class="table table-sm table-hover">
+          <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+            <tr>
+              <th>Ítem</th>
+              <th class="text-end">Cantidad</th>
+              <th class="text-end">Vr. Unit.</th>
+              <th class="text-end">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filas || '<tr><td colspan="4" class="text-muted">Sin detalle.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    const modalEl = qs('modalDetalleCompra');
+    if (modalEl) {
+      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+      modal.show();
+    }
+  } catch (e) {
+    console.error(e);
+    qs('detalleCompraContenido').innerHTML = `<div class="alert alert-danger">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function autollenarTotalCompra() {
+  const el = qs('totalCompra');
+  if (!el) return;
+  if (totalCompraTouched) return;
+
+  const totalPedido = Number(pedidoSeleccionado?.total || 0);
+  el.value = totalPedido ? totalPedido.toFixed(2) : '';
 }
 
 function escapeHtml(str) {
@@ -56,12 +188,98 @@ async function cargarProyectos() {
   const data = await apiGet('?action=getProyectos');
   const sel = qs('filterProyecto');
   sel.innerHTML = '<option value="">Todos</option>';
+  const selCompras = qs('filterProyectoCompras');
+  if (selCompras) selCompras.innerHTML = '<option value="">Todos</option>';
   data.forEach((p) => {
     const opt = document.createElement('option');
     opt.value = p.id_proyecto;
     opt.textContent = p.nombre;
     sel.appendChild(opt);
+
+    if (selCompras) {
+      const opt2 = document.createElement('option');
+      opt2.value = p.id_proyecto;
+      opt2.textContent = p.nombre;
+      selCompras.appendChild(opt2);
+    }
   });
+}
+
+async function cargarProvedores() {
+  const data = await apiGet('?action=getProvedoresActivos');
+  provedores = Array.isArray(data) ? data : [];
+
+  const cont = qs('provedoresMulti');
+  cont.innerHTML = '';
+
+  if (!provedores.length) {
+    cont.innerHTML = '<div class="text-muted">No hay provedores activos.</div>';
+    actualizarDatosProvedorSeleccionado();
+    return;
+  }
+
+  const html = provedores
+    .map((p) => {
+      const id = Number(p.id_provedor);
+      const nombre = String(p.nombre || '');
+      const telefono = String(p.telefono || '');
+      const whatsapp = String(p.whatsapp || '');
+      const email = String(p.email || '');
+      const contacto = String(p.contacto || '');
+      return `
+        <div class="form-check">
+          <input
+            class="form-check-input provedor-check"
+            type="checkbox"
+            value="${id}"
+            id="provedor_${id}"
+            data-telefono="${telefono.replace(/"/g, '&quot;')}"
+            data-whatsapp="${whatsapp.replace(/"/g, '&quot;')}"
+            data-email="${email.replace(/"/g, '&quot;')}"
+            data-contacto="${contacto.replace(/"/g, '&quot;')}"
+            data-nombre="${nombre.replace(/"/g, '&quot;')}"
+          />
+          <label class="form-check-label" for="provedor_${id}">${escapeHtml(nombre)}</label>
+        </div>
+      `;
+    })
+    .join('');
+
+  cont.innerHTML = html;
+
+  cont.querySelectorAll('.provedor-check').forEach((el) => {
+    el.addEventListener('change', () => {
+      actualizarDatosProvedorSeleccionado();
+      actualizarBotones();
+    });
+  });
+
+  actualizarDatosProvedorSeleccionado();
+}
+
+function actualizarDatosProvedorSeleccionado() {
+  const checks = document.querySelectorAll('.provedor-check:checked');
+
+  if (checks.length === 1) {
+    const opt = checks[0];
+    qs('proveedorTelefono').value = opt.dataset.telefono || '';
+    qs('proveedorWhatsapp').value = opt.dataset.whatsapp || '';
+    qs('proveedorEmail').value = opt.dataset.email || '';
+    qs('proveedorContacto').value = opt.dataset.contacto || '';
+    return;
+  }
+
+  qs('proveedorTelefono').value = '';
+  qs('proveedorWhatsapp').value = '';
+  qs('proveedorEmail').value = '';
+  qs('proveedorContacto').value = '';
+}
+
+function getProvedoresSeleccionados() {
+  const checks = Array.from(document.querySelectorAll('.provedor-check:checked'));
+  return checks
+    .map((o) => Number(o.value || 0))
+    .filter((n) => Number.isFinite(n) && n > 0);
 }
 
 function getFiltros() {
@@ -144,6 +362,11 @@ async function seleccionarPedido(idPedido) {
     pedidoSeleccionado = data;
     qs('idPedido').value = String(idPedido);
 
+    // Al seleccionar un nuevo pedido, autollenar el total de compra con el total del pedido.
+    // Luego el usuario puede modificarlo manualmente.
+    totalCompraTouched = false;
+    autollenarTotalCompra();
+
     renderDetallePedido();
     actualizarBotones();
   } catch (e) {
@@ -209,38 +432,16 @@ function renderDetallePedido() {
 function actualizarBotones() {
   const tienePedido = !!(pedidoSeleccionado && qs('idPedido').value);
   qs('btnGuardarCompra').disabled = !tienePedido;
-
-  const tieneContacto =
-    !!qs('proveedorTelefono').value.trim() ||
-    !!qs('proveedorWhatsapp').value.trim() ||
-    !!qs('proveedorEmail').value.trim();
-  qs('btnContactar').disabled = !tienePedido || !tieneContacto;
 }
 
-function construirLinkContacto() {
-  const nombre = qs('proveedorNombre').value.trim();
-  const whatsapp = qs('proveedorWhatsapp').value.trim();
-  const tel = qs('proveedorTelefono').value.trim();
-  const email = qs('proveedorEmail').value.trim();
-
-  const pedidoId = qs('idPedido').value;
-  const msgBase = `Hola${nombre ? ' ' + nombre : ''}. Necesitamos cotizar/confirmar compra del pedido #${pedidoId}.`;
-
-  if (whatsapp) {
-    const num = whatsapp.replace(/[^0-9]/g, '');
-    return `https://wa.me/${encodeURIComponent(num)}?text=${encodeURIComponent(msgBase)}`;
-  }
-
-  if (tel) {
-    const num = tel.replace(/[^0-9+]/g, '');
-    return `tel:${encodeURIComponent(num)}`;
-  }
-
-  if (email) {
-    return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Compra pedido #' + pedidoId)}&body=${encodeURIComponent(msgBase)}`;
-  }
-
-  return null;
+function limpiarSeleccionPedido() {
+  pedidoSeleccionado = null;
+  totalCompraTouched = false;
+  qs('idPedido').value = '';
+  qs('numeroFactura').value = '';
+  qs('totalCompra').value = '';
+  qs('observaciones').value = '';
+  qs('detallePedido').innerHTML = '<div class="text-muted">Seleccione un pedido para ver el detalle.</div>';
 }
 
 async function onGuardarCompra(e) {
@@ -251,9 +452,15 @@ async function onGuardarCompra(e) {
     return;
   }
 
-  const proveedorNombre = qs('proveedorNombre').value.trim();
-  if (!proveedorNombre) {
-    alert('Proveedor requerido');
+  const idsProvedores = getProvedoresSeleccionados();
+  if (!idsProvedores.length) {
+    alert('Seleccione al menos un provedor');
+    return;
+  }
+
+  const totalCompra = Number(qs('totalCompra').value || 0);
+  if (!totalCompra || totalCompra <= 0) {
+    alert('Digite el total de la compra');
     return;
   }
 
@@ -270,15 +477,10 @@ async function onGuardarCompra(e) {
 
   const payload = {
     id_pedido: Number(qs('idPedido').value),
-    proveedor_nombre: proveedorNombre,
-    proveedor_telefono: qs('proveedorTelefono').value.trim() || null,
-    proveedor_email: qs('proveedorEmail').value.trim() || null,
-    proveedor_whatsapp: qs('proveedorWhatsapp').value.trim() || null,
-    proveedor_contacto: qs('proveedorContacto').value.trim() || null,
+    id_provedores: idsProvedores,
     numero_factura: qs('numeroFactura').value.trim() || null,
-    estado: qs('estadoCompra').value,
     observaciones: qs('observaciones').value.trim() || null,
-    total: Number(pedidoSeleccionado.total || 0),
+    total: totalCompra,
     detalles,
   };
 
@@ -290,6 +492,11 @@ async function onGuardarCompra(e) {
   try {
     const res = await apiPost('guardarCompra', payload);
     alert(res.message || 'Compra registrada');
+
+    // El pedido pasa a estado 'comprado' en backend.
+    // Refrescar UI para que ya no aparezca en la lista de aprobados.
+    limpiarSeleccionPedido();
+    await cargarPedidos();
   } catch (err) {
     console.error(err);
     alert('Error: ' + err.message);
@@ -302,7 +509,9 @@ async function onGuardarCompra(e) {
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     await cargarProyectos();
+    await cargarProvedores();
     await cargarPedidos();
+    await cargarCompras();
   } catch (e) {
     console.error(e);
     qs('listaPedidos').innerHTML = `<div class="alert alert-danger">${escapeHtml(e.message)}</div>`;
@@ -311,6 +520,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   qs('btnRefrescar').addEventListener('click', cargarPedidos);
   qs('btnBuscar').addEventListener('click', cargarPedidos);
 
+  if (qs('btnRefrescarCompras')) qs('btnRefrescarCompras').addEventListener('click', cargarCompras);
+  if (qs('filterProyectoCompras')) qs('filterProyectoCompras').addEventListener('change', cargarCompras);
+  if (qs('fechaDesdeCompras')) qs('fechaDesdeCompras').addEventListener('change', cargarCompras);
+  if (qs('fechaHastaCompras')) qs('fechaHastaCompras').addEventListener('change', cargarCompras);
+  if (qs('searchCompras')) {
+    let t = null;
+    qs('searchCompras').addEventListener('input', () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        cargarCompras();
+      }, 350);
+    });
+  }
+
   qs('filterProyecto').addEventListener('change', cargarPedidos);
   qs('fechaDesde').addEventListener('change', cargarPedidos);
   qs('fechaHasta').addEventListener('change', cargarPedidos);
@@ -318,18 +541,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key === 'Enter') cargarPedidos();
   });
 
-  ['proveedorTelefono', 'proveedorWhatsapp', 'proveedorEmail', 'proveedorNombre'].forEach((id) => {
+  ['proveedorTelefono', 'proveedorWhatsapp', 'proveedorEmail'].forEach((id) => {
     qs(id).addEventListener('input', actualizarBotones);
   });
 
-  qs('btnContactar').addEventListener('click', () => {
-    const link = construirLinkContacto();
-    if (!link) {
-      alert('Ingrese un teléfono/whatsapp/email para contactar');
-      return;
-    }
-    window.open(link, '_blank');
-  });
+  if (qs('totalCompra')) {
+    qs('totalCompra').addEventListener('input', () => {
+      totalCompraTouched = true;
+    });
+  }
+
+  const modal = qs('modalGestionProvedores');
+  if (modal) {
+    modal.addEventListener('hidden.bs.modal', async () => {
+      try {
+        await cargarProvedores();
+        actualizarBotones();
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  }
 
   qs('formCompra').addEventListener('submit', onGuardarCompra);
   actualizarBotones();
@@ -337,3 +569,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Exponer para onclick inline
 window.seleccionarPedido = seleccionarPedido;
+window.verDetalleCompra = verDetalleCompra;

@@ -1,14 +1,27 @@
 -- Tabla de compras (registro de gestión de compra por pedido)
+CREATE TABLE IF NOT EXISTS provedores (
+  id_provedor INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(255) NOT NULL,
+  telefono VARCHAR(50) NULL,
+  email VARCHAR(255) NULL,
+  whatsapp VARCHAR(50) NULL,
+  direccion VARCHAR(255) NULL,
+  contacto VARCHAR(255) NULL,
+
+  estado TINYINT(1) NOT NULL DEFAULT 1,
+
+  idusuario INT NULL,
+  fechareg DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fechaupdate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  INDEX idx_provedores_nombre (nombre),
+  INDEX idx_provedores_estado (estado)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS compras (
   id_compra INT AUTO_INCREMENT PRIMARY KEY,
   id_pedido INT NOT NULL,
-
-  proveedor_nombre VARCHAR(255) NOT NULL,
-  proveedor_telefono VARCHAR(50) NULL,
-  proveedor_email VARCHAR(255) NULL,
-  proveedor_whatsapp VARCHAR(50) NULL,
-  proveedor_direccion VARCHAR(255) NULL,
-  proveedor_contacto VARCHAR(255) NULL,
+  id_provedor INT NOT NULL,
 
   fecha_compra DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   numero_factura VARCHAR(100) NULL,
@@ -22,14 +35,39 @@ CREATE TABLE IF NOT EXISTS compras (
   fechaupdate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   INDEX idx_compras_pedido (id_pedido),
+  INDEX idx_compras_provedor (id_provedor),
   INDEX idx_compras_estado (estado),
   INDEX idx_compras_fecha (fecha_compra),
 
   CONSTRAINT fk_compras_pedido FOREIGN KEY (id_pedido)
     REFERENCES pedidos(id_pedido)
     ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+
+  CONSTRAINT fk_compras_provedor FOREIGN KEY (id_provedor)
+    REFERENCES provedores(id_provedor)
+    ON UPDATE CASCADE
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ CREATE TABLE IF NOT EXISTS compras_provedores (
+   id_compra INT NOT NULL,
+   id_provedor INT NOT NULL,
+   fechareg DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ 
+   PRIMARY KEY (id_compra, id_provedor),
+   INDEX idx_cp_id_provedor (id_provedor),
+ 
+   CONSTRAINT fk_cp_compra FOREIGN KEY (id_compra)
+     REFERENCES compras(id_compra)
+     ON UPDATE CASCADE
+     ON DELETE CASCADE,
+ 
+   CONSTRAINT fk_cp_provedor FOREIGN KEY (id_provedor)
+     REFERENCES provedores(id_provedor)
+     ON UPDATE CASCADE
+     ON DELETE RESTRICT
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Detalle de compras (ítems comprados por cada compra)
 CREATE TABLE IF NOT EXISTS compras_detalle (

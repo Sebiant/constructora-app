@@ -41,6 +41,149 @@ try {
             }
             break;
 
+        case 'getCompras':
+            try {
+                $proyectoId = $_GET['proyecto'] ?? '';
+                $fechaDesde = $_GET['fechaDesde'] ?? '';
+                $fechaHasta = $_GET['fechaHasta'] ?? '';
+                $busqueda = $_GET['busqueda'] ?? '';
+
+                $sql = "SELECT
+                            c.id_compra,
+                            c.id_pedido,
+                            c.fecha_compra,
+                            c.numero_factura,
+                            c.total,
+                            c.estado,
+                            c.observaciones,
+                            pr.nombre AS nombre_proyecto,
+                            pr.id_proyecto,
+                            pv.id_provedor,
+                            pv.nombre AS nombre_provedor,
+                            u.u_nombre AS nombre_usuario
+                        FROM compras c
+                        INNER JOIN pedidos p ON c.id_pedido = p.id_pedido
+                        INNER JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
+                        INNER JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
+                        INNER JOIN provedores pv ON c.id_provedor = pv.id_provedor
+                        LEFT JOIN gr_usuarios u ON c.idusuario = u.u_id
+                        WHERE 1=1";
+
+                $params = [];
+
+                if (!empty($proyectoId)) {
+                    $sql .= " AND pr.id_proyecto = ?";
+                    $params[] = $proyectoId;
+                }
+
+                if (!empty($fechaDesde)) {
+                    $sql .= " AND DATE(c.fecha_compra) >= ?";
+                    $params[] = $fechaDesde;
+                }
+
+                if (!empty($fechaHasta)) {
+                    $sql .= " AND DATE(c.fecha_compra) <= ?";
+                    $params[] = $fechaHasta;
+                }
+
+                if (!empty($busqueda)) {
+                    $sql .= " AND (c.id_compra LIKE ? OR c.id_pedido LIKE ? OR c.numero_factura LIKE ? OR pv.nombre LIKE ? OR pr.nombre LIKE ?)";
+                    $like = '%' . $busqueda . '%';
+                    $params[] = $like;
+                    $params[] = $like;
+                    $params[] = $like;
+                    $params[] = $like;
+                    $params[] = $like;
+                }
+
+                $sql .= " ORDER BY c.fecha_compra DESC LIMIT 100";
+
+                $stmt = $connection->prepare($sql);
+                $stmt->execute($params);
+                $compras = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                echo json_encode(['success' => true, 'data' => $compras]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
+        case 'getCompraDetalle':
+            try {
+                $idCompra = $_GET['id_compra'] ?? null;
+                if (!$idCompra) {
+                    throw new Exception('ID de compra requerido');
+                }
+
+                $sqlCompra = "SELECT
+                                c.id_compra,
+                                c.id_pedido,
+                                c.fecha_compra,
+                                c.numero_factura,
+                                c.total,
+                                c.estado,
+                                c.observaciones,
+                                pr.nombre AS nombre_proyecto,
+                                pr.id_proyecto,
+                                pv.id_provedor,
+                                pv.nombre AS nombre_provedor,
+                                pv.telefono,
+                                pv.whatsapp,
+                                pv.email,
+                                pv.contacto,
+                                u.u_nombre AS nombre_usuario
+                              FROM compras c
+                              INNER JOIN pedidos p ON c.id_pedido = p.id_pedido
+                              INNER JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
+                              INNER JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
+                              INNER JOIN provedores pv ON c.id_provedor = pv.id_provedor
+                              LEFT JOIN gr_usuarios u ON c.idusuario = u.u_id
+                              WHERE c.id_compra = ?";
+
+                $stmt = $connection->prepare($sqlCompra);
+                $stmt->execute([(int)$idCompra]);
+                $compra = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$compra) {
+                    throw new Exception('Compra no encontrada');
+                }
+
+                $sqlDet = "SELECT
+                                cd.id_compra_detalle,
+                                cd.id_det_pedido,
+                                cd.descripcion,
+                                cd.unidad,
+                                cd.cantidad,
+                                cd.precio_unitario,
+                                cd.subtotal
+                           FROM compras_detalle cd
+                           WHERE cd.id_compra = ?
+                           ORDER BY cd.id_compra_detalle ASC";
+                $stmtD = $connection->prepare($sqlDet);
+                $stmtD->execute([(int)$idCompra]);
+                $detalles = $stmtD->fetchAll(PDO::FETCH_ASSOC);
+
+                $compra['detalles'] = $detalles;
+                echo json_encode(['success' => true, 'data' => $compra]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
+        case 'getProvedoresActivos':
+            try {
+                $sql = "SELECT id_provedor, nombre, telefono, email, whatsapp, direccion, contacto
+                        FROM provedores
+                        WHERE estado = 1
+                        ORDER BY nombre ASC";
+                $stmt = $connection->prepare($sql);
+                $stmt->execute();
+                $provedores = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                echo json_encode(['success' => true, 'data' => $provedores]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
         case 'getPedidosAprobados':
             try {
                 $proyectoId = $_GET['proyecto'] ?? '';
@@ -169,13 +312,32 @@ try {
                 $data = $jsonInput ?? [];
 
                 $idPedido = $data['id_pedido'] ?? null;
-                $proveedorNombre = trim($data['proveedor_nombre'] ?? '');
+                $idsProvedores = $data['id_provedores'] ?? null;
 
                 if (!$idPedido) {
                     throw new Exception('ID de pedido requerido');
                 }
-                if ($proveedorNombre === '') {
-                    throw new Exception('Proveedor requerido');
+                if (!is_array($idsProvedores) || count($idsProvedores) === 0) {
+                    throw new Exception('Seleccione al menos un provedor');
+                }
+
+                $idsProvedores = array_values(array_unique(array_map('intval', $idsProvedores)));
+                $idsProvedores = array_filter($idsProvedores, fn($v) => $v > 0);
+                if (count($idsProvedores) === 0) {
+                    throw new Exception('Seleccione al menos un provedor');
+                }
+
+                $idProvedorPrincipal = (int)$idsProvedores[0];
+
+                // Validar que los provedores existan y estén activos
+                $placeholders = implode(',', array_fill(0, count($idsProvedores), '?'));
+                $sqlProv = "SELECT id_provedor FROM provedores WHERE estado = 1 AND id_provedor IN ($placeholders)";
+                $stmtProv = $connection->prepare($sqlProv);
+                $stmtProv->execute($idsProvedores);
+                $provRows = $stmtProv->fetchAll(PDO::FETCH_COLUMN);
+
+                if (count($provRows) !== count($idsProvedores)) {
+                    throw new Exception('Uno o más provedores no existen o están inactivos');
                 }
 
                 // Validar que el pedido esté aprobado
@@ -192,10 +354,10 @@ try {
                 $connection->beginTransaction();
                 try {
                     $sql = "INSERT INTO compras
-                            (id_pedido, proveedor_nombre, proveedor_telefono, proveedor_email, proveedor_whatsapp, proveedor_direccion, proveedor_contacto,
+                            (id_pedido, id_provedor,
                              fecha_compra, numero_factura, total, estado, observaciones, idusuario)
                             VALUES
-                            (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?)";
+                            (?, ?, NOW(), ?, ?, ?, ?, ?)";
 
                     $stmt = $connection->prepare($sql);
 
@@ -203,22 +365,11 @@ try {
                     $estadoCompra = $data['estado'] ?? 'pendiente';
                     $observaciones = $data['observaciones'] ?? null;
 
-                    $proveedorTelefono = $data['proveedor_telefono'] ?? null;
-                    $proveedorEmail = $data['proveedor_email'] ?? null;
-                    $proveedorWhatsapp = $data['proveedor_whatsapp'] ?? null;
-                    $proveedorDireccion = $data['proveedor_direccion'] ?? null;
-                    $proveedorContacto = $data['proveedor_contacto'] ?? null;
-
                     $total = isset($data['total']) ? (float)$data['total'] : (float)($pedido['total'] ?? 0);
 
                     $stmt->execute([
                         $idPedido,
-                        $proveedorNombre,
-                        $proveedorTelefono,
-                        $proveedorEmail,
-                        $proveedorWhatsapp,
-                        $proveedorDireccion,
-                        $proveedorContacto,
+                        $idProvedorPrincipal,
                         $numeroFactura,
                         $total,
                         $estadoCompra,
@@ -229,6 +380,12 @@ try {
                     $idCompra = $connection->lastInsertId();
                     if (!$idCompra) {
                         throw new Exception('No se pudo crear la compra');
+                    }
+
+                    // Registrar relación compra-provedores
+                    $stmtCp = $connection->prepare("INSERT INTO compras_provedores (id_compra, id_provedor) VALUES (?, ?)");
+                    foreach ($idsProvedores as $pid) {
+                        $stmtCp->execute([(int)$idCompra, (int)$pid]);
                     }
 
                     $detalles = $data['detalles'] ?? [];
@@ -260,6 +417,18 @@ try {
                                 $subtotal,
                             ]);
                         }
+                    }
+
+                    // Actualizar estado del pedido a 'comprado'
+                    // Solo si aún está en estado aprobado (evitar pisar cambios externos)
+                    $stmtUpdPedido = $connection->prepare(
+                        "UPDATE pedidos
+                         SET estado = 'comprado', fechaupdate = NOW()
+                         WHERE id_pedido = ? AND estado = 'aprobado'"
+                    );
+                    $stmtUpdPedido->execute([(int)$idPedido]);
+                    if ($stmtUpdPedido->rowCount() === 0) {
+                        throw new Exception('No se pudo actualizar el pedido a comprado (verifique que esté aprobado)');
                     }
 
                     $connection->commit();

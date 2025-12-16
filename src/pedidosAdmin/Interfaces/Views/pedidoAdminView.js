@@ -212,12 +212,14 @@ function renderizarTablaPedidos(pedidos) {
  * Renderiza el badge de estado
  */
 function renderizarBadgeEstado(estado) {
+    const key = String(estado ?? '').trim().toLowerCase();
     const badges = {
         'pendiente': '<span class="badge bg-warning">Pendiente</span>',
         'aprobado': '<span class="badge bg-success">Aprobado</span>',
+        'comprado': '<span class="badge bg-primary">Comprado</span>',
         'rechazado': '<span class="badge bg-danger">Rechazado</span>'
     };
-    return badges[estado] || '<span class="badge bg-secondary">Desconocido</span>';
+    return badges[key] || `<span class="badge bg-secondary">${key ? key : 'desconocido'}</span>`;
 }
 
 /**
