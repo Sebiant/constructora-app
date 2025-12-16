@@ -4,6 +4,35 @@ let materialesExtra = [];
 let pedidosFueraPresupuesto = [];
 let seleccionActual = null;
 
+function resetarGestion() {
+  itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
+  seleccionActual = null;
+  pedidosFueraPresupuesto = [];
+  materialesExtra = [];
+
+  const projectInfo = document.getElementById("projectInfo");
+  if (projectInfo) projectInfo.style.display = "none";
+
+  const materialesList = document.getElementById("materialesList");
+  if (materialesList) {
+    materialesList.innerHTML = `
+      <div class="text-center text-muted py-5">
+        <i class="bi bi-inbox display-4"></i>
+        <p class="mt-3">Seleccione un proyecto y presupuesto para ver los materiales</p>
+      </div>
+    `;
+  }
+
+  const contadorMateriales = document.getElementById("contadorMateriales");
+  if (contadorMateriales) contadorMateriales.textContent = "0 materiales";
+
+  const cardExtras = document.getElementById("cardExtras");
+  if (cardExtras) cardExtras.style.display = "none";
+
+  const materialesExtraList = document.getElementById("materialesExtraList");
+  if (materialesExtraList) materialesExtraList.innerHTML = "";
+}
+
 function obtenerClaseBadgeEstadoMaterial(estado = 'pendiente') {
   switch ((estado || '').toLowerCase()) {
     case 'aprobado':
@@ -34,10 +63,16 @@ class PaginadorPresupuestos {
 
   crearControlesPaginacion() {
     const materialesList = document.getElementById("materialesList");
+    if (!materialesList || !materialesList.parentNode) return;
+
+    const existente = document.getElementById("paginacionContainer");
+    if (existente) return;
+
     const contenedorPaginacion = document.createElement("div");
     contenedorPaginacion.id = "paginacionContainer";
     contenedorPaginacion.className =
       "row align-items-center mt-4 p-3 bg-light rounded";
+
     contenedorPaginacion.innerHTML = `
       <div class="col-md-4">
         <div class="text-muted small">
@@ -105,6 +140,9 @@ class PaginadorPresupuestos {
     this.itemsFiltrados = items;
     this.totalPaginas = Math.ceil(items.length / this.elementosPorPagina);
     this.paginaActual = 1;
+    if (!document.getElementById("paginacionContainer")) {
+      this.crearControlesPaginacion();
+    }
     this.actualizarPaginacion();
     this.mostrarPaginaActual();
   }
@@ -123,14 +161,21 @@ class PaginadorPresupuestos {
       totalItems
     );
 
-    if (totalItems > 0) {
-      document.getElementById("paginacionDesde").textContent = inicio;
-      document.getElementById("paginacionHasta").textContent = fin;
-    } else {
-      document.getElementById("paginacionDesde").textContent = "0";
-      document.getElementById("paginacionHasta").textContent = "0";
+    const elDesde = document.getElementById("paginacionDesde");
+    const elHasta = document.getElementById("paginacionHasta");
+    const elTotal = document.getElementById("paginacionTotal");
+    if (!elDesde || !elHasta || !elTotal) {
+      return;
     }
-    document.getElementById("paginacionTotal").textContent = totalItems;
+
+    if (totalItems > 0) {
+      elDesde.textContent = inicio;
+      elHasta.textContent = fin;
+    } else {
+      elDesde.textContent = "0";
+      elHasta.textContent = "0";
+    }
+    elTotal.textContent = totalItems;
 
     this.actualizarBotonesPaginacion();
     this.actualizarNumerosPagina();
@@ -1076,6 +1121,7 @@ document.addEventListener("DOMContentLoaded", function () {
   cargarProyectos();
   cargarUnidades();
   cargarTiposMaterial();
+  resetarGestion();
 
   setTimeout(() => {
     paginador.inicializar();
@@ -1206,26 +1252,30 @@ async function cargarItems() {
         </div>
       `;
 
-      const presupuesto = JSON.parse(
-        selectedOption.getAttribute("data-presupuesto")
-      );
+      const rawPres = selectedOption.getAttribute("data-presupuesto");
+      const presupuesto = rawPres ? JSON.parse(rawPres) : null;
       const proyectoId = document.getElementById("selectProyecto").value;
-      const proyecto = proyectosData.find((p) => p.id_proyecto == proyectoId);
+      const proyecto = proyectosData.find((p) => p.id_proyecto == proyectoId) || null;
+
+      const proyectoNombre =
+        proyecto?.nombre ||
+        document.getElementById("selectProyecto")?.selectedOptions?.[0]?.textContent?.trim() ||
+        '';
 
       const items = await cargarItemsPresupuesto(presupuestoId);
       await cargarCapitulosParaFiltro(presupuestoId);
 
       itemsData = items;
       seleccionActual = {
-        proyecto: proyecto.nombre,
-        presupuesto: presupuesto.nombre_proyecto || presupuesto.nombre,
+        proyecto: proyectoNombre,
+        presupuesto: presupuesto?.nombre_proyecto || presupuesto?.nombre || `Presupuesto ${presupuestoId}`,
         capitulo: "Todos los capítulos",
-        datos: { proyectoId, presupuestoId, capituloId: null, presupuesto },
+        datos: { proyectoId, presupuestoId, capituloId: null, presupuesto: presupuesto || {} },
       };
 
       document.getElementById(
         "currentSelectionInfo"
-      ).textContent = `${proyecto.nombre} - ${seleccionActual.presupuesto}`;
+      ).textContent = `${seleccionActual.proyecto} - ${seleccionActual.presupuesto}`;
       document.getElementById("btnAgregarExtra").disabled = false;
       const btnResumen = document.getElementById("btnVerResumen");
       if (btnResumen) {
@@ -1235,7 +1285,7 @@ async function cargarItems() {
 
       mostrarItemsConComponentes(items);
       actualizarEstadisticas();
-      mostrarInformacionProyecto(proyecto, presupuesto);
+      mostrarInformacionProyecto(proyecto || { nombre: proyectoNombre }, presupuesto || {});
 
       cargarMaterialesExtraDesdeDB().then(materialesExtraDB => {
         materialesExtra.length = 0;
@@ -1645,7 +1695,10 @@ function mostrarInformacionProyecto(proyecto, presupuesto) {
   document.getElementById("infoTotal").textContent = `$${parseFloat(
     presupuesto.monto_total || 0
   ).toLocaleString()}`;
-  document.getElementById("infoItems").textContent = itemsData.length;
+  const totalItems = Array.isArray(itemsData)
+    ? itemsData.length
+    : (Array.isArray(itemsData?.itemsIndividuales) ? itemsData.itemsIndividuales.length : 0);
+  document.getElementById("infoItems").textContent = totalItems;
   document.getElementById("projectInfo").style.display = "block";
 }
 
@@ -1930,6 +1983,94 @@ async function refrescarMaterialesExtra(btn) {
       btn.disabled = false;
       btn.innerHTML = originalHtml;
     }
+  }
+}
+
+function renderMaterialesExtraCard() {
+  const container = document.getElementById('materialesExtraList');
+  if (!container) return;
+
+  const cardExtras = document.getElementById('cardExtras');
+  if (cardExtras) {
+    cardExtras.style.display = materialesExtra.length > 0 ? '' : 'none';
+  }
+
+  if (!Array.isArray(materialesExtra) || materialesExtra.length === 0) {
+    container.innerHTML = '<div class="text-center text-muted py-3">No hay materiales extra registrados.</div>';
+    return;
+  }
+
+  container.innerHTML = materialesExtra
+    .map((m, idx) => {
+      const codigo = m.codigo || '';
+      const descripcion = m.descripcion || '';
+      const unidad = m.unidad || 'UND';
+      const cantidad = Number(m.cantidad || 0);
+      const estado = String(m.estado || 'pendiente');
+      const badge = obtenerClaseBadgeEstadoMaterial(estado);
+      const capitulo = m.nombre_capitulo || 'N/A';
+      const justificacion = m.justificacion ? String(m.justificacion) : '';
+      return `
+        <div class="border rounded p-2 mb-2" style="background:#fff;">
+          <div class="d-flex justify-content-between align-items-start">
+            <div class="me-2" style="min-width:0;">
+              <div class="fw-semibold text-truncate">${codigo} - ${descripcion}</div>
+              <div class="small text-muted">${capitulo}</div>
+              <div class="small">${cantidad.toFixed(4)} ${unidad} <span class="${badge}">${estado}</span></div>
+              ${justificacion ? `<div class="small text-muted text-truncate">${justificacion}</div>` : ''}
+            </div>
+            <div class="text-end">
+              <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarMaterialExtra(${idx})">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function mostrarModalNuevoItem() {
+  try {
+    if (!seleccionActual?.datos?.presupuestoId) {
+      alert('Seleccione un presupuesto primero');
+      return;
+    }
+
+    const selectMaterial = document.getElementById('selectMaterial');
+    if (selectMaterial) {
+      selectMaterial.onchange = onMaterialSeleccionado;
+    }
+
+    materialSeleccionadoData = null;
+
+    const preview = document.getElementById('vistaPreviewMaterial');
+    if (preview) preview.style.display = 'none';
+
+    const cantidadEl = document.getElementById('cantidadMaterialExtra');
+    if (cantidadEl) cantidadEl.value = '';
+
+    const justifEl = document.getElementById('justificacionMaterial');
+    if (justifEl) justifEl.value = '';
+
+    const capEl = document.getElementById('capituloMaterialExtra');
+    if (capEl) capEl.value = '';
+
+    if (typeof cargarTodosMateriales === 'function') {
+      cargarTodosMateriales();
+    }
+    if (typeof cargarCapitulosParaMaterialExtra === 'function') {
+      cargarCapitulosParaMaterialExtra();
+    }
+
+    const modalEl = document.getElementById('modalNuevoItem');
+    if (!modalEl) return;
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+  } catch (e) {
+    console.error('Error abriendo modal de material extra:', e);
+    alert('No se pudo abrir el formulario de material extra');
   }
 }
 
@@ -3696,6 +3837,7 @@ window.generarHojaDetallePorItemsExcel = generarHojaDetallePorItemsExcel;
 window.generarHojaHistorialPedidosExcel = generarHojaHistorialPedidosExcel;
 window.obtenerHistorialPedidos = obtenerHistorialPedidos;
 window.extraerExcedentesDesdeHistorial = extraerExcedentesDesdeHistorial;
+window.mostrarModalNuevoItem = mostrarModalNuevoItem;
 
 function buscarMaterialesAutocompletar() {
   const input = document.getElementById('buscarMaterial');
