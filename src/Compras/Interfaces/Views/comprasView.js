@@ -275,6 +275,18 @@ function actualizarDatosProvedorSeleccionado() {
   qs('proveedorContacto').value = '';
 }
 
+function filtrarProveedores(termino) {
+  const cont = qs('provedoresMulti');
+  if (!cont) return;
+  const term = (termino || '').trim().toLowerCase();
+  const checkboxes = cont.querySelectorAll('.form-check');
+  checkboxes.forEach(div => {
+    const label = div.querySelector('label')?.textContent?.toLowerCase() || '';
+    const match = !term || label.includes(term);
+    div.style.display = match ? '' : 'none';
+  });
+}
+
 function getProvedoresSeleccionados() {
   const checks = Array.from(document.querySelectorAll('.provedor-check:checked'));
   return checks
@@ -458,6 +470,13 @@ async function onGuardarCompra(e) {
     return;
   }
 
+  const numeroFactura = qs('numeroFactura').value.trim();
+  if (!numeroFactura) {
+    alert('El número de factura es obligatorio');
+    qs('numeroFactura').focus();
+    return;
+  }
+
   const totalCompra = Number(qs('totalCompra').value || 0);
   if (!totalCompra || totalCompra <= 0) {
     alert('Digite el total de la compra');
@@ -548,6 +567,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (qs('totalCompra')) {
     qs('totalCompra').addEventListener('input', () => {
       totalCompraTouched = true;
+    });
+  }
+
+  if (qs('busquedaProveedor')) {
+    qs('busquedaProveedor').addEventListener('input', (e) => {
+      filtrarProveedores(e.target.value);
     });
   }
 

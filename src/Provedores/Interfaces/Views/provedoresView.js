@@ -51,12 +51,16 @@ $(document).ready(function () {
       {
         data: null,
         render: function (data, type, row) {
+          const activo = row.estado === 1 || row.estado === "1" || row.estado === true;
+          const btnClass = activo ? "btn-warning" : "btn-success";
+          const icon = activo ? "bi-pause-circle" : "bi-play-circle";
+          const text = activo ? "Desactivar" : "Activar";
           return `
-            <button class="btn btn-warning btn-sm btn-editar" data-id="${row.id_provedor}">
-              <i class="bi bi-pencil"></i> Editar
+            <button class="btn ${btnClass} btn-sm btn-toggle-estado" data-id="${row.id_provedor}" data-estado="${activo ? 1 : 0}">
+              <i class="bi ${icon}"></i> ${text}
             </button>
-            <button class="btn btn-danger btn-sm btn-eliminar" data-id="${row.id_provedor}">
-              <i class="bi bi-trash"></i> Eliminar
+            <button class="btn btn-primary btn-sm btn-editar ms-1" data-id="${row.id_provedor}">
+              <i class="bi bi-pencil"></i> Editar
             </button>
           `;
         },
@@ -70,9 +74,10 @@ $(document).ready(function () {
     if (id) cargarModalEditarProvedor(id);
   });
 
-  $("#datos_provedores").on("click", ".btn-eliminar", function () {
+  $("#datos_provedores").on("click", ".btn-toggle-estado", function () {
     let id = $(this).data("id");
-    if (id) eliminarProvedor(id);
+    let estadoActual = $(this).data("estado");
+    if (id !== undefined && estadoActual !== undefined) toggleEstadoProvedor(id, estadoActual);
   });
 });
 
@@ -190,6 +195,31 @@ function guardarProvedorEditar() {
     },
     error: function (xhr) {
       alert("Error: " + xhr.responseText);
+    },
+  });
+}
+
+function toggleEstadoProvedor(id, estadoActual) {
+  const nuevoEstado = estadoActual == 1 ? 0 : 1;
+  const accion = nuevoEstado == 1 ? "activar" : "desactivar";
+  if (!confirm(`¿Está seguro de ${accion} este proveedor?`)) return;
+
+  $.ajax({
+    url: API_PROVEDORES + "?action=updateStatus",
+    method: "POST",
+    data: JSON.stringify({ id_provedor: id, estado: nuevoEstado }),
+    contentType: "application/json",
+    dataType: "json",
+    success: function (res) {
+      if (res.success) {
+        alert(`Proveedor ${accion}do exitosamente`);
+        $("#datos_provedores").DataTable().ajax.reload();
+      } else {
+        alert("Error: " + (res.error || `No se pudo ${accion}`));
+      }
+    },
+    error: function (xhr) {
+      alert("Error en la petición: " + xhr.responseText);
     },
   });
 }

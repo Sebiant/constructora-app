@@ -136,6 +136,55 @@ try {
             }
             break;
 
+        case 'updateStatus':
+            $input = json_decode(file_get_contents('php://input'), true) ?? [];
+            if (!isset($input['id_provedor']) || !isset($input['estado'])) {
+                http_response_code(400);
+                ob_clean();
+                echo json_encode(['error' => 'Campos requeridos: id_provedor, estado']);
+                break;
+            }
+
+            try {
+                // Obtener datos actuales del proveedor
+                $getUseCase = new GetProvedorById($repo);
+                $provedorActual = $getUseCase->execute((int)$input['id_provedor']);
+                if (empty($provedorActual)) {
+                    http_response_code(404);
+                    ob_clean();
+                    echo json_encode(['error' => 'Proveedor no encontrado']);
+                    break;
+                }
+
+                // Actualizar solo el estado, manteniendo los demás datos
+                $nuevoEstado = ($input['estado'] === 1 || $input['estado'] === '1' || $input['estado'] === true || $input['estado'] === 'true');
+                $updateUseCase = new UpdateProvedor($repo);
+                $result = $updateUseCase->execute(
+                    (int)$input['id_provedor'],
+                    $provedorActual['nombre'],
+                    $provedorActual['telefono'] ?? null,
+                    $provedorActual['email'] ?? null,
+                    $provedorActual['whatsapp'] ?? null,
+                    $provedorActual['direccion'] ?? null,
+                    $provedorActual['contacto'] ?? null,
+                    $nuevoEstado
+                );
+
+                http_response_code(200);
+                ob_clean();
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Estado actualizado exitosamente',
+                    'data' => $result['provedor']->toArray()
+                ]);
+
+            } catch (\Exception $e) {
+                http_response_code(400);
+                ob_clean();
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
         case 'delete':
             $input = json_decode(file_get_contents('php://input'), true);
             if (!is_array($input)) {
@@ -168,6 +217,7 @@ try {
                     'create' => 'Crear nuevo provedor',
                     'getById' => 'Obtener provedor por ID',
                     'update' => 'Actualizar provedor',
+                    'updateStatus' => 'Actualizar estado (activar/desactivar)',
                     'delete' => 'Eliminar provedor'
                 ]
             ]);

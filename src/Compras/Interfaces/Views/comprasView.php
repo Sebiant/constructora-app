@@ -111,6 +111,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 
                   <div class="mb-2">
                     <label class="form-label fw-bold">Provedor *</label>
+                    <input type="text" class="form-control mb-2" id="busquedaProveedor" placeholder="Buscar proveedor..." />
                     <div class="d-flex gap-2">
                       <div class="form-control" style="height: 140px; overflow:auto;" id="provedoresMulti" aria-label="Lista de provedores"></div>
                       <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalGestionProvedores">
@@ -141,8 +142,8 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 
                   <div class="row g-2 mt-1">
                     <div class="col-md-6">
-                      <label class="form-label">N° Factura</label>
-                      <input class="form-control" id="numeroFactura" />
+                      <label class="form-label">N° Factura *</label>
+                      <input class="form-control" id="numeroFactura" required />
                     </div>
                     <div class="col-md-6">
                       <label class="form-label">Total compra</label>
