@@ -2635,98 +2635,314 @@ function actualizarCantidadComponenteAgrupado(input) {
   renderMaterialesExtraCard();
 }
 
-
-// ==============================================
 // FUNCIONES PARA RESUMEN Y EXPORTACIÓN
 // ==============================================
+
+function generarDatosResumenParaModal(pedidosHistorial = []) {
+  const componentesPorItem = new Map();
+  let valorTotalGlobal = 0;
+  let totalComponentesContados = 0;
+  let componentesCompletados = 0;
+
+  const mapaEstados = construirMapaCantidadesPorEstadoDesdeHistorial(pedidosHistorial);
+
+  if (!itemsData.componentesAgrupados) {
+    return {
+      totalItems: 0,
+      totalComponentes: 0,
+      componentesCompletados: 0,
+      valorTotal: 0,
+      componentesPorItem: []
+    };
+  }
+
+  itemsData.componentesAgrupados.forEach((componente) => {
+    if (!componente.items_que_usan || !Array.isArray(componente.items_que_usan)) {
+      return;
+    }
+
+    componente.items_que_usan.forEach((item) => {
+      const cantidadTotal = parseFloat(item.cantidad_componente) || 0;
+      const yaPedido = parseFloat(item.ya_pedido_item ?? item.ya_pedido) || 0;
+      const precioUnitario = parseFloat(componente.precio_unitario) || 0;
+
+      const idItemKey = normalizarKeyItemId(item.id_item, item.codigo_item) || 'GLOBAL';
+      const idCompKey = normalizarId(item.id_componente_original || componente.id_componente_unico || componente.id_componente) || '';
+      const keyEspecifica = `${idItemKey}-${idCompKey}`;
+      const keyGeneral = `GLOBAL-${idCompKey}`;
+
+      const estadoInfo = mapaEstados.get(keyEspecifica) || mapaEstados.get(keyGeneral);
+      const pedidoActual = ((estadoInfo?.normal?.aprobado || 0) + (estadoInfo?.normal?.pendiente || 0));
+
+      const pendiente = Math.max(0, cantidadTotal - yaPedido - pedidoActual);
+      const porcentaje = cantidadTotal > 0 ? (yaPedido / cantidadTotal) * 100 : 0;
+      const subtotal = yaPedido * precioUnitario;
+
+      const itemKey = item.codigo_item;
+      if (!componentesPorItem.has(itemKey)) {
+        componentesPorItem.set(itemKey, {
+          codigoItem: item.codigo_item,
+          nombreItem: item.nombre_item,
+          capitulo: item.nombre_capitulo || 'N/A',
+          componentes: [],
+          valorTotal: 0,
+          cantidadTotalGlobal: 0,
+          cantidadCompletadaGlobal: 0,
+          porcentajeGlobal: 0
+        });
+      }
+
+      const itemData = componentesPorItem.get(itemKey);
+      itemData.componentes.push({
+        nombre: componente.nombre_componente,
+        tipo: componente.tipo_componente,
+        unidad: componente.unidad_componente || 'UND',
+        cantidadTotal: cantidadTotal,
+        yaPedido: yaPedido,
+        pedidoActual: pedidoActual,
+        pendiente: pendiente,
+        porcentaje: porcentaje,
+        precioUnitario: precioUnitario,
+        subtotal: subtotal
+      });
+
+      itemData.valorTotal += subtotal;
+      itemData.cantidadTotalGlobal += cantidadTotal;
+      itemData.cantidadCompletadaGlobal += yaPedido;
+      valorTotalGlobal += subtotal;
+      totalComponentesContados++;
+      if (porcentaje >= 100) {
+        componentesCompletados++;
+      }
+    });
+  });
+
+  if (Array.isArray(materialesExtra) && materialesExtra.length > 0) {
+    const materialesExtraItem = {
+      codigoItem: 'EXTRA',
+      nombreItem: 'MATERIALES EXTRA (Fuera de Presupuesto)',
+      capitulo: 'Varios',
+      componentes: [],
+      valorTotal: 0,
+      cantidadTotalGlobal: 0,
+      cantidadCompletadaGlobal: 0,
+      porcentajeGlobal: 0
+    };
+
+    const extrasCompradosMap = new Map();
+    const extrasPendientesMap = new Map();
+    if (Array.isArray(pedidosHistorial)) {
+      pedidosHistorial.forEach((pedido) => {
+        const estado = normalizarEstadoPedido(pedido.estado || pedido.estado_descripcion);
+        if (!Array.isArray(pedido.detalles)) return;
+
+        pedido.detalles.forEach((detalle) => {
+          if (!detalle.id_material_extra) return;
+          const codigoExtra = String(detalle.codigo_material_extra || '').trim();
+          const nombreExtra = String(detalle.nombre_material_extra || '').trim();
+          const key = codigoExtra || `MEP-${detalle.id_material_extra}`;
+          const cantidad = parseFloat(detalle.cantidad) || 0;
+          const precio = parseFloat(detalle.precio_unitario) || 0;
+          if (cantidad <= 0) return;
+
+          const base = {
+            codigo: codigoExtra,
+            nombre: nombreExtra,
+            unidad: detalle.unidad_componente || detalle.unidad_item || 'UND',
+            cantidad: 0,
+            precio
+          };
+
+          if (estado === 'comprado') {
+            const acumulado = extrasCompradosMap.get(key) || { ...base };
+            acumulado.cantidad += cantidad;
+            if (!acumulado.precio && precio) acumulado.precio = precio;
+            if (!acumulado.codigo && codigoExtra) acumulado.codigo = codigoExtra;
+            if (!acumulado.nombre && nombreExtra) acumulado.nombre = nombreExtra;
+            extrasCompradosMap.set(key, acumulado);
+          }
+
+          if (estado === 'pendiente') {
+            const acumulado = extrasPendientesMap.get(key) || { ...base };
+            acumulado.cantidad += cantidad;
+            if (!acumulado.precio && precio) acumulado.precio = precio;
+            if (!acumulado.codigo && codigoExtra) acumulado.codigo = codigoExtra;
+            if (!acumulado.nombre && nombreExtra) acumulado.nombre = nombreExtra;
+            extrasPendientesMap.set(key, acumulado);
+          }
+        });
+      });
+    }
+
+    materialesExtra.forEach((extra) => {
+      if (!extra) return;
+      const cantidad = parseFloat(extra.cantidad) || 0;
+      const precio = parseFloat(extra.precio_unitario) || 0;
+
+      const codigo = String(extra.codigo || extra.cod_material || '').trim();
+      const key = codigo || `EXTRA-${Math.abs(hashCode(String(extra.descripcion || '')))}${Math.abs(hashCode(String(extra.justificacion || '')))}`;
+      const compradoInfo = extrasCompradosMap.get(key);
+      const pendienteInfo = extrasPendientesMap.get(key);
+      const yaPedidoComprado = compradoInfo ? (parseFloat(compradoInfo.cantidad) || 0) : 0;
+      const pedidoPendienteHistorial = pendienteInfo ? (parseFloat(pendienteInfo.cantidad) || 0) : 0;
+      const precioFinal = parseFloat(compradoInfo?.precio) || precio;
+
+      const pedidoActual = pedidoPendienteHistorial;
+
+      materialesExtraItem.componentes.push({
+        nombre: `${extra.codigo || ''} - ${extra.descripcion || ''}`.trim(),
+        tipo: (extra.tipo_material || 'Material'),
+        unidad: extra.unidad || 'UND',
+        cantidadTotal: yaPedidoComprado,
+        yaPedido: yaPedidoComprado,
+        pedidoActual: pedidoActual,
+        pendiente: 0,
+        porcentaje: yaPedidoComprado > 0 ? 100 : 0,
+        precioUnitario: precioFinal,
+        subtotal: yaPedidoComprado * precioFinal
+      });
+
+      materialesExtraItem.valorTotal += yaPedidoComprado * precioFinal;
+      materialesExtraItem.cantidadTotalGlobal += yaPedidoComprado;
+      materialesExtraItem.cantidadCompletadaGlobal += yaPedidoComprado;
+      valorTotalGlobal += yaPedidoComprado * precioFinal;
+      totalComponentesContados++;
+    });
+
+    if (materialesExtraItem.componentes.length > 0) {
+      materialesExtraItem.porcentajeGlobal = 100;
+      componentesPorItem.set('EXTRA', materialesExtraItem);
+    }
+  }
+
+  componentesPorItem.forEach((itemData) => {
+    itemData.porcentajeGlobal = itemData.cantidadTotalGlobal > 0
+      ? (itemData.cantidadCompletadaGlobal / itemData.cantidadTotalGlobal) * 100
+      : 0;
+  });
+
+  return {
+    totalItems: componentesPorItem.size,
+    totalComponentes: totalComponentesContados,
+    componentesCompletados: componentesCompletados,
+    valorTotal: valorTotalGlobal,
+    componentesPorItem: Array.from(componentesPorItem.values())
+  };
+}
 
 /**
  * Abre el modal de resumen con vista unificada de materiales
  */
-function abrirModalResumen() {
-  const datosResumen = generarDatosResumen();
+async function abrirModalResumen() {
+  try {
+    const presupuestoId = seleccionActual?.datos?.presupuestoId;
+    const historialPedidos = typeof obtenerHistorialPedidos === 'function'
+      ? await obtenerHistorialPedidos(presupuestoId)
+      : [];
+    const datosResumen = generarDatosResumenParaModal(historialPedidos);
 
-  // Actualizar estadísticas generales
-  document.getElementById('resumenTotalItems').textContent = datosResumen.totalItems || 0;
-  document.getElementById('resumenTotalComponentes').textContent = datosResumen.totalComponentes || 0;
-  document.getElementById('resumenCompletados').textContent = datosResumen.componentesCompletados || 0;
-  document.getElementById('resumenValorTotal').textContent = `$${(datosResumen.valorTotal || 0).toLocaleString('es-CO')}`;
+    // Actualizar estadísticas generales
+    const elTotalItems = document.getElementById('resumenTotalItems');
+    const elTotalComponentes = document.getElementById('resumenTotalComponentes');
+    const elCompletados = document.getElementById('resumenCompletados');
 
-  // Llenar tabla unificada
-  const tablaResumen = document.getElementById('tablaResumenUnificada');
+    const elValorTotal = document.getElementById('resumenValorTotal');
 
-  if (datosResumen.componentesPorItem.length > 0) {
-    let html = '';
+    if (elTotalItems) elTotalItems.textContent = datosResumen.totalItems || 0;
+    if (elTotalComponentes) elTotalComponentes.textContent = datosResumen.totalComponentes || 0;
+    if (elCompletados) elCompletados.textContent = datosResumen.componentesCompletados || 0;
+    if (elValorTotal) elValorTotal.textContent = `$${(datosResumen.valorTotal || 0).toLocaleString('es-CO')}`;
 
-    datosResumen.componentesPorItem.forEach((item, idx) => {
-      const detalleId = `desglose-resumen-${idx}`;
+    // Llenar tabla unificada
+    const tablaResumen = document.getElementById('tablaResumenUnificada');
+    if (!tablaResumen) {
+      throw new Error('No se encontró la tabla del resumen (tablaResumenUnificada)');
+    }
 
-      // Fila del item (colapsable)
-      html += `
-        <tr class="table-light cursor-pointer fw-bold" onclick="toggleDesglose('${detalleId}')" style="cursor: pointer;">
-          <td colspan="7">
-            <i class="bi bi-chevron-right me-2" id="icon-${detalleId}"></i>
-            <strong>${item.codigoItem}</strong> - ${item.nombreItem}
-          </td>
-          <td class="text-center">
-            <span class="badge ${item.porcentajeGlobal >= 100 ? 'bg-success' : item.porcentajeGlobal >= 70 ? 'bg-info' : item.porcentajeGlobal >= 30 ? 'bg-warning text-dark' : 'bg-danger'}">
-              ${item.porcentajeGlobal.toFixed(1)}%
-            </span>
-          </td>
-          <td class="text-end"><strong>$${item.valorTotal.toLocaleString('es-CO')}</strong></td>
-        </tr>
-      `;
+    if (datosResumen.componentesPorItem.length > 0) {
+      let html = '';
 
-      // Filas de desglose (ocultas inicialmente)
-      item.componentes.forEach(comp => {
-        const porcentaje = comp.porcentaje;
-        let badgeClass, badgeText;
+      datosResumen.componentesPorItem.forEach((item, idx) => {
+        const detalleId = `desglose-resumen-${idx}`;
 
-        if (porcentaje >= 100) {
-          badgeClass = 'bg-success';
-          badgeText = 'Completo';
-        } else if (porcentaje >= 70) {
-          badgeClass = 'bg-info';
-          badgeText = `${porcentaje.toFixed(1)}%`;
-        } else if (porcentaje >= 30) {
-          badgeClass = 'bg-warning text-dark';
-          badgeText = `${porcentaje.toFixed(1)}%`;
-        } else if (porcentaje > 0) {
-          badgeClass = 'bg-danger';
-          badgeText = `${porcentaje.toFixed(1)}%`;
-        } else {
-          badgeClass = 'bg-secondary';
-          badgeText = 'Sin pedir';
-        }
-
+        // Fila del item (colapsable)
         html += `
-          <tr id="${detalleId}" class="desglose-row" style="display: none;">
-            <td class="ps-5">${comp.nombre}</td>
-            <td class="text-center">
-              <span class="badge bg-secondary">${comp.tipo}</span>
+          <tr class="table-light cursor-pointer fw-bold" onclick="toggleDesglose('${detalleId}')" style="cursor: pointer;">
+            <td colspan="7">
+              <i class="bi bi-chevron-right me-2" id="icon-${detalleId}"></i>
+              <strong>${item.codigoItem}</strong> - ${item.nombreItem}
             </td>
-            <td class="text-center">${comp.unidad}</td>
-            <td class="text-end">${comp.cantidadTotal.toFixed(4)}</td>
-            <td class="text-end text-primary">${comp.yaPedido.toFixed(4)}</td>
-            <td class="text-end text-success"><strong>${comp.pedidoActual.toFixed(4)}</strong></td>
-            <td class="text-end text-warning">${comp.pendiente.toFixed(4)}</td>
             <td class="text-center">
-              <span class="badge ${badgeClass}">${badgeText}</span>
+              <span class="badge ${item.porcentajeGlobal >= 100 ? 'bg-success' : item.porcentajeGlobal >= 70 ? 'bg-info' : item.porcentajeGlobal >= 30 ? 'bg-warning text-dark' : 'bg-danger'}">
+                ${item.porcentajeGlobal.toFixed(1)}%
+              </span>
             </td>
-            <td class="text-end">$${comp.subtotal.toLocaleString('es-CO')}</td>
+            <td class="text-end"><strong>$${item.valorTotal.toLocaleString('es-CO')}</strong></td>
           </tr>
         `;
+
+        // Filas de desglose (ocultas inicialmente)
+        item.componentes.forEach(comp => {
+          const porcentaje = Number(comp.porcentaje) || 0;
+          let badgeClass, badgeText;
+
+          if (porcentaje >= 100) {
+            badgeClass = 'bg-success';
+            badgeText = 'Completo';
+          } else if (porcentaje >= 70) {
+            badgeClass = 'bg-info';
+            badgeText = `${porcentaje.toFixed(1)}%`;
+          } else if (porcentaje >= 30) {
+            badgeClass = 'bg-warning text-dark';
+            badgeText = `${porcentaje.toFixed(1)}%`;
+          } else if (porcentaje > 0) {
+            badgeClass = 'bg-danger';
+            badgeText = `${porcentaje.toFixed(1)}%`;
+          } else {
+            badgeClass = 'bg-secondary';
+            badgeText = 'Sin pedir';
+          }
+
+          html += `
+            <tr id="${detalleId}" class="desglose-row" style="display: none;">
+              <td class="ps-5">${comp.nombre}</td>
+              <td class="text-center">
+                <span class="badge bg-secondary">${comp.tipo}</span>
+              </td>
+              <td class="text-center">${comp.unidad}</td>
+              <td class="text-end">${(parseFloat(comp.cantidadTotal) || 0).toFixed(4)}</td>
+              <td class="text-end text-primary">${(parseFloat(comp.yaPedido) || 0).toFixed(4)}</td>
+              <td class="text-end text-success"><strong>${(parseFloat(comp.pedidoActual) || 0).toFixed(4)}</strong></td>
+              <td class="text-end text-warning">${(parseFloat(comp.pendiente) || 0).toFixed(4)}</td>
+              <td class="text-center">
+                <span class="badge ${badgeClass}">${badgeText}</span>
+              </td>
+              <td class="text-end">$${(parseFloat(comp.subtotal) || 0).toLocaleString('es-CO')}</td>
+            </tr>
+          `;
+        });
       });
-    });
 
-    tablaResumen.innerHTML = html;
-  } else {
-    tablaResumen.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No hay datos para mostrar</td></tr>';
+      tablaResumen.innerHTML = html;
+    } else {
+      tablaResumen.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No hay datos para mostrar</td></tr>';
+    }
+
+    // Abrir modal
+    const modalEl = document.getElementById('modalResumen');
+    if (!modalEl) {
+      throw new Error('No se encontró el modal #modalResumen en el DOM');
+    }
+    if (typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+      throw new Error('Bootstrap Modal no está disponible (bootstrap.Modal)');
+    }
+
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+  } catch (error) {
+    console.error('Error abriendo resumen:', error);
+    alert('No se pudo abrir el resumen: ' + (error?.message || error));
   }
-
-  // Abrir modal
-  const modal = new bootstrap.Modal(document.getElementById('modalResumen'));
-  modal.show();
 }
 
 // Función auxiliar para toggle de desglose
@@ -2745,28 +2961,96 @@ function toggleDesglose(detalleId) {
   });
 }
 
+function normalizarEstadoPedido(estadoRaw) {
+  const estado = String(estadoRaw || '').trim().toLowerCase();
+  if (!estado) return 'desconocido';
+  if (estado.includes('aprob')) return 'aprobado';
+  if (estado.includes('rechaz')) return 'rechazado';
+  if (estado.includes('compr')) return 'comprado';
+  if (estado.includes('pend')) return 'pendiente';
+  if (estado.includes('proceso')) return 'pendiente';
+  return estado;
+}
+
+function normalizarId(valor) {
+  if (valor === null || typeof valor === 'undefined') return null;
+  const v = String(valor).trim();
+  return v.length ? v : null;
+}
+
+function normalizarKeyItemId(valorId, valorCodigo) {
+  return normalizarId(valorId) || normalizarId(valorCodigo) || null;
+}
+
+function construirMapaCantidadesPorEstadoDesdeHistorial(pedidosHistorial = []) {
+  const mapa = new Map();
+  if (!Array.isArray(pedidosHistorial)) return mapa;
+
+  pedidosHistorial.forEach((pedido) => {
+    const estado = normalizarEstadoPedido(pedido.estado || pedido.estado_descripcion);
+    if (!Array.isArray(pedido.detalles)) return;
+
+    pedido.detalles.forEach((detalle) => {
+      const idComponente = normalizarId(detalle.id_componente_unico || detalle.id_componente);
+      const idMaterialExtra = normalizarId(detalle.id_material_extra);
+      if (!idComponente && !idMaterialExtra) return;
+
+      const idItem = normalizarKeyItemId(detalle.id_item, detalle.codigo_item);
+      const cantidad = parseFloat(detalle.cantidad) || 0;
+      if (cantidad <= 0) return;
+
+      const key = `${idItem || 'GLOBAL'}-${idComponente || `MEP-${idMaterialExtra}`}`;
+      if (!mapa.has(key)) {
+        mapa.set(key, {
+          normal: { aprobado: 0, pendiente: 0, rechazado: 0, comprado: 0 },
+          excedente: {
+            aprobado: { cantidad: 0, justificaciones: [] },
+            pendiente: { cantidad: 0, justificaciones: [] },
+            rechazado: { cantidad: 0, justificaciones: [] },
+            comprado: { cantidad: 0, justificaciones: [] }
+          }
+        });
+      }
+
+      const entry = mapa.get(key);
+      if (Object.prototype.hasOwnProperty.call(entry.normal, estado)) {
+        entry.normal[estado] += cantidad;
+      }
+    });
+  });
+
+  return mapa;
+}
+
 /**
  * Genera los datos para el resumen unificado de materiales
  * @returns {Object} Datos estructurados para el resumen
  */
-function generarDatosResumen(excedentes = []) {
+function generarDatosResumen(excedentes = [], pedidosHistorial = []) {
   const componentesPorItem = new Map();
   let valorTotalGlobal = 0;
   let totalComponentesContados = 0;
   let componentesCompletados = 0;
 
+  const mapaEstados = construirMapaCantidadesPorEstadoDesdeHistorial(pedidosHistorial);
+
   const excedentesMap = new Map();
   if (Array.isArray(excedentes)) {
     excedentes.forEach((extra) => {
-      const clave = `${extra.id_item || 'GLOBAL'}-${extra.id_componente}`;
+      const idItemKey = normalizarKeyItemId(extra.id_item, extra.codigo_item) || 'GLOBAL';
+      const idCompKey = normalizarId(extra.id_componente_unico || extra.id_componente) || '';
+      const clave = `${idItemKey}-${idCompKey}`;
+      const estado = normalizarEstadoPedido(extra.estado || 'pendiente');
       const acumulado = excedentesMap.get(clave) || {
-        cantidad: 0,
-        justificaciones: []
+        aprobado: { cantidad: 0, justificaciones: [] },
+        pendiente: { cantidad: 0, justificaciones: [] },
+        rechazado: { cantidad: 0, justificaciones: [] },
+        comprado: { cantidad: 0, justificaciones: [] }
       };
 
-      acumulado.cantidad += parseFloat(extra.cantidad_extra) || 0;
+      acumulado[estado].cantidad += parseFloat(extra.cantidad_extra) || 0;
       if (extra.justificacion) {
-        acumulado.justificaciones.push(extra.justificacion.trim());
+        acumulado[estado].justificaciones.push(String(extra.justificacion).trim());
       }
 
       excedentesMap.set(clave, acumulado);
@@ -2783,6 +3067,19 @@ function generarDatosResumen(excedentes = []) {
     };
   }
 
+  const clavesPresupuesto = new Set();
+  itemsData.componentesAgrupados.forEach((componente) => {
+    if (!componente.items_que_usan || !Array.isArray(componente.items_que_usan)) {
+      return;
+    }
+    componente.items_que_usan.forEach((item) => {
+      const idItemKey = normalizarKeyItemId(item.id_item, item.codigo_item) || 'GLOBAL';
+      const idCompKey = normalizarId(componente.id_componente_unico || componente.id_componente) || '';
+      const keyEspecifica = `${idItemKey}-${idCompKey}`;
+      clavesPresupuesto.add(keyEspecifica);
+    });
+  });
+
   itemsData.componentesAgrupados.forEach(componente => {
     if (!componente.items_que_usan || !Array.isArray(componente.items_que_usan)) {
       return;
@@ -2790,19 +3087,32 @@ function generarDatosResumen(excedentes = []) {
 
     componente.items_que_usan.forEach(item => {
       const cantidadTotal = parseFloat(item.cantidad_componente) || 0;
-      const yaPedido = parseFloat(item.ya_pedido_item) || 0;
       const pedidoActual = parseFloat(item.pedido_actual) || 0;
-      const pendiente = Math.max(0, cantidadTotal - yaPedido - pedidoActual);
       const precioUnitario = parseFloat(componente.precio_unitario) || 0;
 
-      const porcentaje = cantidadTotal > 0 ? (yaPedido / cantidadTotal) * 100 : 0;
-      const subtotal = yaPedido * precioUnitario;
+      const idItemKey = normalizarKeyItemId(item.id_item, item.codigo_item) || 'GLOBAL';
+      const idCompKey = normalizarId(componente.id_componente_unico || componente.id_componente) || '';
+      const keyEspecifica = `${idItemKey}-${idCompKey}`;
+      const keyGeneral = `GLOBAL-${idCompKey}`;
 
-      const excedenteClaveEspecifica = `${item.id_item || 'GLOBAL'}-${componente.id_componente}`;
-      const excedenteClaveGeneral = `GLOBAL-${componente.id_componente}`;
-      const excedenteInfo = excedentesMap.get(excedenteClaveEspecifica) || excedentesMap.get(excedenteClaveGeneral);
-      const cantidadExcedente = excedenteInfo?.cantidad || 0;
-      const justificacionExcedente = excedenteInfo?.justificaciones?.join(' | ') || '';
+      const estadoInfo = mapaEstados.get(keyEspecifica) || mapaEstados.get(keyGeneral);
+      const yaPedidoAprobado = estadoInfo?.normal?.aprobado || 0;
+      const yaPedidoPendiente = estadoInfo?.normal?.pendiente || 0;
+      const yaPedidoRechazado = estadoInfo?.normal?.rechazado || 0;
+      const yaPedidoComprado = estadoInfo?.normal?.comprado || 0;
+
+      const yaPedidoTotal = (yaPedidoAprobado + yaPedidoPendiente + yaPedidoRechazado + yaPedidoComprado) || 0;
+      const pendiente = 0;
+
+      const porcentaje = cantidadTotal > 0 ? (yaPedidoComprado / cantidadTotal) * 100 : 0;
+      const subtotal = yaPedidoComprado * precioUnitario;
+
+      const excedenteInfo = excedentesMap.get(keyEspecifica) || excedentesMap.get(keyGeneral) || {
+        aprobado: { cantidad: 0, justificaciones: [] },
+        pendiente: { cantidad: 0, justificaciones: [] },
+        rechazado: { cantidad: 0, justificaciones: [] },
+        comprado: { cantidad: 0, justificaciones: [] }
+      };
 
       const itemKey = item.codigo_item;
 
@@ -2826,10 +3136,16 @@ function generarDatosResumen(excedentes = []) {
         tipo: componente.tipo_componente,
         unidad: componente.unidad_componente || 'UND',
         cantidadTotal: cantidadTotal,
-        yaPedido: yaPedido,
+        yaPedido: yaPedidoTotal,
+        yaPedidoAprobado: yaPedidoAprobado,
+        yaPedidoPendiente: yaPedidoPendiente,
+        yaPedidoRechazado: yaPedidoRechazado,
+        yaPedidoComprado: yaPedidoComprado,
         pedidoActual: pedidoActual,
-        excedente: cantidadExcedente,
-        justificacion: justificacionExcedente,
+        excedente: 0,
+        excedentePendiente: 0,
+        excedenteRechazado: 0,
+        justificacion: '',
         pendiente: pendiente,
         porcentaje: porcentaje,
         precioUnitario: precioUnitario,
@@ -2838,7 +3154,7 @@ function generarDatosResumen(excedentes = []) {
 
       itemData.valorTotal += subtotal;
       itemData.cantidadTotalGlobal += cantidadTotal;
-      itemData.cantidadCompletadaGlobal += yaPedido;
+      itemData.cantidadCompletadaGlobal += yaPedidoComprado;
 
       valorTotalGlobal += subtotal;
       totalComponentesContados++;
@@ -2849,6 +3165,121 @@ function generarDatosResumen(excedentes = []) {
     });
   });
 
+  const extrasHistorialMap = new Map();
+  if (Array.isArray(pedidosHistorial)) {
+    pedidosHistorial.forEach((pedido) => {
+      const estado = normalizarEstadoPedido(pedido.estado || pedido.estado_descripcion);
+
+      if (!Array.isArray(pedido.detalles)) return;
+
+      pedido.detalles.forEach((detalle) => {
+        const cantidad = parseFloat(detalle.cantidad) || 0;
+        if (cantidad <= 0) return;
+
+        const idItem = normalizarKeyItemId(detalle.id_item, detalle.codigo_item);
+        const idComponente = normalizarId(detalle.id_componente_unico || detalle.id_componente);
+        const idMaterialExtra = normalizarId(detalle.id_material_extra);
+
+        const clave = `${idItem || 'GLOBAL'}-${idComponente || (idMaterialExtra ? `MEP-${idMaterialExtra}` : `DET-${detalle.id_det_pedido || ''}`)}`;
+        if (idComponente && clavesPresupuesto.has(`${idItem || 'GLOBAL'}-${idComponente}`)) {
+          return;
+        }
+
+        if (!extrasHistorialMap.has(clave)) {
+          const sinItemAsociado = !detalle.codigo_item && !detalle.nombre_item;
+          const tieneMaterialExtra = !!(detalle.codigo_material_extra && detalle.nombre_material_extra);
+          const nombreItem = sinItemAsociado
+            ? (tieneMaterialExtra ? detalle.nombre_material_extra : 'MATERIAL EXTRA FUERA DE PRESUPUESTO')
+            : (detalle.nombre_item || 'N/A');
+          const codigoItem = sinItemAsociado
+            ? (tieneMaterialExtra ? detalle.codigo_material_extra : 'EXTRA')
+            : (detalle.codigo_item || 'N/A');
+          const capitulo = sinItemAsociado
+            ? 'MATERIAL EXTRA'
+            : (detalle.nombre_capitulo || 'N/A');
+          const descripcionComponente = sinItemAsociado
+            ? (tieneMaterialExtra
+              ? `${detalle.codigo_material_extra} - ${detalle.nombre_material_extra}`
+              : (detalle.justificacion ? `Material extra: ${detalle.justificacion}` : 'Material extra sin descripción detallada'))
+            : (detalle.descripcion_componente || 'Sin descripción');
+
+          extrasHistorialMap.set(clave, {
+            codigoItem,
+            nombreItem,
+            capitulo,
+            componente: {
+              nombre: descripcionComponente,
+              tipo: (detalle.tipo_componente || (sinItemAsociado ? 'material' : 'material')),
+              unidad: detalle.unidad_componente || detalle.unidad_item || 'UND',
+              cantidadTotal: 0,
+              yaPedido: 0,
+              yaPedidoAprobado: 0,
+              yaPedidoPendiente: 0,
+              yaPedidoRechazado: 0,
+              yaPedidoComprado: 0,
+              pedidoActual: 0,
+              excedente: 0,
+              excedentePendiente: 0,
+              excedenteRechazado: 0,
+              justificacion: '',
+              pendiente: 0,
+              porcentaje: 0,
+              precioUnitario: parseFloat(detalle.precio_unitario) || 0,
+              subtotal: 0
+            }
+          });
+        }
+
+        const entry = extrasHistorialMap.get(clave);
+        const precioUnit = entry.componente.precioUnitario || 0;
+
+        if (estado === 'aprobado') entry.componente.yaPedidoAprobado += cantidad;
+        if (estado === 'pendiente') entry.componente.yaPedidoPendiente += cantidad;
+        if (estado === 'rechazado') entry.componente.yaPedidoRechazado += cantidad;
+        if (estado === 'comprado') entry.componente.yaPedidoComprado += cantidad;
+
+        entry.componente.yaPedido =
+          (entry.componente.yaPedidoAprobado || 0) +
+          (entry.componente.yaPedidoPendiente || 0) +
+          (entry.componente.yaPedidoRechazado || 0) +
+          (entry.componente.yaPedidoComprado || 0);
+
+        if (!entry.componente.cantidadTotal || entry.componente.cantidadTotal === 0) {
+          entry.componente.cantidadTotal = entry.componente.yaPedidoComprado || entry.componente.yaPedido || 0;
+        }
+
+        entry.componente.subtotal = (entry.componente.yaPedidoComprado || 0) * precioUnit;
+        entry.componente.porcentaje = entry.componente.cantidadTotal > 0
+          ? ((entry.componente.yaPedidoComprado || 0) / entry.componente.cantidadTotal) * 100
+          : 0;
+      });
+    });
+  }
+
+  if (extrasHistorialMap.size > 0) {
+    extrasHistorialMap.forEach((info) => {
+      const itemKey = `HISTORIAL-${info.codigoItem}`;
+      if (!componentesPorItem.has(itemKey)) {
+        componentesPorItem.set(itemKey, {
+          codigoItem: info.codigoItem,
+          nombreItem: info.nombreItem,
+          capitulo: info.capitulo,
+          componentes: [],
+          valorTotal: 0,
+          cantidadTotalGlobal: 0,
+          cantidadCompletadaGlobal: 0,
+          porcentajeGlobal: 0
+        });
+      }
+
+      const itemData = componentesPorItem.get(itemKey);
+      itemData.componentes.push(info.componente);
+      itemData.valorTotal += info.componente.subtotal;
+      valorTotalGlobal += info.componente.subtotal;
+      totalComponentesContados++;
+    });
+  }
+
   // Calcular porcentaje global para cada item
   componentesPorItem.forEach(itemData => {
     itemData.porcentajeGlobal = itemData.cantidadTotalGlobal > 0
@@ -2857,7 +3288,24 @@ function generarDatosResumen(excedentes = []) {
   });
 
   // Agregar materiales extra como un item separado
-  if (materialesExtra && materialesExtra.length > 0) {
+  const codigosExtraYaEnHistorial = new Set();
+  extrasHistorialMap.forEach((info) => {
+    if (info?.codigoItem) {
+      codigosExtraYaEnHistorial.add(String(info.codigoItem).trim());
+    }
+  });
+
+  const materialesExtraFiltrados = Array.isArray(materialesExtra)
+    ? materialesExtra.filter((extra) => {
+      const codigoExtra = String(
+        extra?.codigo || extra?.cod_material || extra?.codigo_material_extra || ''
+      ).trim();
+      if (!codigoExtra) return true;
+      return !codigosExtraYaEnHistorial.has(codigoExtra);
+    })
+    : [];
+
+  if (materialesExtraFiltrados.length > 0) {
     const materialesExtraItem = {
       codigoItem: 'EXTRA',
       nombreItem: 'MATERIALES EXTRA (Fuera de Presupuesto)',
@@ -2869,7 +3317,7 @@ function generarDatosResumen(excedentes = []) {
       porcentajeGlobal: 0
     };
 
-    materialesExtra.forEach(extra => {
+    materialesExtraFiltrados.forEach(extra => {
       const cantidad = parseFloat(extra.cantidad) || 0;
       const precio = parseFloat(extra.precio_unitario) || 0;
       const subtotal = 0;
@@ -2880,8 +3328,14 @@ function generarDatosResumen(excedentes = []) {
         unidad: extra.unidad || 'UND',
         cantidadTotal: cantidad,
         yaPedido: 0,
+        yaPedidoAprobado: 0,
+        yaPedidoPendiente: 0,
+        yaPedidoRechazado: 0,
+        yaPedidoComprado: 0,
         pedidoActual: cantidad,
         excedente: 0,
+        excedentePendiente: 0,
+        excedenteRechazado: 0,
         justificacion: extra.justificacion || '',
         pendiente: 0,
         porcentaje: 100,
@@ -2935,7 +3389,16 @@ async function exportarResumenAExcel() {
     const datosResumen = generarDatosResumen([
       ...excedentesActuales,
       ...excedentesHistorial
-    ]);
+    ], historialPedidos);
+
+    try {
+      window.__debugHistorialPedidos = historialPedidos;
+      window.__debugDatosResumen = datosResumen;
+      window.__debugExcedentesHistorial = excedentesHistorial;
+      window.__debugExcedentesActuales = excedentesActuales;
+    } catch (e) {
+      // ignore
+    }
     const workbook = new ExcelJS.Workbook();
 
     workbook.creator = 'Sistema de Gestión de Pedidos';
@@ -2963,7 +3426,7 @@ async function exportarResumenAExcel() {
     a.click();
     window.URL.revokeObjectURL(url);
 
-    console.log('✅ Archivo Excel generado exitosamente con formato profesional');
+    console.log('Excel generado exitosamente');
   } catch (error) {
     console.error('Error generando archivo Excel:', error);
     alert('Error al generar el archivo Excel: ' + error.message);
@@ -3282,8 +3745,10 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
     { key: 'unidad', width: 10 },
     { key: 'cant_total', width: 12 },
     { key: 'ya_pedido', width: 12 },
-    { key: 'excedente', width: 12 },
-    { key: 'pendiente', width: 12 },
+    { key: 'pedido_aprobado', width: 12 },
+    { key: 'pedido_pendiente', width: 12 },
+    { key: 'pedido_rechazado', width: 12 },
+    { key: 'pedido_comprado', width: 12 },
     { key: 'porcentaje', width: 12 },
     { key: 'precio_unit', width: 14 },
     { key: 'subtotal', width: 16 }
@@ -3292,7 +3757,7 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
   let filaActual = 1;
 
   // ENCABEZADO PRINCIPAL
-  worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
+  worksheet.mergeCells(`A${filaActual}:P${filaActual}`);
   const celda1 = worksheet.getCell(`A${filaActual}`);
   celda1.value = proyectoNombre;
   celda1.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -3303,7 +3768,7 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
   filaActual++;
 
   // SUBTÍTULO
-  worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
+  worksheet.mergeCells(`A${filaActual}:P${filaActual}`);
   const celda2 = worksheet.getCell(`A${filaActual}`);
   celda2.value = 'DETALLE DE COMPONENTES POR ITEM';
   celda2.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
@@ -3315,10 +3780,10 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
 
   // INFO FECHA
   const fila3 = worksheet.getRow(filaActual);
-  fila3.getCell(13).value = 'FECHA:';
-  fila3.getCell(14).value = fechaActual;
-  aplicarEstiloCelda(fila3.getCell(13), { bold: true }, 'right');
-  aplicarEstiloCelda(fila3.getCell(14), {}, 'left');
+  fila3.getCell(15).value = 'FECHA:';
+  fila3.getCell(16).value = fechaActual;
+  aplicarEstiloCelda(fila3.getCell(15), { bold: true }, 'right');
+  aplicarEstiloCelda(fila3.getCell(16), {}, 'left');
   filaActual++;
 
   // LÍNEA VACÍA
@@ -3329,9 +3794,10 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
   const encabezadoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
   encabezados.values = [
     'COD. ITEM', 'NOMBRE ITEM', 'CAPITULO', 'COD. COMP', 'COMPONENTE',
-    'TIPO', 'UND', 'CANT. TOTAL', 'YA PEDIDO', 'EXCEDENTE',
-    'PENDIENTE', '%', 'PRECIO UNIT.', 'SUBTOTAL'
+    'TIPO', 'UND', 'CANT. TOTAL', 'YA PEDIDO', 'APROBADO',
+    'PENDIENTE', 'RECHAZADO', 'COMPRADO', '%', 'PRECIO UNIT.', 'SUBTOTAL'
   ];
+
   encabezados.font = { bold: true, size: 9 };
   encabezados.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
   encabezados.height = 30;
@@ -3360,8 +3826,10 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
           comp.unidad,
           comp.cantidadTotal,
           comp.yaPedido,
-          comp.excedente || 0,
-          comp.pendiente,
+          comp.yaPedidoAprobado || 0,
+          comp.yaPedidoPendiente || 0,
+          comp.yaPedidoRechazado || 0,
+          comp.yaPedidoComprado || 0,
           porcentaje.toFixed(1) + '%',
           comp.precioUnitario,
           comp.subtotal
@@ -3373,18 +3841,18 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
           cell.border = borderLigero();
 
           // Alineación y formato numérico
-          if (colNum >= 8 && colNum <= 11) {
-            cell.numFmt = colNum === 10 ? '#,##0.0000' : '#,##0.00';
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-          }
-          if (colNum === 12) {
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          }
-          if (colNum === 13) {
-            cell.numFmt = '#,##0.00';
+          if (colNum >= 8 && colNum <= 13) {
+            cell.numFmt = '#,##0.0000';
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
           }
           if (colNum === 14) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          }
+          if (colNum === 15) {
+            cell.numFmt = '#,##0.00';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          }
+          if (colNum === 16) {
             cell.numFmt = '#,##0.00';
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
           }
@@ -3397,13 +3865,7 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
         });
 
         // Resaltar excedentes
-        if ((comp.excedente || 0) > 0) {
-          fila.eachCell((cell) => {
-            if (!cell.fill || cell.fill.fgColor?.argb !== 'FFF2F2F2') {
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5B4' } };
-            }
-          });
-        }
+        // sin resaltado de excedentes
 
         primeraFilaItem = false;
         filaActual++;
@@ -3419,21 +3881,22 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
     filaActual++;
     const filaTotal = worksheet.getRow(filaActual);
     const totalDetalleFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
-    filaTotal.values = ['', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL:', datosResumen.valorTotal];
+    filaTotal.values = ['', '', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL:', datosResumen.valorTotal];
     filaTotal.font = { bold: true, size: 11 };
     filaTotal.alignment = { horizontal: 'right', vertical: 'middle' };
     filaTotal.height = 22;
     filaTotal.eachCell((cell, col) => {
       cell.border = borderCompleto();
       cell.fill = totalDetalleFill;
-      if (col === 14) {
+      if (col === 16) {
         cell.numFmt = '#,##0.00';
       }
     });
   } else {
     const fila = worksheet.getRow(filaActual);
     fila.values = ['No hay datos para mostrar'];
-    worksheet.mergeCells(`A${filaActual}:N${filaActual}`);
+    worksheet.mergeCells(`A${filaActual}:P${filaActual}`);
+
     const celda = worksheet.getCell(`A${filaActual}`);
 
     celda.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -3774,7 +4237,7 @@ function agruparComponentesPorTipoParaExcel(datosResumen) {
       }
 
       const existente = componentesUnicos.get(clave);
-      existente.cantidad += comp.yaPedido;
+      existente.cantidad += (parseFloat(comp.yaPedidoComprado) || 0);
       existente.valorTotal += comp.subtotal;
     });
   });
