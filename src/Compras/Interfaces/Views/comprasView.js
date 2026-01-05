@@ -79,7 +79,10 @@ async function verDetalleCompra(idCompra) {
     const filas = detalles
       .map((d) => `
         <tr>
-          <td>${escapeHtml(d.descripcion)}</td>
+          <td>
+            <div class="fw-semibold">${escapeHtml(d.descripcion)}</div>
+            <div class="text-muted small">Proveedor: ${escapeHtml(d.nombre_provedor || '—')}</div>
+          </td>
           <td class="text-end">${escapeHtml(Number(d.cantidad || 0).toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
           <td class="text-end">$${formatMoney(d.precio_unitario)}</td>
           <td class="text-end fw-bold">$${formatMoney(d.subtotal)}</td>
@@ -94,9 +97,9 @@ async function verDetalleCompra(idCompra) {
         <div class="col-md-3"><div class="text-muted small">Fecha</div><div class="fw-bold">${escapeHtml(fecha)}</div></div>
         <div class="col-md-3"><div class="text-muted small">Total</div><div class="fw-bold">$${formatMoney(data.total)}</div></div>
       </div>
-      <div class="row g-2 mb-2">
-        <div class="col-md-6"><div class="text-muted small">Proyecto</div><div class="fw-bold">${escapeHtml(data.nombre_proyecto || '')}</div></div>
-        <div class="col-md-6"><div class="text-muted small">Provedor</div><div class="fw-bold">${escapeHtml(data.nombre_provedor || '')}</div></div>
+      <div class="mb-2">
+        <div class="text-muted small">Proyecto</div>
+        <div class="fw-bold">${escapeHtml(data.nombre_proyecto || '')}</div>
       </div>
       ${data.numero_factura ? `<div class="mb-2"><span class="text-muted small">Factura:</span> <strong>${escapeHtml(data.numero_factura)}</strong></div>` : ''}
       ${data.observaciones ? `<div class="mb-2"><div class="text-muted small">Observaciones</div><div>${escapeHtml(data.observaciones)}</div></div>` : ''}
@@ -104,7 +107,7 @@ async function verDetalleCompra(idCompra) {
         <table class="table table-sm table-hover">
           <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
             <tr>
-              <th>Ítem</th>
+              <th>Ítem / Proveedor</th>
               <th class="text-end">Cantidad</th>
               <th class="text-end">Vr. Unit.</th>
               <th class="text-end">Subtotal</th>
@@ -146,9 +149,92 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+function formatCurrency(val) {
+  const n = Number(val || 0);
+  return n.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function formatMoney(val) {
   const n = Number(val || 0);
   return n.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+async function onGuardarCompra(e) {
+  e.preventDefault();
+  console.log('Iniciando guardado de compra...');
+
+  const numeroFactura = qs('numeroFactura').value.trim();
+  if (!numeroFactura) {
+    alert('El número de factura es obligatorio');
+    qs('numeroFactura').focus();
+    return;
+  }
+
+  // Recopilar información de items con sus proveedores asignados
+  const itemsConProveedor = [];
+  const cards = document.querySelectorAll('.item-proveedor-card');
+  console.log('Items encontrados:', cards.length);
+  
+  cards.forEach(card => {
+    const idDetPedido = card.dataset.idDetPedido;
+    const proveedorSelect = card.querySelector('.proveedor-item-select');
+    const idProveedor = proveedorSelect.value;
+    
+    console.log('Item:', idDetPedido, 'Proveedor:', idProveedor);
+    
+    if (!idProveedor) {
+      // Resaltar el item que falta proveedor
+      card.classList.add('border-danger', 'bg-light');
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      proveedorSelect.focus();
+      alert('Todos los items deben tener un proveedor asignado');
+      return;
+    }
+    
+    itemsConProveedor.push({
+      id_det_pedido: idDetPedido,
+      id_provedor: idProveedor
+    });
+  });
+
+  if (itemsConProveedor.length === 0) {
+    alert('No hay items para procesar');
+    return;
+  }
+
+  const payload = {
+    id_pedido: qs('idPedido').value,
+    numero_factura: numeroFactura,
+    total: qs('totalCompra').value,
+    observaciones: qs('observaciones').value.trim(),
+    items: itemsConProveedor
+  };
+
+  console.log('Payload a enviar:', payload);
+
+  // Mostrar estado de carga
+  const btnGuardar = qs('btnGuardarCompra');
+  const originalText = btnGuardar.innerHTML;
+  btnGuardar.disabled = true;
+  btnGuardar.innerHTML = '<i class="bi bi-hourglass-split"></i> Guardando...';
+  btnGuardar.className = 'btn btn-warning w-100';
+
+  try {
+    const response = await apiPost('guardarCompra', payload);
+    console.log('Respuesta del servidor:', response);
+    alert('Compra registrada exitosamente');
+    limpiarSeleccionPedido();
+    cargarCompras(); // Recargar la tabla de compras
+  } catch (error) {
+    console.error('Error al guardar compra:', error);
+    alert('Error al registrar compra: ' + error.message);
+  } finally {
+    // Restaurar estado del botón
+    btnGuardar.disabled = false;
+    btnGuardar.innerHTML = originalText;
+    btnGuardar.className = 'btn btn-success w-100';
+    actualizarTotalCompra(); // Actualizar estado del botón
+  }
 }
 
 async function apiGet(path) {
@@ -208,53 +294,118 @@ async function cargarProyectos() {
 async function cargarProvedores() {
   const data = await apiGet('?action=getProvedoresActivos');
   provedores = Array.isArray(data) ? data : [];
+}
 
-  const cont = qs('provedoresMulti');
-  cont.innerHTML = '';
-
-  if (!provedores.length) {
-    cont.innerHTML = '<div class="text-muted">No hay provedores activos.</div>';
-    actualizarDatosProvedorSeleccionado();
-    return;
+function generarHtmlItemsConProveedor(items) {
+  if (!items || !items.length) {
+    return '<div class="text-muted text-center py-3">No hay items en el pedido</div>';
   }
 
-  const html = provedores
-    .map((p) => {
-      const id = Number(p.id_provedor);
-      const nombre = String(p.nombre || '');
-      const telefono = String(p.telefono || '');
-      const whatsapp = String(p.whatsapp || '');
-      const email = String(p.email || '');
-      const contacto = String(p.contacto || '');
-      return `
-        <div class="form-check">
-          <input
-            class="form-check-input provedor-check"
-            type="checkbox"
-            value="${id}"
-            id="provedor_${id}"
-            data-telefono="${telefono.replace(/"/g, '&quot;')}"
-            data-whatsapp="${whatsapp.replace(/"/g, '&quot;')}"
-            data-email="${email.replace(/"/g, '&quot;')}"
-            data-contacto="${contacto.replace(/"/g, '&quot;')}"
-            data-nombre="${nombre.replace(/"/g, '&quot;')}"
-          />
-          <label class="form-check-label" for="provedor_${id}">${escapeHtml(nombre)}</label>
+  const proveedoresOptions = provedores.map(p => 
+    `<option value="${p.id_provedor}">${escapeHtml(p.nombre)}</option>`
+  ).join('');
+
+  return items.map((item, index) => `
+    <div class="border-bottom pb-2 mb-2 item-proveedor-card" data-id-det-pedido="${item.id_det_pedido}">
+      <div class="row g-2 align-items-center">
+        <div class="col-auto">
+          <span class="badge bg-primary">${index + 1}</span>
         </div>
-      `;
-    })
-    .join('');
+        <div class="col">
+          <div class="fw-bold text-primary small">${escapeHtml(item.descripcion)}</div>
+          <div class="text-muted small">
+            Cant: ${item.cantidad} | 
+            Precio: ${formatCurrency(item.precio_unitario)} | 
+            Subtotal: ${formatCurrency(item.subtotal)}
+          </div>
+        </div>
+        <div class="col-md-4 col-12">
+          <select class="form-select form-select-sm proveedor-item-select" required>
+            <option value="">Seleccionar proveedor...</option>
+            ${proveedoresOptions}
+          </select>
+        </div>
+        <div class="col-auto">
+          <div class="subtotal-badge badge bg-success">${formatCurrency(item.subtotal)}</div>
+          <div class="proveedor-status mt-1">
+            <span class="badge bg-secondary small">Sin proveedor</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
 
-  cont.innerHTML = html;
+function actualizarTotalCompra() {
+  const cards = document.querySelectorAll('.item-proveedor-card');
+  let total = 0;
+  let todosConProveedor = true;
 
-  cont.querySelectorAll('.provedor-check').forEach((el) => {
-    el.addEventListener('change', () => {
-      actualizarDatosProvedorSeleccionado();
-      actualizarBotones();
-    });
+  console.log('Items encontrados:', cards.length);
+
+  cards.forEach(card => {
+    const subtotalText = card.querySelector('.subtotal-badge').textContent;
+    const subtotal = parseFloat(subtotalText.replace(/[^0-9.-]/g, ''));
+    const proveedorSelect = card.querySelector('.proveedor-item-select');
+    const statusBadge = card.querySelector('.proveedor-status span');
+    
+    console.log('Item subtotal:', subtotal, 'Proveedor seleccionado:', proveedorSelect.value);
+    
+    if (!isNaN(subtotal)) {
+      total += subtotal;
+    }
+    
+    // Actualizar estado visual del item
+    if (proveedorSelect.value) {
+      statusBadge.className = 'badge bg-success small';
+      statusBadge.innerHTML = '<i class="bi bi-check-circle"></i> Con proveedor';
+      card.classList.remove('border-warning');
+      card.classList.add('border-success');
+    } else {
+      todosConProveedor = false;
+      statusBadge.className = 'badge bg-warning small';
+      statusBadge.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Sin proveedor';
+      card.classList.remove('border-success');
+      card.classList.add('border-warning');
+    }
   });
 
-  actualizarDatosProvedorSeleccionado();
+  // Autocalcular total solo si el usuario no lo ha modificado manualmente
+  const totalElement = qs('totalCompra');
+  const currentTotal = parseFloat(totalElement.value) || 0;
+  
+  // Si el total actual es 0 o coincide con el cálculo, actualizarlo
+  if (currentTotal === 0 || Math.abs(currentTotal - total) < 0.01) {
+    totalElement.value = total.toFixed(2);
+    
+    // Animación de actualización
+    totalElement.classList.add('text-success', 'fw-bold');
+    setTimeout(() => {
+      totalElement.classList.remove('text-success', 'fw-bold');
+    }, 1000);
+  }
+  
+  // Habilitar/deshabilitar botón de guardar
+  const btnGuardar = qs('btnGuardarCompra');
+  const numeroFactura = qs('numeroFactura').value.trim();
+  
+  console.log('Estado del botón:', {
+    todosConProveedor,
+    numeroFactura: !!numeroFactura,
+    hasRows: cards.length > 0,
+    willBeDisabled: !(todosConProveedor && numeroFactura && cards.length > 0)
+  });
+  
+  btnGuardar.disabled = !(todosConProveedor && numeroFactura && cards.length > 0);
+  
+  // Actualizar estado visual del botón
+  if (btnGuardar.disabled) {
+    btnGuardar.innerHTML = '<i class="bi bi-lock"></i> Completar datos para registrar';
+    btnGuardar.className = 'btn btn-secondary w-100';
+  } else {
+    btnGuardar.innerHTML = '<i class="bi bi-check-circle"></i> Registrar Compra';
+    btnGuardar.className = 'btn btn-success w-100';
+  }
 }
 
 function actualizarDatosProvedorSeleccionado() {
@@ -285,13 +436,6 @@ function filtrarProveedores(termino) {
     const match = !term || label.includes(term);
     div.style.display = match ? '' : 'none';
   });
-}
-
-function getProvedoresSeleccionados() {
-  const checks = Array.from(document.querySelectorAll('.provedor-check:checked'));
-  return checks
-    .map((o) => Number(o.value || 0))
-    .filter((n) => Number.isFinite(n) && n > 0);
 }
 
 function getFiltros() {
@@ -390,55 +534,43 @@ async function seleccionarPedido(idPedido) {
 }
 
 function renderDetallePedido() {
-  if (!pedidoSeleccionado) {
-    qs('detallePedido').innerHTML = '<div class="text-muted">Seleccione un pedido para ver el detalle.</div>';
+  const cont = qs('detallePedido');
+  const itemsCont = qs('itemsConProveedor');
+  
+  if (!pedidoSeleccionado || !pedidoSeleccionado.detalles) {
+    cont.innerHTML = '<div class="text-muted">No hay detalles disponibles.</div>';
+    itemsCont.innerHTML = '<div class="text-muted text-center py-3">No hay items en el pedido</div>';
     return;
   }
 
-  const p = pedidoSeleccionado;
-  const fecha = p.fecha_pedido ? new Date(p.fecha_pedido).toLocaleString('es-CO') : '-';
-  const detalles = Array.isArray(p.detalles) ? p.detalles : [];
-
-  const filas = detalles
-    .map((d) => {
-      const badge = d.es_excedente == 1 ? '<span class="badge bg-warning text-dark">Adicional</span>' : '<span class="badge bg-success">Normal</span>';
-      return `
-        <tr>
-          <td>
-            <div class="fw-semibold">${escapeHtml(d.descripcion)}</div>
-            <div class="text-muted small">${escapeHtml(d.tipo_componente)} ${badge}</div>
-            ${d.justificacion ? `<div class="text-muted small">${escapeHtml(d.justificacion)}</div>` : ''}
-          </td>
-          <td class="text-end">${escapeHtml(Number(d.cantidad || 0).toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
-          <td class="text-end">$${formatMoney(d.precio_unitario)}</td>
-          <td class="text-end fw-bold">$${formatMoney(d.subtotal)}</td>
-        </tr>
-      `;
-    })
-    .join('');
-
-  qs('detallePedido').innerHTML = `
-    <div class="mb-2">
-      <div class="fw-bold">Pedido #${escapeHtml(p.id_pedido)}</div>
-      <div class="text-muted small">${escapeHtml(p.nombre_proyecto)} • ${escapeHtml(fecha)} • Estado: <span class="badge bg-success">APROBADO</span></div>
-      <div class="text-muted small">Total pedido: <strong>$${formatMoney(p.total)}</strong></div>
-    </div>
-    <div class="table-responsive" style="max-height: 260px; overflow:auto;">
-      <table class="table table-sm table-hover">
-        <thead class="table-light">
-          <tr>
-            <th>Ítem</th>
-            <th class="text-end">Cantidad</th>
-            <th class="text-end">Vr. Unit.</th>
-            <th class="text-end">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${filas || '<tr><td colspan="4" class="text-muted">Sin detalle.</td></tr>'}
-        </tbody>
-      </table>
+  const detalles = pedidoSeleccionado.detalles;
+  
+  // Renderizar resumen del pedido
+  cont.innerHTML = `
+    <div class="alert alert-info">
+      <div class="row">
+        <div class="col-md-6">
+          <strong>Pedido #${pedidoSeleccionado.id_pedido}</strong><br>
+          <small class="text-muted">${pedidoSeleccionado.nombre_proyecto || ''}</small>
+        </div>
+        <div class="col-md-6 text-end">
+          <strong>Total: ${formatCurrency(pedidoSeleccionado.total)}</strong><br>
+          <small class="text-muted">${detalles.length} items</small>
+        </div>
+      </div>
     </div>
   `;
+
+  // Generar HTML de items con selector de proveedor
+  itemsCont.innerHTML = generarHtmlItemsConProveedor(detalles);
+  
+  // Agregar event listeners a los selects de proveedor
+  itemsCont.querySelectorAll('.proveedor-item-select').forEach(select => {
+    select.addEventListener('change', actualizarTotalCompra);
+  });
+  
+  // Actualizar total inicial
+  actualizarTotalCompra();
 }
 
 function actualizarBotones() {
@@ -453,76 +585,9 @@ function limpiarSeleccionPedido() {
   qs('numeroFactura').value = '';
   qs('totalCompra').value = '';
   qs('observaciones').value = '';
+  qs('itemsConProveedor').innerHTML = '<div class="text-muted text-center py-3">Seleccione un pedido para ver los items</div>';
   qs('detallePedido').innerHTML = '<div class="text-muted">Seleccione un pedido para ver el detalle.</div>';
-}
-
-async function onGuardarCompra(e) {
-  e.preventDefault();
-
-  if (!pedidoSeleccionado) {
-    alert('Seleccione un pedido');
-    return;
-  }
-
-  const idsProvedores = getProvedoresSeleccionados();
-  if (!idsProvedores.length) {
-    alert('Seleccione al menos un provedor');
-    return;
-  }
-
-  const numeroFactura = qs('numeroFactura').value.trim();
-  if (!numeroFactura) {
-    alert('El número de factura es obligatorio');
-    qs('numeroFactura').focus();
-    return;
-  }
-
-  const totalCompra = Number(qs('totalCompra').value || 0);
-  if (!totalCompra || totalCompra <= 0) {
-    alert('Digite el total de la compra');
-    return;
-  }
-
-  const detalles = Array.isArray(pedidoSeleccionado.detalles)
-    ? pedidoSeleccionado.detalles.map((d) => ({
-        id_det_pedido: d.id_det_pedido,
-        descripcion: d.descripcion,
-        unidad: d.unidad,
-        cantidad: d.cantidad,
-        precio_unitario: d.precio_unitario,
-        subtotal: d.subtotal,
-      }))
-    : [];
-
-  const payload = {
-    id_pedido: Number(qs('idPedido').value),
-    id_provedores: idsProvedores,
-    numero_factura: qs('numeroFactura').value.trim() || null,
-    observaciones: qs('observaciones').value.trim() || null,
-    total: totalCompra,
-    detalles,
-  };
-
-  const btn = qs('btnGuardarCompra');
-  const original = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
-
-  try {
-    const res = await apiPost('guardarCompra', payload);
-    alert(res.message || 'Compra registrada');
-
-    // El pedido pasa a estado 'comprado' en backend.
-    // Refrescar UI para que ya no aparezca en la lista de aprobados.
-    limpiarSeleccionPedido();
-    await cargarPedidos();
-  } catch (err) {
-    console.error(err);
-    alert('Error: ' + err.message);
-  } finally {
-    btn.innerHTML = original;
-    actualizarBotones();
-  }
+  actualizarTotalCompra();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -561,13 +626,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   ['proveedorTelefono', 'proveedorWhatsapp', 'proveedorEmail'].forEach((id) => {
-    qs(id).addEventListener('input', actualizarBotones);
+    const element = qs(id);
+    if (element) {
+      element.addEventListener('input', actualizarBotones);
+    }
   });
 
   if (qs('totalCompra')) {
     qs('totalCompra').addEventListener('input', () => {
       totalCompraTouched = true;
     });
+  }
+
+  // Añadir evento para detectar cambios en el campo número de factura
+  if (qs('numeroFactura')) {
+    qs('numeroFactura').addEventListener('input', actualizarTotalCompra);
   }
 
   if (qs('busquedaProveedor')) {

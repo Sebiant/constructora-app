@@ -110,44 +110,26 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                   <input type="hidden" id="idPedido" />
 
                   <div class="mb-2">
-                    <label class="form-label fw-bold">Provedor *</label>
-                    <input type="text" class="form-control mb-2" id="busquedaProveedor" placeholder="Buscar proveedor..." />
-                    <div class="d-flex gap-2">
-                      <div class="form-control" style="height: 140px; overflow:auto;" id="provedoresMulti" aria-label="Lista de provedores"></div>
-                      <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalGestionProvedores">
-                        <i class="bi bi-plus-circle"></i> Crear provedor
-                      </button>
-                    </div>
-                    <div class="form-text">Selecciona uno o varios provedores.</div>
-                  </div>
-
-                  <div class="row g-2">
-                    <div class="col-md-6">
-                      <label class="form-label">Teléfono</label>
-                      <input class="form-control" id="proveedorTelefono" disabled />
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">WhatsApp</label>
-                      <input class="form-control" id="proveedorWhatsapp" disabled />
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Email</label>
-                      <input type="email" class="form-control" id="proveedorEmail" disabled />
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Contacto</label>
-                      <input class="form-control" id="proveedorContacto" disabled />
-                    </div>
+                    <label class="form-label fw-bold">N° Factura *</label>
+                    <input class="form-control" id="numeroFactura" required />
                   </div>
 
                   <div class="row g-2 mt-1">
                     <div class="col-md-6">
-                      <label class="form-label">N° Factura *</label>
-                      <input class="form-control" id="numeroFactura" required />
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Total compra</label>
+                      <label class="form-label">Total compra <small class="text-muted">(autocalculado, editable)</small></label>
                       <input type="number" class="form-control" id="totalCompra" step="0.01" min="0" placeholder="0.00" />
+                    </div>
+                  </div>
+
+                  <div class="mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <label class="form-label fw-bold mb-0">Asignar proveedor por item</label>
+                      <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalGestionProvedores">
+                        <i class="bi bi-plus-circle"></i> Nuevo Proveedor
+                      </button>
+                    </div>
+                    <div id="itemsConProveedor" class="border rounded p-2" style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
+                      <div class="text-muted text-center py-3">Seleccione un pedido para ver los items</div>
                     </div>
                   </div>
 

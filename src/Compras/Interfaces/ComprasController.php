@@ -154,8 +154,11 @@ try {
                                 cd.unidad,
                                 cd.cantidad,
                                 cd.precio_unitario,
-                                cd.subtotal
+                                cd.subtotal,
+                                cd.id_provedor,
+                                pv.nombre AS nombre_provedor
                            FROM compras_detalle cd
+                           LEFT JOIN provedores pv ON cd.id_provedor = pv.id_provedor
                            WHERE cd.id_compra = ?
                            ORDER BY cd.id_compra_detalle ASC";
                 $stmtD = $connection->prepare($sqlDet);
@@ -312,32 +315,20 @@ try {
                 $data = $jsonInput ?? [];
 
                 $idPedido = $data['id_pedido'] ?? null;
-                $idsProvedores = $data['id_provedores'] ?? null;
+                $numeroFactura = $data['numero_factura'] ?? null;
+                $total = $data['total'] ?? null;
+                $observaciones = $data['observaciones'] ?? null;
+                $items = $data['items'] ?? [];
 
+                // Validaciones básicas
                 if (!$idPedido) {
                     throw new Exception('ID de pedido requerido');
                 }
-                if (!is_array($idsProvedores) || count($idsProvedores) === 0) {
-                    throw new Exception('Seleccione al menos un provedor');
+                if (!$numeroFactura) {
+                    throw new Exception('Número de factura requerido');
                 }
-
-                $idsProvedores = array_values(array_unique(array_map('intval', $idsProvedores)));
-                $idsProvedores = array_filter($idsProvedores, fn($v) => $v > 0);
-                if (count($idsProvedores) === 0) {
-                    throw new Exception('Seleccione al menos un provedor');
-                }
-
-                $idProvedorPrincipal = (int)$idsProvedores[0];
-
-                // Validar que los provedores existan y estén activos
-                $placeholders = implode(',', array_fill(0, count($idsProvedores), '?'));
-                $sqlProv = "SELECT id_provedor FROM provedores WHERE estado = 1 AND id_provedor IN ($placeholders)";
-                $stmtProv = $connection->prepare($sqlProv);
-                $stmtProv->execute($idsProvedores);
-                $provRows = $stmtProv->fetchAll(PDO::FETCH_COLUMN);
-
-                if (count($provRows) !== count($idsProvedores)) {
-                    throw new Exception('Uno o más provedores no existen o están inactivos');
+                if (!is_array($items) || count($items) === 0) {
+                    throw new Exception('Debe especificar items para la compra');
                 }
 
                 // Validar que el pedido esté aprobado
@@ -348,106 +339,109 @@ try {
                     throw new Exception('El pedido no existe o no está aprobado');
                 }
 
+                // Validar que todos los items pertenezcan al pedido y tengan proveedor
+                $idDetPedidos = array_map(fn($item) => $item['id_det_pedido'], $items);
+                $placeholders = implode(',', array_fill(0, count($idDetPedidos), '?'));
+                
+                $stmtItems = $connection->prepare("
+                    SELECT pd.id_det_pedido,
+                           pd.id_pedido,
+                           COALESCE(ic.descripcion, CAST(m.nombremat AS CHAR)) AS descripcion,
+                           COALESCE(ic.unidad, u.unidesc) AS unidad,
+                           pd.cantidad,
+                           pd.precio_unitario,
+                           pd.subtotal,
+                           ic.tipo_componente,
+                           ic.id_material
+                    FROM pedidos_detalle pd
+                    LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
+                    LEFT JOIN materiales_extra_presupuesto mep ON pd.id_material_extra = mep.id_material_extra
+                    LEFT JOIN materiales m ON mep.id_material = m.id_material
+                    LEFT JOIN gr_unidad u ON m.idunidad = u.idunidad
+                    WHERE pd.id_det_pedido IN ($placeholders) AND pd.id_pedido = ?
+                ");
+                $stmtItems->execute([...$idDetPedidos, $idPedido]);
+                $itemsValidos = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
+
+                if (count($itemsValidos) !== count($items)) {
+                    throw new Exception('Uno o más items no pertenecen al pedido especificado');
+                }
+
+                // Validar que todos los proveedores existan y estén activos
+                $idProveedores = array_unique(array_map(fn($item) => $item['id_provedor'], $items));
+                $placeholdersProv = implode(',', array_fill(0, count($idProveedores), '?'));
+                $stmtProv = $connection->prepare("SELECT id_provedor, nombre FROM provedores WHERE estado = 1 AND id_provedor IN ($placeholdersProv)");
+                $stmtProv->execute($idProveedores);
+                $proveedoresValidos = $stmtProv->fetchAll(PDO::FETCH_KEY_PAIR);
+
+                if (count($proveedoresValidos) !== count($idProveedores)) {
+                    throw new Exception('Uno o más proveedores no existen o están inactivos');
+                }
+
                 session_start();
                 $idUsuario = $_SESSION['u_id'] ?? null;
 
                 $connection->beginTransaction();
-                try {
-                    $sql = "INSERT INTO compras
-                            (id_pedido, id_provedor,
-                             fecha_compra, numero_factura, total, estado, observaciones, idusuario)
-                            VALUES
-                            (?, ?, NOW(), ?, ?, ?, ?, ?)";
 
-                    $stmt = $connection->prepare($sql);
+                // Crear registro en compras
+                $stmtCompra = $connection->prepare("
+                    INSERT INTO compras (id_pedido, id_provedor, fecha_compra, numero_factura, total, estado, observaciones, idusuario)
+                    VALUES (?, ?, NOW(), ?, ?, 'pendiente', ?, ?)
+                ");
+                $idProveedorPrincipal = $items[0]['id_provedor']; // Primer proveedor como principal
+                $stmtCompra->execute([$idPedido, $idProveedorPrincipal, $numeroFactura, $total, $observaciones, $idUsuario]);
+                $idCompra = $connection->lastInsertId();
 
-                    $numeroFactura = $data['numero_factura'] ?? null;
-                    $estadoCompra = $data['estado'] ?? 'pendiente';
-                    $observaciones = $data['observaciones'] ?? null;
+                // Crear detalles de compra con asignación de proveedor
+                $stmtDetalle = $connection->prepare("
+                    INSERT INTO compras_detalle (id_compra, id_det_pedido, descripcion, unidad, cantidad, precio_unitario, subtotal, id_provedor, numero_factura)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
 
-                    $total = isset($data['total']) ? (float)$data['total'] : (float)($pedido['total'] ?? 0);
-
-                    $stmt->execute([
-                        $idPedido,
-                        $idProvedorPrincipal,
-                        $numeroFactura,
-                        $total,
-                        $estadoCompra,
-                        $observaciones,
-                        $idUsuario,
+                foreach ($items as $item) {
+                    $itemData = current(array_filter($itemsValidos, fn($iv) => $iv['id_det_pedido'] == $item['id_det_pedido']));
+                    
+                    $stmtDetalle->execute([
+                        $idCompra,
+                        $item['id_det_pedido'],
+                        $itemData['descripcion'],
+                        $itemData['unidad'] ?? '',
+                        $itemData['cantidad'],
+                        $itemData['precio_unitario'],
+                        $itemData['subtotal'],
+                        $item['id_provedor'],
+                        $numeroFactura
                     ]);
-
-                    $idCompra = $connection->lastInsertId();
-                    if (!$idCompra) {
-                        throw new Exception('No se pudo crear la compra');
-                    }
-
-                    // Registrar relación compra-provedores
-                    $stmtCp = $connection->prepare("INSERT INTO compras_provedores (id_compra, id_provedor) VALUES (?, ?)");
-                    foreach ($idsProvedores as $pid) {
-                        $stmtCp->execute([(int)$idCompra, (int)$pid]);
-                    }
-
-                    $detalles = $data['detalles'] ?? [];
-                    if (is_array($detalles) && count($detalles) > 0) {
-                        $sqlDet = "INSERT INTO compras_detalle
-                                   (id_compra, id_det_pedido, descripcion, unidad, cantidad, precio_unitario, subtotal)
-                                   VALUES (?, ?, ?, ?, ?, ?, ?)";
-                        $stmtDet = $connection->prepare($sqlDet);
-
-                        foreach ($detalles as $d) {
-                            $idDetPedido = $d['id_det_pedido'] ?? null;
-                            $descripcion = $d['descripcion'] ?? '';
-                            $unidad = $d['unidad'] ?? null;
-                            $cantidad = (float)($d['cantidad'] ?? 0);
-                            $precio = (float)($d['precio_unitario'] ?? 0);
-                            $subtotal = (float)($d['subtotal'] ?? ($cantidad * $precio));
-
-                            if (trim($descripcion) === '' || $cantidad <= 0) {
-                                continue;
-                            }
-
-                            $stmtDet->execute([
-                                $idCompra,
-                                $idDetPedido,
-                                $descripcion,
-                                $unidad,
-                                $cantidad,
-                                $precio,
-                                $subtotal,
-                            ]);
-                        }
-                    }
-
-                    // Actualizar estado del pedido a 'comprado'
-                    // Solo si aún está en estado aprobado (evitar pisar cambios externos)
-                    $stmtUpdPedido = $connection->prepare(
-                        "UPDATE pedidos
-                         SET estado = 'comprado', fechaupdate = NOW()
-                         WHERE id_pedido = ? AND estado = 'aprobado'"
-                    );
-                    $stmtUpdPedido->execute([(int)$idPedido]);
-                    if ($stmtUpdPedido->rowCount() === 0) {
-                        throw new Exception('No se pudo actualizar el pedido a comprado (verifique que esté aprobado)');
-                    }
-
-                    $connection->commit();
-
-                    echo json_encode([
-                        'success' => true,
-                        'message' => 'Compra registrada correctamente',
-                        'data' => [
-                            'id_compra' => $idCompra,
-                            'id_pedido' => $idPedido,
-                        ]
-                    ]);
-                } catch (Exception $e) {
-                    $connection->rollBack();
-                    throw $e;
                 }
 
+                // Crear relaciones de proveedores (para compatibilidad con estructura anterior)
+                $stmtCompraProv = $connection->prepare("INSERT IGNORE INTO compras_provedores (id_compra, id_provedor) VALUES (?, ?)");
+                foreach ($idProveedores as $idProv) {
+                    $stmtCompraProv->execute([$idCompra, $idProv]);
+                }
+
+                // Marcar pedido como comprado para que no vuelva a aparecer como disponible
+                $stmtUpdatePedido = $connection->prepare("UPDATE pedidos SET estado = 'comprado' WHERE id_pedido = ?");
+                $stmtUpdatePedido->execute([$idPedido]);
+
+                $connection->commit();
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Compra registrada exitosamente',
+                    'data' => [
+                        'id_compra' => $idCompra,
+                        'id_pedido' => $idPedido,
+                        'numero_factura' => $numeroFactura,
+                        'total' => $total,
+                        'items_count' => count($items)
+                    ]
+                ]);
+
             } catch (Exception $e) {
-                http_response_code(400);
+                if (isset($connection) && $connection->inTransaction()) {
+                    $connection->rollBack();
+                }
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
             break;
