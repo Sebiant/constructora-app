@@ -305,7 +305,22 @@ if ($totalPedidos > 0): ?>
                         </div>
                         <div class="pedido-acciones">
                             <a href="/sgigescomnew/src/OrdenesCompra/Interfaces/Views/ordenesCompraView.php?action=nueva&id_pedido=<?php echo $pedido['id_pedido']; ?>" 
-                               class="btn-crear-orden-individual">
+                               class="btn-crear-orden-individual"
+                               onclick="event.preventDefault(); console.log('🚀 Botón de notificación presionado para pedido #<?php echo $pedido['id_pedido']; ?>'); 
+                                       // Abrir modal y autollenar con el pedido
+                                       const abrir = () => {
+                                         if (window.OrdenesCompraUI && typeof OrdenesCompraUI.abrirNuevaOrdenConPedido === 'function') {
+                                           OrdenesCompraUI.abrirNuevaOrdenConPedido(<?php echo $pedido['id_pedido']; ?>);
+                                         } else {
+                                           // Fallback mínimo: mostrar modal si el UI aún no está listo
+                                           const modal = document.getElementById('modalOrdenCompra');
+                                           if (modal) {
+                                             const modalInstance = new bootstrap.Modal(modal);
+                                             modalInstance.show();
+                                           }
+                                         }
+                                       };
+                                       setTimeout(abrir, 100);">
                                 <i class="bi bi-plus-circle"></i>
                                 Crear Orden de Compra
                             </a>

@@ -101,6 +101,9 @@ try {
         case 'convertirEnCompra':
             convertirEnCompra($connection, $jsonInput);
             break;
+        case 'verificarOrdenExistente':
+            verificarOrdenExistente($connection);
+            break;
 
         default:
             throw new Exception('Acción no válida');
@@ -440,25 +443,37 @@ function getProveedores($connection) {
  * Obtener pedidos disponibles para crear órdenes de compra
  */
 function getPedidosDisponibles($connection) {
+    // Pedidos con faltantes reales (> 0) para ordenar, evitando agregados anidados
     $sql = "SELECT 
                 p.id_pedido,
                 p.fecha_pedido,
                 p.total,
                 p.estado,
-                COALESCE(p.estado_compra, 'pendiente') as estado_compra,
-                CONCAT('Pedido #', p.id_pedido, ' - Total: $', FORMAT(p.total, 2), ' - ', 
-                       CASE 
-                           WHEN COUNT(pd.id_det_pedido) > 0 THEN 
-                               CONCAT(COUNT(DISTINCT pd.id_det_pedido), ' productos disponibles')
-                           ELSE 'Sin productos disponibles'
-                      END) as descripcion_pedido,
-                COUNT(DISTINCT pd.id_det_pedido) as total_productos,
-                COUNT(DISTINCT pd.id_det_pedido) as productos_disponibles
+                SUM(dd.faltante_detalle) AS faltante_total,
+                SUM(CASE WHEN dd.comprada_total > 0 THEN 1 ELSE 0 END) AS items_con_orden,
+                CASE 
+                  WHEN SUM(dd.faltante_detalle) = 0 THEN 'completamente_ordenado'
+                  WHEN SUM(CASE WHEN dd.comprada_total > 0 THEN 1 ELSE 0 END) = 0 THEN 'sin_orden'
+                  ELSE 'parcialmente_ordenado'
+                END AS estado_ordenado,
+                CONCAT('Pedido #', p.id_pedido, ' - Faltantes: ', FORMAT(SUM(dd.faltante_detalle), 2)) AS descripcion_pedido
             FROM pedidos p
-            LEFT JOIN pedidos_detalle pd ON p.id_pedido = pd.id_pedido
+            JOIN (
+              SELECT
+                pd.id_pedido,
+                pd.id_det_pedido,
+                pd.cantidad,
+                COALESCE(SUM(ocd.cantidad_comprada), 0) AS comprada_total,
+                GREATEST(pd.cantidad - COALESCE(SUM(ocd.cantidad_comprada), 0), 0) AS faltante_detalle
+              FROM pedidos_detalle pd
+              LEFT JOIN ordenes_compra_detalle ocd ON pd.id_det_pedido = ocd.id_det_pedido
+              LEFT JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra 
+                   AND oc.estado IN ('pendiente','aprobada','comprada','parcialmente_comprada')
+              GROUP BY pd.id_pedido, pd.id_det_pedido, pd.cantidad
+            ) dd ON dd.id_pedido = p.id_pedido
             WHERE p.estado IN ('aprobado', 'parcialmente_comprado')
             GROUP BY p.id_pedido, p.fecha_pedido, p.total, p.estado
-            HAVING productos_disponibles > 0
+            HAVING SUM(dd.faltante_detalle) > 0
             ORDER BY p.fecha_pedido DESC";
 
     $stmt = $connection->prepare($sql);
@@ -474,6 +489,41 @@ function getPedidosDisponibles($connection) {
 /**
  * Obtener productos de un pedido
  */
+function verificarOrdenExistente($connection) {
+    $idPedido = (int)($_GET['id_pedido'] ?? 0);
+    if (!$idPedido) {
+        throw new Exception('ID de pedido requerido');
+    }
+
+    // Calcular faltantes a nivel pedido usando subconsulta, evitando agregados anidados
+    $sql = "SELECT 
+                SUM(dd.faltante_detalle) AS faltante_total
+            FROM (
+              SELECT
+                pd.id_pedido,
+                pd.id_det_pedido,
+                pd.cantidad,
+                GREATEST(pd.cantidad - COALESCE(SUM(ocd.cantidad_comprada), 0), 0) AS faltante_detalle
+              FROM pedidos_detalle pd
+              LEFT JOIN ordenes_compra_detalle ocd ON pd.id_det_pedido = ocd.id_det_pedido
+              LEFT JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra 
+                   AND oc.estado IN ('pendiente','aprobada','comprada','parcialmente_comprada','recibida')
+              WHERE pd.id_pedido = ?
+              GROUP BY pd.id_pedido, pd.id_det_pedido, pd.cantidad
+            ) dd";
+    $stmt = $connection->prepare($sql);
+    $stmt->execute([$idPedido]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $faltante = (float)($row['faltante_total'] ?? 0);
+
+    echo json_encode([
+        'success' => true,
+        'tieneOrdenCompleto' => $faltante <= 0,
+        'faltante_total' => $faltante
+    ]);
+}
+
 function getProductosPedido($connection) {
     $idPedido = (int)($_GET['id_pedido'] ?? 0);
     
@@ -504,7 +554,13 @@ function getProductosPedido($connection) {
             LEFT JOIN ordenes_compra_detalle ocd ON pd.id_det_pedido = ocd.id_det_pedido
             LEFT JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra AND oc.estado IN ('aprobada', 'comprada', 'parcialmente_comprada')
             WHERE pd.id_pedido = ?
-            GROUP BY pd.id_det_pedido, pd.cantidad, pd.precio_unitario, pd.subtotal
+            GROUP BY 
+                pd.id_det_pedido,
+                pd.cantidad,
+                pd.precio_unitario,
+                pd.subtotal,
+                COALESCE(ic.descripcion, CAST(m.nombremat AS CHAR)),
+                COALESCE(ic.unidad, u.unidesc, 'unidad')
             HAVING cantidad_disponible > 0
             ORDER BY pd.es_excedente ASC, COALESCE(ic.descripcion, m.nombremat) ASC";
 

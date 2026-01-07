@@ -8,7 +8,8 @@ const OrdenesCompraUI = (() => {
     modalOrden: null,
     modalDetalle: null,
     vistaActual: 'tabla',
-    isCargandoProductos: false
+    isCargandoProductos: false,
+    inicializado: false
   };
 
   const API_ORDENES = '/sgigescomnew/src/OrdenesCompra/Interfaces/OrdenesCompraController.php';
@@ -69,6 +70,9 @@ const OrdenesCompraUI = (() => {
       cargarPedidos(),
       cargarOrdenes()
     ]);
+
+    // Marcar inicialización completa
+    state.inicializado = true;
   }
 
   // Cargar datos principales
@@ -141,9 +145,11 @@ const OrdenesCompraUI = (() => {
       const response = await fetch(`${API_ORDENES}?action=verificarOrdenExistente&id_pedido=${idPedido}`);
       const result = await response.json();
       
-      if (result.success && result.tieneOrden) {
-        console.log('⚠️ El pedido ya tiene una orden de compra creada');
-        alert('Este pedido ya tiene una orden de compra creada. No se puede crear otra orden para el mismo pedido.\n\nPara crear una nueva orden, seleccione un pedido que no tenga orden de compra.');
+      console.log('📥 Respuesta de verificación:', result);
+      
+      if (result.success && result.tieneOrdenCompleto) {
+        console.log('⚠️ El pedido ya está completamente ordenado (faltante_total=0)');
+        alert('Este pedido ya está completamente ordenado. Seleccione otro pedido con faltantes.');
         
         // Limpiar selección
         document.getElementById('idPedido').value = '';
@@ -154,11 +160,19 @@ const OrdenesCompraUI = (() => {
         const btnGuardar = document.getElementById('btnGuardarOrden');
         if (btnGuardar) {
           btnGuardar.disabled = true;
-          btnGuardar.innerHTML = '<i class="bi bi-lock"></i> Pedido ya tiene orden';
+          btnGuardar.innerHTML = '<i class="bi bi-lock"></i> Pedido sin faltantes';
           btnGuardar.className = 'btn btn-secondary w-100';
         }
         
         return;
+      } else {
+        // Rehabilitar botón guardar si hay posibilidad de comprar
+        const btnGuardar = document.getElementById('btnGuardarOrden');
+        if (btnGuardar) {
+          btnGuardar.disabled = false;
+          btnGuardar.innerHTML = '<i class="bi bi-check-circle"></i> Guardar Orden';
+          btnGuardar.className = 'btn btn-primary';
+        }
       }
     } catch (error) {
       console.error('Error al verificar orden existente:', error);
@@ -173,21 +187,36 @@ const OrdenesCompraUI = (() => {
     state.isCargandoProductos = true;
     try {
       console.log('📡 Haciendo llamada a API...');
-      const response = await fetch(`${API_ORDENES}?action=getProductosPedido&id_pedido=${idPedido}`);
-      const result = await response.json();
+      const url = `${API_ORDENES}?action=getProductosPedido&id_pedido=${idPedido}`;
+      console.log('🌐 URL de llamada:', url);
+      
+      const response = await fetch(url);
+      const raw = await response.text();
+      let result;
+      try {
+        result = JSON.parse(raw);
+      } catch (e) {
+        console.error('❌ Respuesta no JSON desde el servidor:', raw);
+        throw new Error('Respuesta inválida del servidor');
+      }
 
       console.log('📥 Respuesta de API:', result);
+      console.log('📊 Status HTTP:', response.status);
+      console.log('📊 Headers:', response.headers);
 
       if (result.success) {
         console.log('✅ Productos cargados:', result.data);
-        renderizarProductosPedido(result.data || []);
-        // Importante: NO volver a disparar change aquí para evitar bucles y re-render constantes
+        console.log('📊 Cantidad de productos:', result.data ? result.data.length : 0);
+        state.productos = result.data || [];
+        renderizarTablaProductos();
+        actualizarResumen();
       } else {
         console.error('❌ Error en API:', result.error);
-        mostrarError(result.error || 'Error al cargar productos');
+        mostrarError(result.error || 'Error al cargar productos del pedido');
       }
     } catch (error) {
-      console.error('❌ Error cargando productos:', error);
+      console.error('❌ Error en la llamada:', error);
+      console.error('📊 Stack trace:', error.stack);
       mostrarError('Error de conexión al cargar productos');
     } finally {
       state.isCargandoProductos = false;
@@ -297,6 +326,100 @@ const OrdenesCompraUI = (() => {
         </div>
       </div>
     `).join('');
+  }
+
+  function renderizarTablaProductos() {
+    const contenedor = document.getElementById('tablaProductosBody');
+    const contador = document.getElementById('contadorProductos');
+    
+    console.log('🎨 Renderizando tabla de productos...');
+    console.log('📊 Productos en state:', state.productos);
+    console.log('📊 Contenedor encontrado:', !!contenedor);
+    console.log('📊 Contador encontrado:', !!contador);
+    
+    if (!contenedor) {
+      console.error('❌ No se encontró el contenedor tablaProductosBody');
+      return;
+    }
+    
+    if (!state.productos || state.productos.length === 0) {
+      console.log('📭 No hay productos para mostrar');
+      contenedor.innerHTML = `
+        <tr>
+          <td colspan="9" class="text-center py-3 text-muted">
+            <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+            <p class="mb-0 mt-2">Seleccione un pedido para ver sus productos</p>
+          </td>
+        </tr>
+      `;
+      if (contador) contador.textContent = '0 productos';
+      return;
+    }
+    
+    console.log('📊 Renderizando', state.productos.length, 'productos');
+    let html = state.productos.map((producto, index) => {
+      const cantPedida = Number(producto.cantidad_solicitada ?? producto.cantidad ?? 0);
+      const cantOC = Number(producto.cantidad_comprada ?? 0);
+      const precio = Number(producto.precio_unitario ?? 0);
+      const subtotal = Number(producto.subtotal ?? (cantOC * precio));
+      const disponible = Number(producto.cantidad_disponible ?? 0);
+      const cantComprar = Math.min(disponible, cantPedida - cantOC);
+      
+      console.log(`📦 Producto ${index + 1}:`, {
+        id_det_pedido: producto.id_det_pedido,
+        descripcion: producto.descripcion,
+        cantPedida,
+        cantOC,
+        precio,
+        subtotal,
+        disponible,
+        cantComprar
+      });
+      
+      return `
+        <tr>
+          <td width="5%">
+            <input type="checkbox" class="form-check-input producto-checkbox" 
+                   data-id="${producto.id_det_pedido}" 
+                   data-disponible="${disponible}"
+                   ${cantComprar <= 0 ? 'disabled' : ''}
+                   onchange="OrdenesCompraUI.actualizarProductoSeleccionado(${producto.id_det_pedido}, this)">
+          </td>
+          <td>${escapeHtml(producto.descripcion)}</td>
+          <td class="text-center">${escapeHtml(producto.unidad || '')}</td>
+          <td class="text-center">${cantPedida.toFixed(2)}</td>
+          <td class="text-center">${cantOC.toFixed(2)}</td>
+          <td class="text-center">${disponible.toFixed(2)}</td>
+          <td class="text-center">
+            <div class="input-group input-group-sm">
+              <input type="number" 
+                     class="form-control form-control-sm text-center cantidad-comprar" 
+                     min="0" 
+                     step="any"
+                     max="${cantComprar}" 
+                     value="${cantComprar}"
+                     data-id="${producto.id_det_pedido}"
+                     data-cant-pedida="${cantPedida}"
+                     onchange="OrdenesCompraUI.actualizarCantidadComprar(this)">
+              <button class="btn btn-outline-primary btn-sm" type="button"
+                      title="Usar cantidad pedida"
+                      onclick="OrdenesCompraUI.autofillCantidadPedida(${producto.id_det_pedido})">
+                <i class="bi bi-arrow-repeat"></i>
+              </button>
+            </div>
+          </td>
+          <td class="text-end">${formatMoney(precio)}</td>
+          <td class="text-end">${formatMoney(subtotal)}</td>
+        </tr>
+      `;
+    }).join('');
+    
+    console.log('📊 HTML generado, longitud:', html.length);
+    
+    contenedor.innerHTML = html;
+    if (contador) contador.textContent = `${state.productos.length} productos`;
+    
+    console.log('✅ Tabla renderizada con', state.productos.length, 'productos');
   }
 
   function renderizarProductosPedido(productos) {
@@ -427,6 +550,17 @@ const OrdenesCompraUI = (() => {
 
   // Funciones de UI
   function mostrarModalNuevaOrden() {
+    console.log('🚀 Mostrando modal de nueva orden...');
+    
+    // Verificar si hay parámetros en la URL (viene desde notificación)
+    const urlParams = new URLSearchParams(window.location.search);
+    const idPedidoDesdeURL = urlParams.get('id_pedido');
+    
+    console.log('📋 Parámetros URL detectados:', {
+      idPedidoDesdeURL: idPedidoDesdeURL,
+      tieneParametros: urlParams.toString()
+    });
+    
     // Resetear formulario completamente
     const form = document.querySelector(selectores.formOrden);
     if (form) {
@@ -441,6 +575,13 @@ const OrdenesCompraUI = (() => {
     const impuestosOrden = document.getElementById('impuestosOrden');
     const totalOrden = document.getElementById('totalOrden');
     
+    console.log('📋 Elementos encontrados:', {
+      form: !!form,
+      idPedido: !!idPedido,
+      idProveedor: !!idProveedor,
+      contenidoProductos: !!contenidoProductos
+    });
+    
     if (idPedido) idPedido.value = '';
     if (idProveedor) idProveedor.value = '';
     if (contenidoProductos) contenidoProductos.innerHTML = '';
@@ -453,13 +594,51 @@ const OrdenesCompraUI = (() => {
     if (impuestosOrden) impuestosOrden.textContent = '$0.00';
     if (totalOrden) totalOrden.textContent = '$0.00';
     
+    // Si viene desde notificación con id_pedido, autocompletar datos
+    if (idPedidoDesdeURL) {
+      console.log('🔄 Detectado pedido desde notificación, autocompletando datos...');
+      idPedido.value = idPedidoDesdeURL;
+      
+      // Disparar evento change para cargar productos automáticamente
+      const changeEvent = new Event('change', { bubbles: true });
+      idPedido.dispatchEvent(changeEvent);
+      
+      console.log('✅ Pedido autocompletado:', idPedidoDesdeURL);
+      
+      // Esperar un poco más y luego cargar productos
+      setTimeout(() => {
+        cargarProductosPedido();
+      }, 200);
+    }
+    
     // Mostrar modal limpio
     const modalTitle = document.getElementById('modalOrdenTitle');
     if (modalTitle) {
       modalTitle.innerHTML = '<i class="bi bi-clipboard-plus"></i> Nueva Orden de Compra';
     }
     
-    state.modalOrden.show();
+    console.log('🎯 Intentando mostrar modal...');
+    console.log('Modal title encontrado:', !!modalTitle);
+    
+    // Verificar si el modal existe
+    const modalElement = document.getElementById('modalOrdenCompra');
+    console.log('Elemento modal encontrado:', !!modalElement);
+    
+    if (modalElement) {
+      console.log('✅ Modal encontrado, intentando mostrar...');
+      try {
+        const modal = new bootstrap.Modal(modalElement);
+        console.log('📋 Instancia de modal creada:', !!modal);
+        modal.show();
+        console.log('✅ Modal mostrado exitosamente');
+      } catch (error) {
+        console.error('❌ Error al mostrar modal:', error);
+        alert('Error al abrir el modal de nueva orden');
+      }
+    } else {
+      console.error('❌ No se encontró el elemento modalOrdenCompra');
+      alert('Error: No se encontró el modal de nueva orden');
+    }
   }
 
   function cambiarVista(vista) {
@@ -607,9 +786,12 @@ const OrdenesCompraUI = (() => {
         const tbody = document.getElementById('tablaProductosBody');
         if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center py-3 text-muted">Seleccione un pedido para ver sus productos</td></tr>';
       } catch (e) { console.warn('No se pudo limpiar completamente el modal:', e); }
-      // Cerrar modal antes de refrescar lista
+      // Cerrar modal antes de refrescar listas
       if (state.modalOrden) { state.modalOrden.hide(); }
-      await cargarOrdenes();
+      await Promise.all([
+        cargarOrdenes(),
+        cargarPedidos() // refrescar listado para excluir pedidos que quedaron sin faltantes
+      ]);
     } catch (error) {
       console.error('Error guardando orden:', error);
       mostrarError(error.message);
@@ -849,6 +1031,20 @@ const OrdenesCompraUI = (() => {
     return parseFloat(amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
+  function formatMoney(amount) {
+    return `${formatCurrency(amount)}`;
+  }
+
+  function escapeHtml(text) {
+    if (text === undefined || text === null) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   function llenarSelect(id, data, valueField, labelField) {
     const select = document.getElementById(id);
     if (!select) return;
@@ -879,13 +1075,138 @@ const OrdenesCompraUI = (() => {
     alert(mensaje);
   }
 
+  // Actualización de selección y cantidades desde handlers inline
+  function actualizarProductoSeleccionado(idDetPedido, checkboxEl) {
+    const cantidadInput = document.querySelector(`.cantidad-comprar[data-id="${idDetPedido}"]`);
+    const producto = (state.productos || []).find(p => String(p.id_det_pedido) === String(idDetPedido));
+    if (!producto) return;
+
+    if (checkboxEl.checked) {
+      if (cantidadInput) cantidadInput.disabled = false;
+      const cantidad = cantidadInput ? parseFloat(cantidadInput.value) || 0 : 0;
+      state.productosSeleccionados.set(String(idDetPedido), {
+        ...producto,
+        cantidad_comprar: cantidad
+      });
+    } else {
+      if (cantidadInput) cantidadInput.disabled = true;
+      state.productosSeleccionados.delete(String(idDetPedido));
+    }
+    actualizarTotales();
+    actualizarContadorProductos();
+  }
+
+  function actualizarCantidadComprar(inputEl) {
+    const id = inputEl.dataset.id;
+    const max = parseFloat(inputEl.max);
+    let value = parseFloat(inputEl.value);
+    if (isNaN(value)) value = 0;
+    if (!isNaN(max) && value > max) { value = max; inputEl.value = max; }
+    if (value < 0) { value = 0; inputEl.value = 0; }
+
+    if (state.productosSeleccionados.has(String(id))) {
+      const producto = state.productosSeleccionados.get(String(id));
+      producto.cantidad_comprar = value;
+      state.productosSeleccionados.set(String(id), producto);
+      actualizarTotales();
+    }
+  }
+
+  function autofillCantidadPedida(idDetPedido) {
+    const input = document.querySelector(`.cantidad-comprar[data-id="${idDetPedido}"]`);
+    if (!input) return;
+    const cantPedidaAttr = input.getAttribute('data-cant-pedida');
+    let cantPedida = parseFloat(cantPedidaAttr);
+    if (isNaN(cantPedida)) cantPedida = 0;
+
+    // Si hay max (disponible), llenar con el mínimo entre pedida y max para evitar bloqueo por max
+    const max = parseFloat(input.max);
+    if (!isNaN(max)) {
+      input.value = Math.min(cantPedida, max);
+    } else {
+      input.value = cantPedida;
+    }
+    actualizarCantidadComprar(input);
+
+    // Marcar/asegurar selección del producto si no lo está
+    const checkbox = document.querySelector(`.producto-checkbox[data-id="${idDetPedido}"]`);
+    if (checkbox && !checkbox.checked) {
+      checkbox.checked = true;
+      actualizarProductoSeleccionado(idDetPedido, checkbox);
+    }
+  }
+
   // Exponer funciones públicas
+  async function abrirNuevaOrdenConPedido(idPedidoPreseleccionado) {
+    // Asegurar que el modal y los datos base estén listos
+    const form = document.querySelector(selectores.formOrden);
+    if (form) form.reset();
+
+    // Limpiar estados y totales
+    state.productosSeleccionados.clear();
+    const subtotalOrden = document.getElementById('subtotalOrden');
+    const impuestosOrden = document.getElementById('impuestosOrden');
+    const totalOrden = document.getElementById('totalOrden');
+    if (subtotalOrden) subtotalOrden.textContent = '$0.00';
+    if (impuestosOrden) impuestosOrden.textContent = '$0.00';
+    if (totalOrden) totalOrden.textContent = '$0.00';
+
+    const idPedidoSelect = document.getElementById('idPedido');
+    if (!idPedidoSelect) {
+      console.error('No se encontró el select #idPedido');
+      return;
+    }
+
+    // Asegurar que los pedidos estén cargados
+    if (state.pedidos.length === 0) {
+      try { await cargarPedidos(); } catch (e) { console.warn('No se pudo recargar pedidos antes del autollenado', e); }
+    }
+
+    // Si aún no está el option cargado, intentar breve reintento
+    const setPedidoYDisparar = () => {
+      idPedidoSelect.value = String(idPedidoPreseleccionado);
+      const changeEvent = new Event('change', { bubbles: true });
+      idPedidoSelect.dispatchEvent(changeEvent);
+      // Cargar explícitamente productos como refuerzo
+      try { cargarProductosPedido(); } catch (e) {}
+      setTimeout(() => {
+        try { cargarProductosPedido(); } catch (e) {}
+      }, 150);
+    };
+
+    if (!Array.from(idPedidoSelect.options).some(op => op.value == idPedidoPreseleccionado)) {
+      // Reintentar una vez tras un pequeño delay por si el listado de pedidos está terminando de cargarse
+      setTimeout(() => setPedidoYDisparar(), 150);
+    } else {
+      setPedidoYDisparar();
+    }
+
+    // Título del modal y mostrarlo
+    const modalTitle = document.getElementById('modalOrdenTitle');
+    if (modalTitle) {
+      modalTitle.innerHTML = '<i class="bi bi-clipboard-plus"></i> Nueva Orden de Compra';
+    }
+    const modalElement = document.getElementById('modalOrdenCompra');
+    if (modalElement) {
+      try {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+      } catch (e) {
+        console.error('Error mostrando modal', e);
+      }
+    }
+  }
+
   return {
     init,
     verDetalle,
     editarOrden,
     convertirEnCompra,
-    verDetallePedido
+    verDetallePedido,
+    abrirNuevaOrdenConPedido,
+    actualizarProductoSeleccionado,
+    actualizarCantidadComprar,
+    autofillCantidadPedida
   };
 
   // Event listener para el botón de cerrar del modal
@@ -902,5 +1223,10 @@ const OrdenesCompraUI = (() => {
 
 })();
 
+// Exponer en window para uso en handlers inline
+window.OrdenesCompraUI = OrdenesCompraUI;
+
 // Inicializar cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', OrdenesCompraUI.init);
+document.addEventListener('DOMContentLoaded', () => {
+  OrdenesCompraUI.init();
+});
