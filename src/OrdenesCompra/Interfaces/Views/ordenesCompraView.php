@@ -299,12 +299,6 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
       
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-        <button type="button" class="btn btn-warning" id="btnEditarOrden">
-          <i class="bi bi-pencil"></i> Editar
-        </button>
-        <button type="button" class="btn btn-success" id="btnConvertirCompra">
-          <i class="bi bi-bag-check"></i> Convertir en Compra
-        </button>
       </div>
     </div>
   </div>

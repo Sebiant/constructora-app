@@ -465,7 +465,7 @@ try {
                 error_log("Hay faltantes: " . ($hayFaltantes ? 'SÍ' : 'NO'));
                 error_log("Nuevo estado orden: $nuevoEstadoOrden");
                 
-                $stmtUpdOrden = $connection->prepare("UPDATE ordenes_compra SET estado = ?, numero_factura = ?, fecha_factura = CURDATE(), observaciones = CONCAT(COALESCE(observaciones,''), '\n[COMPRA] ', ?, COALESCE(observaciones_complementaria, '')), fechaupdate = NOW() WHERE id_orden_compra = ?");
+                $stmtUpdOrden = $connection->prepare("UPDATE ordenes_compra SET estado = ?, numero_factura = ?, fecha_factura = CURDATE(), observaciones = CONCAT(COALESCE(observaciones,''), '\n[COMPRA] ', ?), fechaupdate = NOW() WHERE id_orden_compra = ?");
                 $stmtUpdOrden->execute([$nuevoEstadoOrden, $numeroFactura, $mensajeObservaciones, $idOrden]);
 
                 // Recalcular estado del pedido
