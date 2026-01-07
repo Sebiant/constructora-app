@@ -7,7 +7,8 @@ const OrdenesCompraUI = (() => {
     productosSeleccionados: new Map(),
     modalOrden: null,
     modalDetalle: null,
-    vistaActual: 'tabla'
+    vistaActual: 'tabla',
+    isCargandoProductos: false
   };
 
   const API_ORDENES = '/sgigescomnew/src/OrdenesCompra/Interfaces/OrdenesCompraController.php';
@@ -53,6 +54,15 @@ const OrdenesCompraUI = (() => {
     document.getElementById('idPedido')?.addEventListener('change', cargarProductosPedido);
     document.getElementById('btnGuardarOrden')?.addEventListener('click', guardarOrden);
     document.getElementById('selectAll')?.addEventListener('change', seleccionarTodosProductos);
+
+    // Event listener para recargar proveedores cuando se cierra el modal de agregar proveedor
+    const modalProveedor = document.getElementById('modalAgregarProveedor');
+    if (modalProveedor) {
+      modalProveedor.addEventListener('hidden.bs.modal', function () {
+        console.log('Modal de proveedor cerrado, recargando lista de proveedores...');
+        cargarProveedores();
+      });
+    }
 
     await Promise.all([
       cargarProveedores(),
@@ -119,22 +129,59 @@ const OrdenesCompraUI = (() => {
   async function cargarProductosPedido() {
     const idPedido = document.getElementById('idPedido').value;
     console.log('🔍 Cargando productos para pedido ID:', idPedido);
-    
+
     if (!idPedido) {
       console.log('❌ No se seleccionó pedido');
       return;
     }
 
+    // Verificar si el pedido ya tiene una orden de compra
+    try {
+      console.log('🔍 Verificando si el pedido ya tiene orden de compra...');
+      const response = await fetch(`${API_ORDENES}?action=verificarOrdenExistente&id_pedido=${idPedido}`);
+      const result = await response.json();
+      
+      if (result.success && result.tieneOrden) {
+        console.log('⚠️ El pedido ya tiene una orden de compra creada');
+        alert('Este pedido ya tiene una orden de compra creada. No se puede crear otra orden para el mismo pedido.\n\nPara crear una nueva orden, seleccione un pedido que no tenga orden de compra.');
+        
+        // Limpiar selección
+        document.getElementById('idPedido').value = '';
+        document.getElementById('tablaProductosBody').innerHTML = '';
+        document.getElementById('contadorProductos').textContent = '0 productos';
+        
+        // Deshabilitar el botón de guardar
+        const btnGuardar = document.getElementById('btnGuardarOrden');
+        if (btnGuardar) {
+          btnGuardar.disabled = true;
+          btnGuardar.innerHTML = '<i class="bi bi-lock"></i> Pedido ya tiene orden';
+          btnGuardar.className = 'btn btn-secondary w-100';
+        }
+        
+        return;
+      }
+    } catch (error) {
+      console.error('Error al verificar orden existente:', error);
+      // Si hay error, continuar con la carga normal
+    }
+
+    if (state.isCargandoProductos) {
+      console.log('⏳ Ya hay una carga de productos en curso, se omite esta llamada');
+      return;
+    }
+
+    state.isCargandoProductos = true;
     try {
       console.log('📡 Haciendo llamada a API...');
       const response = await fetch(`${API_ORDENES}?action=getProductosPedido&id_pedido=${idPedido}`);
       const result = await response.json();
-      
+
       console.log('📥 Respuesta de API:', result);
-      
+
       if (result.success) {
         console.log('✅ Productos cargados:', result.data);
         renderizarProductosPedido(result.data || []);
+        // Importante: NO volver a disparar change aquí para evitar bucles y re-render constantes
       } else {
         console.error('❌ Error en API:', result.error);
         mostrarError(result.error || 'Error al cargar productos');
@@ -142,6 +189,8 @@ const OrdenesCompraUI = (() => {
     } catch (error) {
       console.error('❌ Error cargando productos:', error);
       mostrarError('Error de conexión al cargar productos');
+    } finally {
+      state.isCargandoProductos = false;
     }
   }
 
@@ -187,23 +236,10 @@ const OrdenesCompraUI = (() => {
         <td class="text-end fw-semibold">$${formatCurrency(orden.total)}</td>
         <td>${orden.numero_factura || '<span class="text-muted">Sin factura</span>'}</td>
         <td class="text-center">
-          <div class="btn-group btn-group-sm" role="group">
-            <button class="btn btn-outline-info" title="Ver detalles" 
-                    onclick="OrdenesCompraUI.verDetalle(${orden.id_orden_compra})">
-              <i class="bi bi-eye"></i>
-            </button>
-            <button class="btn btn-outline-warning" title="Editar" 
-                    onclick="OrdenesCompraUI.editarOrden(${orden.id_orden_compra})"
-                    ${orden.estado === 'comprada' || orden.estado === 'cancelada' ? 'disabled' : ''}>
-              <i class="bi bi-pencil"></i>
-            </button>
-            ${orden.estado === 'aprobada' ? `
-              <button class="btn btn-success" title="Convertir en compra" 
-                      onclick="OrdenesCompraUI.convertirEnCompra(${orden.id_orden_compra})">
-                <i class="bi bi-bag-check"></i>
-              </button>
-            ` : ''}
-          </div>
+          <button class="btn btn-outline-info btn-sm" title="Inspeccionar orden" 
+                  onclick="OrdenesCompraUI.verDetalle(${orden.id_orden_compra})">
+            <i class="bi bi-eye"></i> Inspeccionar
+          </button>
         </td>
       </tr>
     `).join('');
@@ -254,23 +290,8 @@ const OrdenesCompraUI = (() => {
             <div class="d-grid gap-2">
               <button class="btn btn-outline-info btn-sm" 
                       onclick="OrdenesCompraUI.verDetalle(${orden.id_orden_compra})">
-                <i class="bi bi-eye"></i> Ver Detalles
+                <i class="bi bi-eye"></i> Inspeccionar
               </button>
-              
-              <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-warning" 
-                        onclick="OrdenesCompraUI.editarOrden(${orden.id_orden_compra})"
-                        ${orden.estado === 'comprada' || orden.estado === 'cancelada' ? 'disabled' : ''}>
-                  <i class="bi bi-pencil"></i> Editar
-                </button>
-                
-                ${orden.estado === 'aprobada' ? `
-                  <button class="btn btn-success" 
-                          onclick="OrdenesCompraUI.convertirEnCompra(${orden.id_orden_compra})">
-                    <i class="bi bi-bag-check"></i> Comprar
-                  </button>
-                ` : ''}
-              </div>
             </div>
           </div>
         </div>
@@ -406,9 +427,38 @@ const OrdenesCompraUI = (() => {
 
   // Funciones de UI
   function mostrarModalNuevaOrden() {
-    document.querySelector(selectores.formOrden).reset();
-    document.getElementById('modalOrdenTitle').innerHTML = 
-      '<i class="bi bi-clipboard-plus"></i> Nueva Orden de Compra';
+    // Resetear formulario completamente
+    const form = document.querySelector(selectores.formOrden);
+    if (form) {
+      form.reset();
+    }
+    
+    // Limpiar campos manualmente para asegurar limpieza completa
+    const idPedido = document.getElementById('idPedido');
+    const idProveedor = document.getElementById('idProveedor');
+    const contenidoProductos = document.getElementById('contenidoProductos');
+    const subtotalOrden = document.getElementById('subtotalOrden');
+    const impuestosOrden = document.getElementById('impuestosOrden');
+    const totalOrden = document.getElementById('totalOrden');
+    
+    if (idPedido) idPedido.value = '';
+    if (idProveedor) idProveedor.value = '';
+    if (contenidoProductos) contenidoProductos.innerHTML = '';
+    
+    // Resetear estado de productos seleccionados
+    state.productosSeleccionados.clear();
+    
+    // Resetear totales
+    if (subtotalOrden) subtotalOrden.textContent = '$0.00';
+    if (impuestosOrden) impuestosOrden.textContent = '$0.00';
+    if (totalOrden) totalOrden.textContent = '$0.00';
+    
+    // Mostrar modal limpio
+    const modalTitle = document.getElementById('modalOrdenTitle');
+    if (modalTitle) {
+      modalTitle.innerHTML = '<i class="bi bi-clipboard-plus"></i> Nueva Orden de Compra';
+    }
+    
     state.modalOrden.show();
   }
 
@@ -548,7 +598,17 @@ const OrdenesCompraUI = (() => {
       if (!result.success) throw new Error(result.error || 'Error al guardar orden');
       
       mostrarExito('Orden de compra guardada correctamente');
-      state.modalOrden.hide();
+      // Limpiar y cerrar el modal de forma determinística
+      try {
+        // Reset de formulario y estado
+        const form = document.querySelector(selectores.formOrden);
+        if (form) form.reset();
+        state.productosSeleccionados.clear();
+        const tbody = document.getElementById('tablaProductosBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center py-3 text-muted">Seleccione un pedido para ver sus productos</td></tr>';
+      } catch (e) { console.warn('No se pudo limpiar completamente el modal:', e); }
+      // Cerrar modal antes de refrescar lista
+      if (state.modalOrden) { state.modalOrden.hide(); }
       await cargarOrdenes();
     } catch (error) {
       console.error('Error guardando orden:', error);
@@ -557,25 +617,82 @@ const OrdenesCompraUI = (() => {
   }
 
   async function verDetalle(idOrden) {
+    console.log('🔍 Botón inspeccionar presionado. ID Orden:', idOrden);
+    
     try {
+      console.log('📡 Haciendo llamada a la API...');
       const response = await fetch(`${API_ORDENES}?action=getDetalleOrden&id_orden_compra=${idOrden}`);
+      console.log('📡 Response status:', response.status);
+      
       const result = await response.json();
+      console.log('📊 Resultado de la API:', result);
       
       if (result.success) {
+        console.log('✅ API exitosa, mostrando modal...');
         mostrarModalDetalle(result.data);
+      } else {
+        console.error('❌ Error en API:', result.error);
+        mostrarError('Error al cargar el detalle: ' + (result.error || 'Error desconocido'));
       }
     } catch (error) {
-      console.error('Error obteniendo detalle:', error);
+      console.error('❌ Error en la llamada:', error);
       mostrarError('Error al cargar el detalle de la orden');
     }
   }
 
   function mostrarModalDetalle(orden) {
+    console.log('🎨 Renderizando modal con datos:', orden);
+    
     const contenido = document.getElementById('contenidoDetalle');
+    if (!contenido) {
+      console.error('❌ No se encontró el elemento #contenidoDetalle');
+      return;
+    }
+    
+    console.log('📝 Escribiendo HTML en el modal...');
+    
+    // Generar HTML para órdenes relacionadas
+    let htmlOrdenesRelacionadas = '';
+    if (orden.ordenes_relacionadas && orden.ordenes_relacionadas.length > 0) {
+      htmlOrdenesRelacionadas = `
+        <div class="alert alert-info mb-3">
+          <h6 class="alert-heading"><i class="bi bi-link-45deg"></i> Órdenes Relacionadas</h6>
+          <div class="mb-2">
+            ${orden.ordenes_relacionadas.map(rel => {
+              const badgeClass = rel.tipo === 'original' ? 'bg-primary' : 'bg-warning';
+              const icon = rel.tipo === 'original' ? 'bi-arrow-left-circle' : 'bi-arrow-right-circle';
+              return `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div>
+                    <span class="badge ${badgeClass} me-2">
+                      <i class="bi ${icon}"></i> ${rel.tipo === 'original' ? 'Original' : 'Complementaria'}
+                    </span>
+                    <strong>${rel.numero_orden}</strong>
+                    ${rel.motivo ? `<br><small class="text-muted">${rel.motivo}</small>` : ''}
+                  </div>
+                  <div>
+                    <span class="badge bg-secondary">${getBadgeEstado(rel.estado)}</span>
+                    <button class="btn btn-outline-info btn-sm ms-2" 
+                            onclick="OrdenesCompraUI.verDetalle(${rel.id_orden_compra})"
+                            title="Ver detalles">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+    
     contenido.innerHTML = `
+      ${htmlOrdenesRelacionadas}
+      
       <div class="row mb-3">
         <div class="col-md-6">
           <strong>Número de Orden:</strong> ${orden.numero_orden}
+          ${orden.es_complementaria ? '<span class="badge bg-warning ms-2">Complementaria</span>' : ''}
         </div>
         <div class="col-md-6">
           <strong>Estado:</strong> ${getBadgeEstado(orden.estado)}
@@ -596,78 +713,97 @@ const OrdenesCompraUI = (() => {
           <strong>Fecha Orden:</strong> ${formatDate(orden.fecha_orden)}
         </div>
         <div class="col-md-6">
-          <strong>Fecha Esperada:</strong> ${orden.fecha_esperada ? formatDate(orden.fecha_esperada) : 'No definida'}
-        </div>
-      </div>
-      
-      <div class="row mb-3">
-        <div class="col-md-6">
           <strong>Factura:</strong> ${orden.numero_factura || 'Sin factura'}
         </div>
-        <div class="col-md-6">
-          <strong>Fecha Factura:</strong> ${orden.fecha_factura ? formatDate(orden.fecha_factura) : 'No definida'}
-        </div>
       </div>
       
-      ${orden.observaciones ? `
+      ${orden.fecha_factura ? `
         <div class="row mb-3">
-          <div class="col-12">
-            <strong>Observaciones:</strong><br>
-            ${orden.observaciones}
+          <div class="col-md-6">
+            <strong>Fecha Factura:</strong> ${formatDate(orden.fecha_factura)}
+          </div>
+          <div class="col-md-6">
+            <strong></strong>
           </div>
         </div>
       ` : ''}
       
-      <div class="card border-0 shadow-sm">
-        <div class="card-header bg-light">
-          <strong>Productos</strong>
+      ${orden.observaciones ? `
+        <div class="row mb-3">
+          <div class="col-12">
+            <strong>Observaciones:</strong>
+            <div class="mt-1 p-2 bg-light rounded">${orden.observaciones.replace(/\n/g, '<br>')}</div>
+          </div>
         </div>
-        <div class="card-body">
+      ` : ''}
+      
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <strong>Subtotal:</strong> $${parseFloat(orden.subtotal || 0).toFixed(2)}
+        </div>
+        <div class="col-md-4">
+          <strong>Impuestos:</strong> $${parseFloat(orden.impuestos || 0).toFixed(2)}
+        </div>
+        <div class="col-md-4">
+          <strong>Total:</strong> $${parseFloat(orden.total || 0).toFixed(2)}
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-12">
+          <h6 class="fw-bold mb-3">Productos de la Orden</h6>
           <div class="table-responsive">
-            <table class="table table-sm">
+            <table class="table table-sm table-striped">
               <thead>
                 <tr>
                   <th>Descripción</th>
-                  <th class="text-center">Cantidad</th>
+                  <th class="text-center">Unidad</th>
+                  <th class="text-end">Cant. Solicitada</th>
+                  <th class="text-end">Cant. Comprada</th>
+                  <th class="text-end">Cant. Recibida</th>
                   <th class="text-end">Precio Unitario</th>
                   <th class="text-end">Subtotal</th>
+                  <th class="text-center">Estado</th>
                 </tr>
               </thead>
               <tbody>
-                ${orden.productos.map(p => `
-                  <tr>
-                    <td>${p.descripcion}</td>
-                    <td class="text-center">${p.cantidad_comprada}</td>
-                    <td class="text-end">$${formatCurrency(p.precio_unitario)}</td>
-                    <td class="text-end">$${formatCurrency(p.subtotal)}</td>
-                  </tr>
-                `).join('')}
+                ${orden.productos.map(producto => {
+                  const solicitada = parseFloat(producto.cantidad_solicitada || 0);
+                  const comprada = parseFloat(producto.cantidad_comprada || 0);
+                  const recibida = parseFloat(producto.cantidad_recibida || 0);
+                  const precio = parseFloat(producto.precio_unitario || 0);
+                  const subtotal = parseFloat(producto.subtotal || 0);
+                  
+                  let estadoBadge = '<span class="badge bg-secondary">Pendiente</span>';
+                  if (recibida >= solicitada) {
+                    estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
+                  } else if (recibida > 0) {
+                    estadoBadge = '<span class="badge bg-warning">Recibido parcial</span>';
+                  }
+                  
+                  return `
+                    <tr>
+                      <td>${producto.descripcion}</td>
+                      <td class="text-center">${producto.unidad}</td>
+                      <td class="text-end">${solicitada.toFixed(2)}</td>
+                      <td class="text-end">${comprada.toFixed(2)}</td>
+                      <td class="text-end">${recibida.toFixed(2)}</td>
+                      <td class="text-end">$${precio.toFixed(2)}</td>
+                      <td class="text-end">$${subtotal.toFixed(2)}</td>
+                      <td class="text-center">${estadoBadge}</td>
+                    </tr>
+                  `;
+                }).join('')}
               </tbody>
-              <tfoot>
-                <tr>
-                  <th colspan="3">Total:</th>
-                  <th class="text-end">$${formatCurrency(orden.total)}</th>
-                </tr>
-              </tfoot>
             </table>
           </div>
         </div>
       </div>
     `;
-
-    // Configurar botones del modal
-    const btnEditar = document.getElementById('btnEditarOrden');
-    const btnConvertir = document.getElementById('btnConvertirCompra');
     
-    btnEditar.onclick = () => editarOrden(orden.id_orden_compra);
-    btnConvertir.onclick = () => convertirEnCompra(orden.id_orden_compra);
-    
-    // Habilitar/deshabilitar botones según estado
-    btnEditar.disabled = orden.estado === 'comprada' || orden.estado === 'cancelada';
-    btnConvertir.disabled = orden.estado !== 'aprobada';
-    btnConvertir.style.display = orden.estado === 'aprobada' ? 'inline-block' : 'none';
-
-    state.modalDetalle.show();
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalDetalleOrden'));
+    modal.show();
   }
 
   function editarOrden(idOrden) {
@@ -691,10 +827,13 @@ const OrdenesCompraUI = (() => {
   // Utilidades
   function getBadgeEstado(estado) {
     const badges = {
+      '': '<span class="badge bg-secondary">Sin Estado</span>',
       'pendiente': '<span class="badge bg-warning">Pendiente</span>',
       'aprobada': '<span class="badge bg-info">Aprobada</span>',
       'comprada': '<span class="badge bg-success">Comprada</span>',
       'recibida': '<span class="badge bg-primary">Recibida</span>',
+      'parcialmente_comprada': '<span class="badge bg-warning text-dark">Parcialmente Comprada</span>',
+      'parcialmente_recibida': '<span class="badge bg-info text-dark">Parcialmente Recibida</span>',
       'cancelada': '<span class="badge bg-danger">Cancelada</span>'
     };
     return badges[estado] || '<span class="badge bg-secondary">Desconocido</span>';
@@ -748,6 +887,19 @@ const OrdenesCompraUI = (() => {
     convertirEnCompra,
     verDetallePedido
   };
+
+  // Event listener para el botón de cerrar del modal
+  document.addEventListener('click', function(e) {
+    if (e.target.hasAttribute('data-bs-dismiss') || e.target.closest('[data-bs-dismiss]')) {
+      if (state.modalOrden) {
+        state.modalOrden.hide();
+      }
+      if (state.modalDetalle) {
+        state.modalDetalle.hide();
+      }
+    }
+  });
+
 })();
 
 // Inicializar cuando el DOM esté listo

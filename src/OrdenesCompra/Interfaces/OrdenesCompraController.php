@@ -61,6 +61,43 @@ try {
             getProductosPedido($connection);
             break;
 
+        case 'eliminarPedido':
+            try {
+                $idPedido = (int)($_POST['id_pedido'] ?? 0);
+                
+                if (!$idPedido) {
+                    throw new Exception('ID de pedido requerido');
+                }
+                
+                // Eliminar detalles del pedido primero
+                $sqlDetalles = "DELETE FROM pedidos_detalle WHERE id_pedido = ?";
+                $stmtDetalles = $connection->prepare($sqlDetalles);
+                $stmtDetalles->execute([$idPedido]);
+                $detallesEliminados = $stmtDetalles->rowCount();
+                
+                // Eliminar el pedido
+                $sqlPedido = "DELETE FROM pedidos WHERE id_pedido = ?";
+                $stmtPedido = $connection->prepare($sqlPedido);
+                $stmtPedido->execute([$idPedido]);
+                $pedidoEliminado = $stmtPedido->rowCount();
+                
+                $connection->commit();
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => "Pedido eliminado correctamente ({$detallesEliminados} detalles, {$pedidoEliminado} pedido)",
+                    'detalles_eliminados' => $detallesEliminados,
+                    'pedido_eliminado' => $pedidoEliminado
+                ]);
+                
+            } catch (Exception $e) {
+                $connection->rollBack();
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Error al eliminar pedido: ' . $e->getMessage()
+                ]);
+            }
+            break;
         case 'convertirEnCompra':
             convertirEnCompra($connection, $jsonInput);
             break;
@@ -84,9 +121,9 @@ function getOrdenesCompra($connection) {
                 oc.id_orden_compra,
                 oc.numero_orden,
                 oc.id_pedido,
-                p.nombre as nombre_proveedor,
+                oc.id_provedor,
+                pv.nombre as nombre_proveedor,
                 oc.fecha_orden,
-                oc.fecha_esperada,
                 oc.numero_factura,
                 oc.fecha_factura,
                 oc.subtotal,
@@ -98,7 +135,7 @@ function getOrdenesCompra($connection) {
                 oc.fechareg,
                 oc.fechaupdate
             FROM ordenes_compra oc
-            LEFT JOIN provedores p ON oc.id_provedor = p.id_provedor
+            LEFT JOIN provedores pv ON oc.id_provedor = pv.id_provedor
             ORDER BY oc.fecha_orden DESC";
 
     $stmt = $connection->prepare($sql);
@@ -123,10 +160,23 @@ function getDetalleOrden($connection) {
 
     // Obtener datos principales de la orden
     $sql = "SELECT 
-                oc.*,
-                p.nombre_proveedor
+                oc.id_orden_compra,
+                oc.numero_orden,
+                oc.fecha_orden,
+                oc.estado,
+                oc.subtotal,
+                oc.impuestos,
+                oc.total,
+                oc.observaciones,
+                oc.numero_factura,
+                oc.fecha_factura,
+                oc.id_pedido,
+                oc.id_orden_original,
+                oc.es_complementaria,
+                oc.motivo_complementaria,
+                pv.nombre as nombre_proveedor
             FROM ordenes_compra oc
-            LEFT JOIN provedores p ON oc.id_provedor = p.id_provedor
+            LEFT JOIN provedores pv ON oc.id_provedor = pv.id_provedor
             WHERE oc.id_orden_compra = ?";
 
     $stmt = $connection->prepare($sql);
@@ -134,26 +184,70 @@ function getDetalleOrden($connection) {
     $orden = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$orden) {
-        throw new Exception('Orden de compra no encontrada');
+        throw new Exception('Orden no encontrada');
     }
 
     // Obtener productos de la orden
     $sql = "SELECT 
+                ocd.id_det_pedido,
                 ocd.descripcion,
                 ocd.unidad,
+                ocd.cantidad_solicitada,
                 ocd.cantidad_comprada,
+                ocd.cantidad_recibida,
                 ocd.precio_unitario,
                 ocd.subtotal,
-                ocd.cantidad_recibida,
                 ocd.fecha_recepcion
             FROM ordenes_compra_detalle ocd
             WHERE ocd.id_orden_compra = ?";
-
+    
     $stmt = $connection->prepare($sql);
     $stmt->execute([$idOrden]);
     $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $orden['productos'] = $productos;
+
+    // Obtener información de órdenes relacionadas
+    $orden['ordenes_relacionadas'] = [];
+    
+    // Si es una orden complementaria, obtener la original
+    if ($orden['es_complementaria'] && $orden['id_orden_original']) {
+        $sqlOriginal = "SELECT id_orden_compra, numero_orden, estado 
+                       FROM ordenes_compra 
+                       WHERE id_orden_compra = ?";
+        $stmtOriginal = $connection->prepare($sqlOriginal);
+        $stmtOriginal->execute([$orden['id_orden_original']]);
+        $ordenOriginal = $stmtOriginal->fetch(PDO::FETCH_ASSOC);
+        
+        if ($ordenOriginal) {
+            $orden['ordenes_relacionadas'][] = [
+                'tipo' => 'original',
+                'id_orden_compra' => $ordenOriginal['id_orden_compra'],
+                'numero_orden' => $ordenOriginal['numero_orden'],
+                'estado' => $ordenOriginal['estado']
+            ];
+        }
+    }
+    
+    // Si no es complementaria, buscar órdenes complementarias
+    if (!$orden['es_complementaria']) {
+        $sqlComplementarias = "SELECT id_orden_compra, numero_orden, estado, motivo_complementaria 
+                              FROM ordenes_compra 
+                              WHERE id_orden_original = ? AND es_complementaria = TRUE";
+        $stmtComplementarias = $connection->prepare($sqlComplementarias);
+        $stmtComplementarias->execute([$idOrden]);
+        $complementarias = $stmtComplementarias->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($complementarias as $comp) {
+            $orden['ordenes_relacionadas'][] = [
+                'tipo' => 'complementaria',
+                'id_orden_compra' => $comp['id_orden_compra'],
+                'numero_orden' => $comp['numero_orden'],
+                'estado' => $comp['estado'],
+                'motivo' => $comp['motivo_complementaria']
+            ];
+        }
+    }
 
     echo json_encode([
         'success' => true,
@@ -355,16 +449,15 @@ function getPedidosDisponibles($connection) {
                 CONCAT('Pedido #', p.id_pedido, ' - Total: $', FORMAT(p.total, 2), ' - ', 
                        CASE 
                            WHEN COUNT(pd.id_det_pedido) > 0 THEN 
-                               CONCAT(COUNT(DISTINCT CASE WHEN ocd.id_orden_detalle IS NULL OR ocd.cantidad_comprada < pd.cantidad THEN pd.id_det_pedido END), ' productos disponibles')
+                               CONCAT(COUNT(DISTINCT pd.id_det_pedido), ' productos disponibles')
                            ELSE 'Sin productos disponibles'
-                       END) as descripcion_pedido,
+                      END) as descripcion_pedido,
                 COUNT(DISTINCT pd.id_det_pedido) as total_productos,
-                COUNT(DISTINCT CASE WHEN ocd.id_orden_detalle IS NULL OR ocd.cantidad_comprada < pd.cantidad THEN pd.id_det_pedido END) as productos_disponibles
+                COUNT(DISTINCT pd.id_det_pedido) as productos_disponibles
             FROM pedidos p
             LEFT JOIN pedidos_detalle pd ON p.id_pedido = pd.id_pedido
-            LEFT JOIN ordenes_compra_detalle ocd ON pd.id_det_pedido = ocd.id_det_pedido
-            WHERE p.estado = 'aprobado'
-            GROUP BY p.id_pedido, p.fecha_pedido, p.total, p.estado, p.estado_compra
+            WHERE p.estado IN ('aprobado', 'parcialmente_comprado')
+            GROUP BY p.id_pedido, p.fecha_pedido, p.total, p.estado
             HAVING productos_disponibles > 0
             ORDER BY p.fecha_pedido DESC";
 
@@ -388,45 +481,32 @@ function getProductosPedido($connection) {
         throw new Exception('ID de pedido requerido');
     }
 
+    // Productos del pedido con cálculo de cantidades ya compradas
     $sql = "SELECT 
                 pd.id_det_pedido,
-                CASE 
-                    WHEN pd.tipo_componente = 'material' AND m.id_material IS NOT NULL THEN m.nombremat
-                    WHEN pd.tipo_componente = 'item' AND i.id_item IS NOT NULL THEN i.nombre_item
-                    WHEN pd.tipo_componente = 'material_extra' AND me.id_material IS NOT NULL THEN 
-                        CONCAT('Material Extra #', me.id_material, ' (', m2.nombremat, ')')
-                    ELSE CONCAT('Componente ', pd.tipo_componente, ' #', pd.id_componente)
-                END as descripcion,
-                CASE 
-                    WHEN pd.tipo_componente = 'material' AND m.id_material IS NOT NULL THEN m.idunidad
-                    WHEN pd.tipo_componente = 'item' AND i.id_item IS NOT NULL THEN i.unidad
-                    WHEN pd.tipo_componente = 'material_extra' AND me.id_material IS NOT NULL THEN m2.idunidad
-                    ELSE 'unidad'
-                END as unidad,
+                COALESCE(ic.descripcion, CAST(m.nombremat AS CHAR)) AS descripcion,
+                COALESCE(ic.unidad, u.unidesc, 'unidad') AS unidad,
                 pd.cantidad,
                 pd.precio_unitario,
                 pd.subtotal,
-                COALESCE(ocd.cantidad_comprada, 0) as cantidad_comprada,
-                (pd.cantidad - COALESCE(ocd.cantidad_comprada, 0)) as cantidad_disponible,
+                COALESCE(SUM(ocd.cantidad_comprada), 0) AS cantidad_comprada,
+                GREATEST(pd.cantidad - COALESCE(SUM(ocd.cantidad_comprada), 0), 0) AS cantidad_disponible,
                 CASE 
-                    WHEN COALESCE(ocd.cantidad_comprada, 0) >= pd.cantidad THEN 'comprado'
-                    WHEN COALESCE(ocd.cantidad_comprada, 0) > 0 THEN 'parcialmente_comprado'
-                    ELSE 'disponible'
-                END as estado_producto,
-                CASE 
-                    WHEN COALESCE(ocd.cantidad_comprada, 0) >= pd.cantidad THEN 0
-                    WHEN COALESCE(ocd.cantidad_comprada, 0) > 0 THEN (pd.cantidad - ocd.cantidad_comprada)
-                    ELSE pd.cantidad
-                END as cantidad_maxima_seleccionable
+                    WHEN GREATEST(pd.cantidad - COALESCE(SUM(ocd.cantidad_comprada), 0), 0) > 0 THEN 'disponible'
+                    ELSE 'completado'
+                END AS estado_producto,
+                GREATEST(pd.cantidad - COALESCE(SUM(ocd.cantidad_comprada), 0), 0) AS cantidad_maxima_seleccionable
             FROM pedidos_detalle pd
+            LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
+            LEFT JOIN materiales_extra_presupuesto mep ON pd.id_material_extra = mep.id_material_extra
+            LEFT JOIN materiales m ON mep.id_material = m.id_material
+            LEFT JOIN gr_unidad u ON m.idunidad = u.idunidad
             LEFT JOIN ordenes_compra_detalle ocd ON pd.id_det_pedido = ocd.id_det_pedido
-            LEFT JOIN materiales m ON pd.tipo_componente = 'material' AND pd.id_componente = m.id_material
-            LEFT JOIN items i ON pd.tipo_componente = 'item' AND pd.id_item = i.id_item
-            LEFT JOIN materiales_extra_presupuesto me ON pd.tipo_componente = 'material_extra' AND pd.id_material_extra = me.id_material_extra
-            LEFT JOIN materiales m2 ON pd.tipo_componente = 'material_extra' AND me.id_material = m2.id_material
+            LEFT JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra AND oc.estado IN ('aprobada', 'comprada', 'parcialmente_comprada')
             WHERE pd.id_pedido = ?
-            AND (ocd.id_orden_detalle IS NULL OR ocd.cantidad_comprada < pd.cantidad)
-            ORDER BY pd.tipo_componente, descripcion";
+            GROUP BY pd.id_det_pedido, pd.cantidad, pd.precio_unitario, pd.subtotal
+            HAVING cantidad_disponible > 0
+            ORDER BY pd.es_excedente ASC, COALESCE(ic.descripcion, m.nombremat) ASC";
 
     $stmt = $connection->prepare($sql);
     $stmt->execute([$idPedido]);

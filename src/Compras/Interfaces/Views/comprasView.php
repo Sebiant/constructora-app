@@ -5,7 +5,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 <div class="container mt-4">
   <div class="card shadow border-0">
     <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-      <h3 class="text-center mb-0"><i class="bi bi-bag-check"></i> Compras - Pedidos Aprobados</h3>
+      <h3 class="text-center mb-0"><i class="bi bi-bag-check"></i> Compras - Órdenes de Compra</h3>
       <button class="btn btn-outline-light btn-sm" id="btnRefrescar"><i class="bi bi-arrow-repeat"></i> Refrescar</button>
     </div>
     <div class="card-body bg-light">
@@ -36,7 +36,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
           <div class="col-lg-7">
             <div class="card border-0 shadow-sm">
               <div class="card-header bg-light">
-                <strong>Pedidos aprobados</strong>
+                <strong>Órdenes para comprar</strong>
                 <span class="text-muted small" id="contadorPedidos"></span>
               </div>
               <div class="card-body" id="listaPedidos" style="min-height: 240px;"></div>
@@ -101,13 +101,13 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
               </div>
               <div class="card-body">
                 <div id="detallePedido" class="mb-3">
-                  <div class="text-muted">Seleccione un pedido para ver el detalle.</div>
+                  <div class="text-muted">Seleccione una orden de compra para ver el detalle.</div>
                 </div>
 
                 <hr />
 
                 <form id="formCompra">
-                  <input type="hidden" id="idPedido" />
+                  <input type="hidden" id="idOrdenCompra" />
 
                   <div class="mb-2">
                     <label class="form-label fw-bold">N° Factura *</label>
@@ -121,15 +121,18 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                     </div>
                   </div>
 
+                  <div class="mb-2 mt-3">
+                    <label class="form-label fw-bold">Proveedor</label>
+                    <input type="text" class="form-control" id="proveedorOrden" disabled placeholder="—" />
+                  </div>
+
                   <div class="mt-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                      <label class="form-label fw-bold mb-0">Asignar proveedor por item</label>
-                      <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalGestionProvedores">
-                        <i class="bi bi-plus-circle"></i> Nuevo Proveedor
-                      </button>
+                    <label class="form-label fw-bold mb-2">Recepción de Items</label>
+                    <div class="alert alert-info py-2">
+                      <small><i class="bi bi-info-circle"></i> Marque qué items llegaron complete. Si algo falta, se generará automáticamente una orden complementaria.</small>
                     </div>
-                    <div id="itemsConProveedor" class="border rounded p-2" style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
-                      <div class="text-muted text-center py-3">Seleccione un pedido para ver los items</div>
+                    <div id="itemsRecepcion" class="border rounded p-2" style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
+                      <div class="text-muted text-center py-3">Seleccione una orden de compra para ver los items</div>
                     </div>
                   </div>
 
@@ -145,24 +148,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                   </div>
                 </form>
 
-                <div class="modal fade" id="modalGestionProvedores" tabindex="-1" aria-hidden="true">
-                  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-                    <div class="modal-content">
-                      <div class="modal-header">
-                        <h5 class="modal-title">Gestión de Provedores</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                      </div>
-                      <div class="modal-body p-0" style="height: 80vh;">
-                        <iframe
-                          src="/sgigescomnew/ejemplos/provedoresComponent.php"
-                          style="border:0; width:100%; height:100%;"
-                        ></iframe>
-                      </div>
-                    </div>
-                  </div>
                 </div>
-
-              </div>
             </div>
           </div>
         </div>

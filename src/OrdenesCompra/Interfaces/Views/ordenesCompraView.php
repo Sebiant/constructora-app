@@ -20,6 +20,11 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
     </div>
     
     <div class="card-body bg-light">
+      <!-- Componente de notificaciones de pedidos -->
+      <?php
+      include_once __DIR__ . '/../../../Shared/Components/notificaciones_pedidos.php';
+      ?>
+      
       <!-- Filtros de búsqueda -->
       <div class="row g-3 mb-4">
         <div class="col-md-3">
@@ -36,9 +41,17 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
         
         <div class="col-md-3">
           <label class="form-label fw-bold">Proveedor</label>
-          <select class="form-select" id="filterProveedor">
-            <option value="">Todos los proveedores</option>
-          </select>
+          <div class="input-group">
+            <select class="form-select" id="filterProveedor">
+              <option value="">Todos los proveedores</option>
+            </select>
+            <button class="btn btn-outline-success" type="button" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#modalAgregarProveedor"
+                    title="Agregar nuevo proveedor">
+              <i class="bi bi-plus-circle"></i> Nuevo
+            </button>
+          </div>
         </div>
         
         <div class="col-md-3">
