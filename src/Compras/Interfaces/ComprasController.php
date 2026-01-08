@@ -110,6 +110,7 @@ try {
                 $sqlCompra = "SELECT
                                 c.id_compra,
                                 c.id_pedido,
+                                c.id_orden_compra,
                                 c.fecha_compra,
                                 c.numero_factura,
                                 c.total,
@@ -139,6 +140,7 @@ try {
                     throw new Exception('Compra no encontrada');
                 }
 
+                // Intentar obtener detalles por id_orden_compra (método nuevo)
                 $sqlDet = "SELECT DISTINCT
                                 ocd.id_det_pedido,
                                 ocd.descripcion,
@@ -151,14 +153,40 @@ try {
                                 oc.id_provedor,
                                 pv.nombre AS nombre_provedor
                            FROM compras c
-                           INNER JOIN ordenes_compra oc ON c.id_pedido = oc.id_pedido
-                           INNER JOIN ordenes_compra_detalle ocd ON oc.id_orden_compra = ocd.id_orden_compra
+                           INNER JOIN ordenes_compra_detalle ocd ON c.id_orden_compra = ocd.id_orden_compra
+                           LEFT JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra
                            LEFT JOIN provedores pv ON oc.id_provedor = pv.id_provedor
                            WHERE c.id_compra = ?
                            ORDER BY ocd.id_det_pedido ASC";
+                
                 $stmtD = $connection->prepare($sqlDet);
                 $stmtD->execute([(int)$idCompra]);
                 $detalles = $stmtD->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Si no hay detalles (compra antigua), intentar por el método antiguo
+                if (empty($detalles)) {
+                    $sqlDetAntiguo = "SELECT
+                                        ocd.id_det_pedido,
+                                        ocd.descripcion,
+                                        ocd.unidad,
+                                        ocd.cantidad_solicitada,
+                                        COALESCE(ocd.cantidad_recibida, 0) AS cantidad_recibida,
+                                        (ocd.cantidad_solicitada - COALESCE(ocd.cantidad_recibida, 0)) AS cantidad_faltante,
+                                        ocd.precio_unitario,
+                                        ocd.subtotal,
+                                        oc.id_provedor,
+                                        pv.nombre AS nombre_provedor
+                                     FROM compras c
+                                     INNER JOIN ordenes_compra oc ON c.id_pedido = oc.id_pedido
+                                     INNER JOIN ordenes_compra_detalle ocd ON oc.id_orden_compra = ocd.id_orden_compra
+                                     LEFT JOIN provedores pv ON oc.id_provedor = pv.id_provedor
+                                     WHERE c.id_compra = ?
+                                     ORDER BY ocd.id_det_pedido ASC";
+                    
+                    $stmtD = $connection->prepare($sqlDetAntiguo);
+                    $stmtD->execute([(int)$idCompra]);
+                    $detalles = $stmtD->fetchAll(PDO::FETCH_ASSOC);
+                }
 
                 $compra['detalles'] = $detalles;
                 echo json_encode(['success' => true, 'data' => $compra]);
@@ -431,8 +459,8 @@ try {
                 $stmtUpdOrden->execute([$estadoOrden, $numeroFactura, $obsCompleta, $idOrden]);
 
                 // Insertar en compras (tabla principal)
-                $stmtCompra = $connection->prepare("INSERT INTO compras (id_pedido, fecha_compra, numero_factura, total, estado, observaciones, id_provedor, idusuario) VALUES (?, NOW(), ?, ?, 'completada', ?, ?, ?)");
-                $stmtCompra->execute([$orden['id_pedido'], $numeroFactura, $total, $observaciones, $orden['id_provedor'], $idUsuario]);
+                $stmtCompra = $connection->prepare("INSERT INTO compras (id_pedido, id_orden_compra, fecha_compra, numero_factura, total, estado, observaciones, id_provedor, idusuario) VALUES (?, ?, NOW(), ?, ?, 'completada', ?, ?, ?)");
+                $stmtCompra->execute([$orden['id_pedido'], $idOrden, $numeroFactura, $total, $observaciones, $orden['id_provedor'], $idUsuario]);
 
                 // Actualizar estado del pedido
                 $idPedido = (int)$orden['id_pedido'];

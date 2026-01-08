@@ -853,12 +853,7 @@ const OrdenesCompraUI = (() => {
                     ${rel.motivo ? `<br><small class="text-muted">${rel.motivo}</small>` : ''}
                   </div>
                   <div>
-                    <span class="badge bg-secondary">${getBadgeEstado(rel.estado)}</span>
-                    <button class="btn btn-outline-info btn-sm ms-2" 
-                            onclick="OrdenesCompraUI.verDetalle(${rel.id_orden_compra})"
-                            title="Ver detalles">
-                      <i class="bi bi-eye"></i>
-                    </button>
+                    ${getBadgeEstado(rel.estado)}
                   </div>
                 </div>
               `;
