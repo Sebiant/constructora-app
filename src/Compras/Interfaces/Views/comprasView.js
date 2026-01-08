@@ -135,16 +135,35 @@ async function verDetalleCompra(idCompra) {
     const fecha = data.fecha_compra ? new Date(data.fecha_compra).toLocaleString('es-CO') : '-';
     const detalles = Array.isArray(data.detalles) ? data.detalles : [];
     const filas = detalles
-      .map((d) => `
-        <tr>
-          <td>
-            <div class="fw-semibold">${escapeHtml(d.descripcion)}</div>
-          </td>
-          <td class="text-end">${escapeHtml(Number(d.cantidad || 0).toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
-          <td class="text-end">${formatMoney(d.precio_unitario)}</td>
-          <td class="text-end fw-bold">${formatMoney(d.subtotal)}</td>
-        </tr>
-      `)
+      .map((d) => {
+        const solicitada = Number(d.cantidad_solicitada || 0);
+        const recibida = Number(d.cantidad_recibida || 0);
+        const faltante = Number(d.cantidad_faltante || 0);
+        const estadoRecibido = recibida >= solicitada ? 
+          '<span class="badge bg-success">Completo</span>' : 
+          recibida === 0 ? 
+          '<span class="badge bg-danger">No llegó</span>' :
+          '<span class="badge bg-warning">Parcial</span>';
+        
+        return `
+          <tr>
+            <td>
+              <div class="fw-semibold">${escapeHtml(d.descripcion)}</div>
+            </td>
+            <td class="text-end">${escapeHtml(solicitada.toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
+            <td class="text-end">${escapeHtml(recibida.toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
+            <td class="text-end">
+              ${faltante > 0 ? 
+                `<span class="text-danger">${escapeHtml(faltante.toFixed(4))} ${escapeHtml(d.unidad || '')}</span>` : 
+                '<span class="text-success">0</span>'
+              }
+            </td>
+            <td class="text-center">${estadoRecibido}</td>
+            <td class="text-end">${formatMoney(d.precio_unitario)}</td>
+            <td class="text-end fw-bold">${formatMoney(d.subtotal)}</td>
+          </tr>
+        `;
+      })
       .join('');
 
     qs('detalleCompraContenido').innerHTML = `
@@ -169,13 +188,16 @@ async function verDetalleCompra(idCompra) {
           <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
             <tr>
               <th>Ítem / Proveedor</th>
-              <th class="text-end">Cantidad</th>
+              <th class="text-end">Cant. Solicitada</th>
+              <th class="text-end">Cant. Recibida</th>
+              <th class="text-end">Cant. Faltante</th>
+              <th class="text-center">Estado</th>
               <th class="text-end">Vr. Unit.</th>
               <th class="text-end">Subtotal</th>
             </tr>
           </thead>
           <tbody>
-            ${filas || '<tr><td colspan="4" class="text-muted">Sin detalle.</td></tr>'}
+            ${filas || '<tr><td colspan="7" class="text-muted">Sin detalle.</td></tr>'}
           </tbody>
         </table>
       </div>

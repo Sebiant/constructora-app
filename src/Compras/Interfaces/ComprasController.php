@@ -139,11 +139,13 @@ try {
                     throw new Exception('Compra no encontrada');
                 }
 
-                $sqlDet = "SELECT
+                $sqlDet = "SELECT DISTINCT
                                 ocd.id_det_pedido,
                                 ocd.descripcion,
                                 ocd.unidad,
-                                ocd.cantidad_solicitada AS cantidad,
+                                ocd.cantidad_solicitada,
+                                COALESCE(ocd.cantidad_recibida, 0) AS cantidad_recibida,
+                                (ocd.cantidad_solicitada - COALESCE(ocd.cantidad_recibida, 0)) AS cantidad_faltante,
                                 ocd.precio_unitario,
                                 ocd.subtotal,
                                 oc.id_provedor,
@@ -258,7 +260,7 @@ try {
                         LEFT JOIN pedidos p ON oc.id_pedido = p.id_pedido
                         LEFT JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
                         LEFT JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
-                        WHERE oc.estado IN ('pendiente','aprobada','parcialmente_comprada')";
+                        WHERE oc.estado IN ('pendiente','aprobada')";
 
                 $params = [];
 
