@@ -6,6 +6,7 @@
  * - pedidos_detalle
  * - ordenes_compra
  * - ordenes_compra_detalle
+ * - compras
  * - compras_finales (si existe)
  *
  * Uso:
@@ -48,6 +49,7 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $allTables = [
     'ordenes_compra_detalle',
     'ordenes_compra',
+    'compras',            // tabla principal de compras
     'compras_finales',     // opcional si existe
     'pedidos_detalle',
     'pedidos',
@@ -166,7 +168,7 @@ if ($method === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clean
           </div>
           <div class="card-body">
             <div class="alert alert-warning" role="alert">
-              Esta acción eliminará datos de negocio (pedidos, detalles, órdenes, detalles y compras finales si existen).
+              Esta acción eliminará datos de negocio (pedidos, detalles, órdenes, detalles, compras y compras finales si existen).
               No elimina catálogos como materiales, items, proyectos, presupuestos, proveedores. Úsalo con cuidado.
             </div>
 

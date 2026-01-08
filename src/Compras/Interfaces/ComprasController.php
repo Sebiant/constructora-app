@@ -140,19 +140,20 @@ try {
                 }
 
                 $sqlDet = "SELECT
-                                cd.id_compra_detalle,
-                                cd.id_det_pedido,
-                                cd.descripcion,
-                                cd.unidad,
-                                cd.cantidad,
-                                cd.precio_unitario,
-                                cd.subtotal,
-                                cd.id_provedor,
+                                ocd.id_det_pedido,
+                                ocd.descripcion,
+                                ocd.unidad,
+                                ocd.cantidad_solicitada AS cantidad,
+                                ocd.precio_unitario,
+                                ocd.subtotal,
+                                oc.id_provedor,
                                 pv.nombre AS nombre_provedor
-                           FROM compras_detalle cd
-                           LEFT JOIN provedores pv ON cd.id_provedor = pv.id_provedor
-                           WHERE cd.id_compra = ?
-                           ORDER BY cd.id_compra_detalle ASC";
+                           FROM compras c
+                           INNER JOIN ordenes_compra oc ON c.id_pedido = oc.id_pedido
+                           INNER JOIN ordenes_compra_detalle ocd ON oc.id_orden_compra = ocd.id_orden_compra
+                           LEFT JOIN provedores pv ON oc.id_provedor = pv.id_provedor
+                           WHERE c.id_compra = ?
+                           ORDER BY ocd.id_det_pedido ASC";
                 $stmtD = $connection->prepare($sqlDet);
                 $stmtD->execute([(int)$idCompra]);
                 $detalles = $stmtD->fetchAll(PDO::FETCH_ASSOC);
@@ -427,9 +428,9 @@ try {
                 $stmtUpdOrden = $connection->prepare("UPDATE ordenes_compra SET estado = ?, numero_factura = ?, fecha_factura = CURDATE(), observaciones = CONCAT(COALESCE(observaciones,''), ?), fechaupdate = NOW() WHERE id_orden_compra = ?");
                 $stmtUpdOrden->execute([$estadoOrden, $numeroFactura, $obsCompleta, $idOrden]);
 
-                // Insertar en compras_finales
-                $stmtCF = $connection->prepare("INSERT INTO compras_finales (id_orden_compra, fecha_compra, monto_total, numero_factura, fecha_factura, idusuario) VALUES (?, NOW(), ?, ?, CURDATE(), ?)");
-                $stmtCF->execute([$idOrden, $total, $numeroFactura, $idUsuario]);
+                // Insertar en compras (tabla principal)
+                $stmtCompra = $connection->prepare("INSERT INTO compras (id_pedido, fecha_compra, numero_factura, total, estado, observaciones, id_provedor, idusuario) VALUES (?, NOW(), ?, ?, 'completada', ?, ?, ?)");
+                $stmtCompra->execute([$orden['id_pedido'], $numeroFactura, $total, $observaciones, $orden['id_provedor'], $idUsuario]);
 
                 // Actualizar estado del pedido
                 $idPedido = (int)$orden['id_pedido'];
