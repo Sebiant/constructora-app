@@ -76,16 +76,17 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                       <tr>
                         <th>#</th>
                         <th>Pedido</th>
+                        <th>Proveedor</th>
                         <th>Fecha</th>
-                        <th>Proyecto</th>
-                        <th>Provedor</th>
                         <th class="text-end">Total</th>
+                        <th>Factura</th>
+                        <th>Estado</th>
                         <th class="text-center">Acciones</th>
                       </tr>
                     </thead>
                     <tbody id="tablaCompras">
                       <tr>
-                        <td colspan="7" class="text-center text-muted py-4">Cargando historial...</td>
+                        <td colspan="8" class="text-center text-muted py-4">Cargando historial...</td>
                       </tr>
                     </tbody>
                   </table>

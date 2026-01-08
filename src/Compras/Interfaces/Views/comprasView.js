@@ -18,22 +18,80 @@ function getFiltrosCompras() {
 }
 
 async function cargarCompras() {
-  const tbody = qs('tablaCompras');
-  if (!tbody) return;
+  try {
+    console.log('📡 Cargando compras...');
 
-  const filtros = getFiltrosCompras();
-  const params = new URLSearchParams();
-  params.set('action', 'getCompras');
-  if (filtros.proyecto) params.set('proyecto', filtros.proyecto);
-  if (filtros.busqueda) params.set('busqueda', filtros.busqueda);
-  if (filtros.fechaDesde) params.set('fechaDesde', filtros.fechaDesde);
-  if (filtros.fechaHasta) params.set('fechaHasta', filtros.fechaHasta);
+    // Cargar proyectos primero
+    await cargarProyectos();
 
-  tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Cargando historial...</td></tr>';
+    // Cargar pedidos para el selector
+    await cargarPedidos();
 
-  const data = await apiGet(`?${params.toString()}`);
-  compras = Array.isArray(data) ? data : [];
-  renderTablaCompras();
+    // Cargar compras
+    const tbody = qs('tablaCompras');
+    if (!tbody) {
+      console.error('No se encontró tabla de compras');
+      return;
+    }
+
+    // Limpiar tabla
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm" role="status"></div><p class="mb-0 mt-2">Cargando compras...</p></td></tr>';
+
+    const filtros = getFiltrosCompras();
+    const params = new URLSearchParams();
+    params.set('action', 'getCompras');
+    if (filtros.proyecto) params.set('proyecto', filtros.proyecto);
+    if (filtros.busqueda) params.set('busqueda', filtros.busqueda);
+    if (filtros.fechaDesde) params.set('fechaDesde', filtros.fechaDesde);
+    if (filtros.fechaHasta) params.set('fechaHasta', filtros.fechaHasta);
+
+    console.log('🌐 Parámetros de carga de compras:', params.toString());
+    console.log('🌐 URL completa:', `${API_COMPRAS}?${params.toString()}`);
+
+    const response = await apiGet(params.toString());
+    console.log('📥 Respuesta de compras:', response);
+
+    const compras = response || [];
+    console.log('✅ Compras cargadas:', compras.length);
+
+    if (compras.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><div class="alert alert-info"><i class="bi bi-info-circle"></i> No hay compras registradas</div></td></tr>';
+      return;
+    }
+
+    // Renderizar compras
+    tbody.innerHTML = compras.map((compra, index) => {
+      const estadoBadge = getEstadoBadge(compra.estado);
+      const fechaFormateada = new Date(compra.fecha_compra).toLocaleDateString();
+
+      return `
+        <tr>
+          <td>${compra.id_compra}</td>
+          <td>${compra.id_pedido || '-'}</td>
+          <td>${compra.nombre_provedor || '-'}</td>
+          <td>${fechaFormateada}</td>
+          <td>${formatMoney(compra.total)}</td>
+          <td>${compra.numero_factura || '-'}</td>
+          <td>${estadoBadge}</td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-outline-primary" onclick="verDetalleCompra(${compra.id_compra})">
+              <i class="bi bi-eye"></i> Ver
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    console.log('✅ Tabla de compras renderizada');
+
+  } catch (error) {
+    console.error('❌ Error en cargarCompras:', error);
+    console.error('❌ Stack trace:', error.stack);
+    const tbody = qs('tablaCompras');
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4"><div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error al cargar compras: ${escapeHtml(error.message)}</div></td></tr>`;
+    }
+  }
 }
 
 function renderTablaCompras() {
@@ -41,7 +99,7 @@ function renderTablaCompras() {
   if (!tbody) return;
 
   if (!compras.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay compras para los filtros seleccionados.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No hay compras para los filtros seleccionados.</td></tr>';
     return;
   }
 
@@ -72,7 +130,7 @@ async function verDetalleCompra(idCompra) {
     qs('detalleCompraId').textContent = String(idCompra);
     qs('detalleCompraContenido').innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border" role="status"></div><div class="mt-2">Cargando...</div></div>';
 
-    const data = await apiGet(`?action=getCompraFinalDetalle&id_compra=${encodeURIComponent(idCompra)}`);
+    const data = await apiGet(`action=getCompraDetalle&id_compra=${encodeURIComponent(idCompra)}`);
 
     const fecha = data.fecha_compra ? new Date(data.fecha_compra).toLocaleString('es-CO') : '-';
     const detalles = Array.isArray(data.detalles) ? data.detalles : [];
@@ -92,9 +150,9 @@ async function verDetalleCompra(idCompra) {
     qs('detalleCompraContenido').innerHTML = `
       <div class="row g-2 mb-2">
         <div class="col-md-3"><div class="text-muted small">Compra</div><div class="fw-bold">#${escapeHtml(data.id_compra)}</div></div>
-        <div class="col-md-3"><div class="text-muted small">OC</div><div class="fw-bold">${escapeHtml(data.numero_orden || ('#' + data.id_orden_compra))}</div></div>
         <div class="col-md-3"><div class="text-muted small">Pedido</div><div class="fw-bold">#${escapeHtml(data.id_pedido)}</div></div>
         <div class="col-md-3"><div class="text-muted small">Fecha</div><div class="fw-bold">${escapeHtml(fecha)}</div></div>
+        <div class="col-md-3"><div class="text-muted small">Total</div><div class="fw-bold">${formatMoney(data.total)}</div></div>
       </div>
       <div class="mb-2">
         <div class="text-muted small">Proyecto</div>
@@ -182,41 +240,41 @@ async function onGuardarCompra(e) {
   // Recopilar datos de recepción de items
   const itemsRecibidos = [];
   const rowsContainer = qs('itemsRecepcion');
-  
+
   console.log('Buscando itemsRecepcion:', rowsContainer); // Debug
-  
+
   if (rowsContainer) {
     const rows = rowsContainer.querySelectorAll('tbody tr');
     console.log('Filas encontradas:', rows.length); // Debug
-    
+
     rows.forEach((tr, index) => {
       console.log(`Procesando fila ${index}:`, tr); // Debug
-      
+
       const idDetPedidoInput = tr.querySelector('input[name="id_det_pedido"]');
       const cantidadEsperadaInput = tr.querySelector('input[name="cantidad_esperada"]');
       const cantidadRecibidaInput = tr.querySelector('.cantidad-recibida');
       const precioUnitarioInput = tr.querySelector('input[name="precio_unitario"]');
-      
+
       console.log('Inputs encontrados:', {
         idDetPedido: idDetPedidoInput,
         cantidadEsperada: cantidadEsperadaInput,
         cantidadRecibida: cantidadRecibidaInput,
         precioUnitario: precioUnitarioInput
       }); // Debug
-      
+
       if (idDetPedidoInput && cantidadEsperadaInput && cantidadRecibidaInput && precioUnitarioInput) {
         const idDetPedido = idDetPedidoInput.value;
         const cantidadEsperada = parseFloat(cantidadEsperadaInput.value);
         const cantidadRecibida = parseFloat(cantidadRecibidaInput.value);
         const precioUnitario = parseFloat(precioUnitarioInput.value);
-        
+
         console.log(`Item ${index}:`, {
           idDetPedido,
           cantidadEsperada,
           cantidadRecibida,
           precioUnitario
         }); // Debug
-        
+
         itemsRecibidos.push({
           id_det_pedido: idDetPedido,
           cantidad_esperada: cantidadEsperada,
@@ -230,7 +288,7 @@ async function onGuardarCompra(e) {
   } else {
     console.warn('No se encontró el contenedor itemsRecepcion'); // Debug
   }
-  
+
   console.log('Items recibidos finales:', itemsRecibidos); // Debug
 
   const payload = {
@@ -252,12 +310,21 @@ async function onGuardarCompra(e) {
   try {
     const response = await apiPost('registrarCompraDeOrden', payload);
     console.log('Respuesta del servidor:', response);
-    
+
     let mensaje = 'Compra registrada correctamente';
     if (response.id_orden_complementaria) {
-      mensaje += `. Se generó automáticamente la orden complementaria #${response.id_orden_complementaria} para los faltantes.`;
+      mensaje = `✅ Recepción parcial registrada correctamente
+      
+📋 Se ha generado automáticamente la Orden Complementaria #${response.id_orden_complementaria} con ${response.items_faltantes} items faltantes.
+
+📊 Resumen:
+• Orden Original: #${response.id_orden_original} (${response.items_recibidos} items recibidos)
+• Orden Complementaria: #${response.id_orden_complementaria} (${response.items_faltantes} items faltantes)
+• Estado: La orden original queda como "parcialmente recibida"
+
+La nueva orden complementaria está en estado "pendiente" y puede ser procesada desde el módulo de Órdenes de Compra.`;
     }
-    
+
     alert(mensaje);
     limpiarSeleccionPedido();
     cargarCompras(); // Recargar historial
@@ -274,7 +341,9 @@ async function onGuardarCompra(e) {
 }
 
 async function apiGet(path) {
-  const res = await fetch(`${API_COMPRAS}${path}`);
+  // Asegurar que el path comience con ?
+  const fullPath = path.startsWith('?') ? path : `?${path}`;
+  const res = await fetch(`${API_COMPRAS}${fullPath}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const txt = await res.text();
   let json;
@@ -334,7 +403,7 @@ async function cargarProvedores() {
 
 function generarHtmlItemsRecepcion(items) {
   console.log('generarHtmlItemsRecepcion - items recibidos:', items); // Debug
-  
+
   if (!items || !items.length) {
     console.log('No hay items o items está vacío'); // Debug
     return '<div class="text-muted text-center py-3">No hay items en la orden</div>';
@@ -358,12 +427,12 @@ function generarHtmlItemsRecepcion(items) {
         </thead>
         <tbody>
           ${items.map((item, idx) => {
-            console.log('Procesando item:', item); // Debug
-            const cantEsperada = Number(item.cantidad_comprada ?? item.cantidad_solicitada ?? 0);
-            const precio = Number(item.precio_unitario ?? 0);
-            const subtotal = cantEsperada * precio;
-            console.log('Item procesado - cantEsperada:', cantEsperada, 'precio:', precio); // Debug
-            return `
+    console.log('Procesando item:', item); // Debug
+    const cantEsperada = Number(item.cantidad_comprada ?? item.cantidad_solicitada ?? 0);
+    const precio = Number(item.precio_unitario ?? 0);
+    const subtotal = cantEsperada * precio;
+    console.log('Item procesado - cantEsperada:', cantEsperada, 'precio:', precio); // Debug
+    return `
               <tr>
                 <td>${idx + 1}</td>
                 <td>
@@ -396,7 +465,7 @@ function generarHtmlItemsRecepcion(items) {
                 <td class="text-end subtotal-item">${formatMoney(subtotal)}</td>
               </tr>
             `;
-          }).join('')}
+  }).join('')}
         </tbody>
       </table>
     </div>
@@ -413,13 +482,13 @@ function actualizarTotalCompra() {
       const cantidadRecibidaInput = tr.querySelector('.cantidad-recibida');
       const precio = parseFloat(cantidadRecibidaInput?.dataset.precio || 0);
       const cantidadRecibida = parseFloat(cantidadRecibidaInput?.value || 0);
-      
+
       if (!isNaN(cantidadRecibida) && !isNaN(precio)) {
         total += cantidadRecibida * precio;
       }
     });
   }
-  
+
   if (total === 0 && pedidoSeleccionado) {
     total = Number(pedidoSeleccionado.total || 0);
   }
@@ -438,7 +507,7 @@ function actualizarTotalCompra() {
   const tieneOrden = !!(qs('idOrdenCompra')?.value || '').trim();
 
   const habilitado = !!(tieneOrden && numeroFactura);
-  
+
   if (btnGuardar) {
     btnGuardar.disabled = !habilitado;
     btnGuardar.className = habilitado ? 'btn btn-success w-100' : 'btn btn-secondary w-100';
@@ -506,7 +575,7 @@ async function cargarPedidos() {
     `;
   }
 
-  const data = await apiGet(`?${params.toString()}`);
+  const data = await apiGet(params.toString());
   pedidos = data || [];
   renderListaPedidos();
 }
@@ -562,10 +631,10 @@ async function seleccionarPedido(idOrden) {
       `;
     }
 
-    const data = await apiGet(`?action=getOrdenCompraDetalle&id_orden_compra=${encodeURIComponent(idOrden)}`);
+    const data = await apiGet(`action=getOrdenCompraDetalle&id_orden_compra=${encodeURIComponent(idOrden)}`);
     console.log('Datos recibidos de la orden:', data); // Debug
     pedidoSeleccionado = data;
-    
+
     const idOrdenElement = qs('idOrdenCompra');
     if (idOrdenElement) idOrdenElement.value = String(idOrden);
 
@@ -645,32 +714,32 @@ function actualizarBotones() {
 function limpiarSeleccionPedido() {
   pedidoSeleccionado = null;
   totalCompraTouched = false;
-  
+
   const idOrden = qs('idOrdenCompra');
   const numeroFactura = qs('numeroFactura');
   const totalCompra = qs('totalCompra');
   const observaciones = qs('observaciones');
   const itemsRecepcion = qs('itemsRecepcion');
   const detallePedido = qs('detallePedido');
-  
+
   if (idOrden) idOrden.value = '';
   if (numeroFactura) numeroFactura.value = '';
   if (totalCompra) totalCompra.value = '';
   if (observaciones) observaciones.value = '';
   if (itemsRecepcion) itemsRecepcion.innerHTML = '<div class="text-muted text-center py-3">Seleccione una orden de compra para ver los items</div>';
   if (detallePedido) detallePedido.innerHTML = '<div class="text-muted">Seleccione una orden de compra para ver el detalle.</div>';
-  
+
   actualizarTotalCompra();
 }
 
 function agregarEventosRecepcion() {
   // Evento para checkboxes "Llegó completo"
   document.querySelectorAll('.llego-completo').forEach(checkbox => {
-    checkbox.addEventListener('change', function() {
+    checkbox.addEventListener('change', function () {
       const tr = this.closest('tr');
       const cantidadInput = tr.querySelector('.cantidad-recibida');
       const cantidadEsperada = parseFloat(cantidadInput.dataset.esperada);
-      
+
       if (this.checked) {
         cantidadInput.value = cantidadEsperada;
         cantidadInput.disabled = true;
@@ -678,32 +747,43 @@ function agregarEventosRecepcion() {
         cantidadInput.disabled = false;
         cantidadInput.focus();
       }
-      
+
       actualizarTotalCompra();
     });
   });
 
   // Evento para cambios en cantidades recibidas
   document.querySelectorAll('.cantidad-recibida').forEach(input => {
-    input.addEventListener('input', function() {
+    input.addEventListener('input', function () {
       const tr = this.closest('tr');
       const checkbox = tr.querySelector('.llego-completo');
       const cantidadEsperada = parseFloat(this.dataset.esperada);
       const cantidadRecibida = parseFloat(this.value) || 0;
-      
+
       // Actualizar checkbox según la cantidad
       checkbox.checked = (cantidadRecibida >= cantidadEsperada);
-      
+
       // Actualizar subtotal visual
       const precio = parseFloat(this.dataset.precio);
       const subtotalTd = tr.querySelector('.subtotal-item');
       if (subtotalTd) {
         subtotalTd.textContent = formatMoney(cantidadRecibida * precio);
       }
-      
+
       actualizarTotalCompra();
     });
   });
+}
+
+function getEstadoBadge(estado) {
+  const badges = {
+    'pendiente': '<span class="badge bg-warning text-dark">Pendiente</span>',
+    'aprobada': '<span class="badge bg-success">Aprobada</span>',
+    'parcialmente_comprada': '<span class="badge bg-info">Parcialmente Comprada</span>',
+    'comprada': '<span class="badge bg-primary">Comprada</span>',
+    'cancelada': '<span class="badge bg-danger">Cancelada</span>'
+  };
+  return badges[estado] || '<span class="badge bg-secondary">' + estado + '</span>';
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
