@@ -304,5 +304,119 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
   </div>
 </div>
 
-<script src="ordenesCompraView.js"></script>
+<!-- Modal para agregar/editar proveedores -->
+<div class="modal fade" id="modalAgregarProveedor" tabindex="-1" aria-labelledby="modalAgregarProveedorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" style="max-width: 95vw;">
+        <div class="modal-content border-0 shadow" style="height: 85vh; display: flex; flex-direction: column;">
+            <div class="modal-header bg-info text-white flex-shrink-0">
+                <h5 class="modal-title" id="modalAgregarProveedorLabel">Gestión de Proveedores</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body bg-light p-3" style="flex-grow: 1; overflow: auto; min-height: 0;">
+                <?php
+                include $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/src/Provedores/Interfaces/Views/provedoresView.php';
+                ?>
+                
+                <script src="/sgigescomnew/src/Provedores/Interfaces/Views/provedoresView.js"></script>
+            </div>
+
+            <div class="modal-footer bg-light flex-shrink-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-info text-white" id="btnGuardarProveedor" onclick="guardarProveedor()">Guardar</button>
+                <button type="button" class="btn btn-primary" id="btnActualizarProveedor" onclick="guardarProveedorEditar()" style="display: none;">Actualizar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Estilos específicos para el modal de proveedores */
+#modalAgregarProveedor .modal-dialog {
+    margin: 1.75rem auto;
+}
+
+#modalAgregarProveedor .modal-content {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+#modalAgregarProveedor .modal-body {
+    padding: 0;
+    background: #f8f9fa;
+}
+
+#modalAgregarProveedor .container,
+#modalAgregarProveedor .container-fluid {
+    max-width: 100%;
+    padding: 0;
+}
+
+/* Forzar que las tablas ocupen todo el espacio */
+#modalAgregarProveedor .table {
+    width: 100% !important;
+    height: auto !important;
+    font-size: 0.85rem;
+}
+
+#modalAgregarProveedor .table-responsive {
+    width: 100% !important;
+    max-height: none !important;
+}
+
+#modalAgregarProveedor .card {
+    width: 100% !important;
+    margin-bottom: 0.5rem;
+}
+
+#modalAgregarProveedor .card-body {
+    padding: 0.75rem;
+    width: 100% !important;
+}
+
+/* Asegurar que los contenedores principales ocupen todo el ancho */
+#modalAgregarProveedor .container,
+#modalAgregarProveedor .container-fluid {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+/* Eliminar padding y márgenes innecesarios */
+#modalAgregarProveedor .row {
+    margin: 0;
+}
+
+#modalAgregarProveedor .col-md-12,
+#modalAgregarProveedor .col-lg-12 {
+    padding: 0.25rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #modalAgregarProveedor .modal-dialog {
+        margin: 0.5rem;
+        max-width: 98vw;
+    }
+    
+    #modalAgregarProveedor .modal-body {
+        padding: 0.25rem;
+    }
+    
+    #modalAgregarProveedor .table {
+        font-size: 0.75rem;
+    }
+    
+    #modalAgregarProveedor .card-body {
+        padding: 0.5rem;
+    }
+}
+
+/* Forzar altura máxima para usar todo el espacio */
+#modalAgregarProveedor .table {
+    max-height: calc(85vh - 120px);
+    overflow-y: auto;
+}
+</style>
+
+<script src="<?php echo __DIR__; ?>/ordenesCompraView.js"></script>
 <?php include_once __DIR__ . '/../../../Shared/Components/footer.php'; ?>

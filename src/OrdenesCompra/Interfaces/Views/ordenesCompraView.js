@@ -1283,3 +1283,139 @@ window.OrdenesCompraUI = OrdenesCompraUI;
 document.addEventListener('DOMContentLoaded', () => {
   OrdenesCompraUI.init();
 });
+
+// ============================================
+// FUNCIONES PARA GESTIÓN DE PROVEEDORES
+// ============================================
+
+// La constante API_PROVEDORES ya está definida arriba, no duplicar
+
+/**
+ * Prepara el modal para crear un nuevo proveedor
+ */
+function cargarModalCrearProvedor() {
+  document.getElementById('formProveedores').reset();
+  document.getElementById('id_proveedor').value = '';
+  document.getElementById('accion_proveedor').value = 'crear';
+  document.getElementById('estado_proveedor').value = '1';
+
+  document.getElementById('modalAgregarProveedorLabel').textContent = 'Crear Proveedor';
+  document.getElementById('btnGuardarProveedor').style.display = 'inline-block';
+  document.getElementById('btnActualizarProveedor').style.display = 'none';
+}
+
+/**
+ * Guarda un nuevo proveedor
+ */
+function guardarProveedor() {
+  const payload = {
+    nombre: document.getElementById('nombre_proveedor').value,
+    telefono: document.getElementById('telefono_proveedor').value || null,
+    email: document.getElementById('email_proveedor').value || null,
+    whatsapp: document.getElementById('whatsapp_proveedor').value || null,
+    direccion: document.getElementById('direccion_proveedor').value || null,
+    contacto: document.getElementById('contacto_proveedor').value || null,
+    estado: document.getElementById('estado_proveedor').value,
+  };
+
+  if (!payload.nombre.trim()) {
+    alert('Nombre requerido');
+    return;
+  }
+
+  fetch(API_PROVEDORES + '?action=create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(response => response.json())
+  .then(res => {
+    if (res.success) {
+      alert('Proveedor creado exitosamente');
+      bootstrap.Modal.getInstance(document.getElementById('modalAgregarProveedor')).hide();
+      // Recargar la lista de proveedores en el select
+      OrdenesCompraUI.cargarProveedores();
+    } else {
+      alert('Error: ' + (res.error || 'No se pudo crear'));
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error de conexión al crear proveedor');
+  });
+}
+
+/**
+ * Prepara el modal para editar un proveedor existente
+ */
+function cargarModalEditarProvedor(id) {
+  fetch(API_PROVEDORES + '?action=getById&id=' + id)
+    .then(response => response.json())
+    .then(res => {
+      if (res.id_provedor) {
+        document.getElementById('id_proveedor').value = res.id_provedor;
+        document.getElementById('nombre_proveedor').value = res.nombre;
+        document.getElementById('telefono_proveedor').value = res.telefono || '';
+        document.getElementById('email_proveedor').value = res.email || '';
+        document.getElementById('whatsapp_proveedor').value = res.whatsapp || '';
+        document.getElementById('direccion_proveedor').value = res.direccion || '';
+        document.getElementById('contacto_proveedor').value = res.contacto || '';
+        document.getElementById('estado_proveedor').value = res.estado ? '1' : '0';
+
+        document.getElementById('accion_proveedor').value = 'editar';
+        document.getElementById('modalAgregarProveedorLabel').textContent = 'Editar Proveedor';
+        document.getElementById('btnGuardarProveedor').style.display = 'none';
+        document.getElementById('btnActualizarProveedor').style.display = 'inline-block';
+        
+        bootstrap.Modal.getInstance(document.getElementById('modalAgregarProveedor')).show();
+      } else {
+        alert('Proveedor no encontrado');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Error al cargar proveedor');
+    });
+}
+
+/**
+ * Actualiza un proveedor existente
+ */
+function guardarProveedorEditar() {
+  const payload = {
+    id_provedor: parseInt(document.getElementById('id_proveedor').value),
+    nombre: document.getElementById('nombre_proveedor').value,
+    telefono: document.getElementById('telefono_proveedor').value || null,
+    email: document.getElementById('email_proveedor').value || null,
+    whatsapp: document.getElementById('whatsapp_proveedor').value || null,
+    direccion: document.getElementById('direccion_proveedor').value || null,
+    contacto: document.getElementById('contacto_proveedor').value || null,
+    estado: document.getElementById('estado_proveedor').value,
+  };
+
+  if (!payload.id_provedor || !payload.nombre.trim()) {
+    alert('ID y nombre requeridos');
+    return;
+  }
+
+  fetch(API_PROVEDORES + '?action=update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(response => response.json())
+  .then(res => {
+    if (res.success) {
+      alert('Proveedor actualizado exitosamente');
+      bootstrap.Modal.getInstance(document.getElementById('modalAgregarProveedor')).hide();
+      // Recargar la lista de proveedores en el select
+      OrdenesCompraUI.cargarProveedores();
+    } else {
+      alert('Error: ' + (res.error || 'No se pudo actualizar'));
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error de conexión al actualizar proveedor');
+  });
+}
