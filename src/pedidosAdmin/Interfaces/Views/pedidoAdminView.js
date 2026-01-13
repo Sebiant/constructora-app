@@ -296,13 +296,47 @@ function renderizarDetallePedido(pedido) {
     const tbodyComponentes = document.getElementById('detalleComponentes');
     tbodyComponentes.innerHTML = pedido.componentes.map(comp => {
         const esExcedente = parseInt(comp.es_excedente, 10) === 1;
+        const cantidadPedida = parseFloat(comp.cantidad) || 0;
+        const cantidadEnOrden = parseFloat(comp.cantidad_en_orden) || 0;
+        const cantidadComprada = parseFloat(comp.cantidad_comprada) || 0;
+        const numerosOrden = comp.numeros_orden || '';
+        
+        // Determinar estado de compra
+        let estadoCompra = '';
+        let estadoBadge = '';
+        
+        if (cantidadComprada >= cantidadPedida) {
+            estadoCompra = 'Completado';
+            estadoBadge = '<span class="badge bg-success">Completado</span>';
+        } else if (cantidadComprada > 0) {
+            estadoCompra = 'Parcialmente Comprado';
+            estadoBadge = '<span class="badge bg-warning">Parcialmente Comprado</span>';
+        } else if (cantidadEnOrden > 0) {
+            estadoCompra = 'En Orden de Compra';
+            estadoBadge = '<span class="badge bg-info">En Orden de Compra</span>';
+        } else {
+            estadoCompra = 'Pendiente de Compra';
+            estadoBadge = '<span class="badge bg-secondary">Pendiente de Compra</span>';
+        }
+        
         return `
         <tr>
             <td>${comp.descripcion}</td>
             <td>${comp.tipo_componente}</td>
-            <td class="text-center">${comp.cantidad}</td>
+            <td class="text-center">${cantidadPedida}</td>
             <td class="text-end">${formatearMoneda(comp.precio_unitario)}</td>
             <td class="text-end">${formatearMoneda(comp.subtotal)}</td>
+            <td class="text-center">${estadoBadge}</td>
+            <td class="text-center">
+                ${cantidadComprada > 0 ? cantidadComprada.toFixed(4) : '-'}
+                ${cantidadComprada > 0 && cantidadComprada < cantidadPedida ? 
+                    `<br><small class="text-muted">(${((cantidadComprada/cantidadPedida)*100).toFixed(1)}%)</small>` : ''}
+            </td>
+            <td class="text-center">
+                ${numerosOrden ? 
+                    `<small class="text-info">${numerosOrden}</small>` : 
+                    '<span class="text-muted">-</span>'}
+            </td>
             <td class="text-center">
                 ${esExcedente ? '<span class="badge bg-warning">Sí</span>' : '<span class="badge bg-success">No</span>'}
             </td>

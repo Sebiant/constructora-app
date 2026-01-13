@@ -210,24 +210,52 @@ function getDetalleOrden($connection) {
 
     $orden['productos'] = $productos;
 
+    // Determinar estado real basado en cantidades recibidas
+    $totalSolicitado = array_sum(array_column($productos, 'cantidad_solicitada'));
+    $totalRecibido = array_sum(array_column($productos, 'cantidad_recibida'));
+    
+    if ($totalRecibido > 0) {
+        if ($totalRecibido >= $totalSolicitado) {
+            $orden['estado_real'] = 'recibida';
+        } else {
+            $orden['estado_real'] = 'parcialmente_recibida';
+        }
+    } else {
+        $orden['estado_real'] = $orden['estado']; // Mantener estado original si no hay recepciones
+    }
+
     // Obtener información de órdenes relacionadas
     $orden['ordenes_relacionadas'] = [];
     
-    // Si es una orden complementaria, obtener la original
+    // Si es una orden complementaria, obtener la original con su estado real
     if ($orden['es_complementaria'] && $orden['id_orden_original']) {
-        $sqlOriginal = "SELECT id_orden_compra, numero_orden, estado 
-                       FROM ordenes_compra 
-                       WHERE id_orden_compra = ?";
+        $sqlOriginal = "SELECT oc.id_orden_compra, oc.numero_orden, oc.estado,
+                               COALESCE(SUM(ocd.cantidad_solicitada), 0) as total_solicitado,
+                               COALESCE(SUM(ocd.cantidad_recibida), 0) as total_recibido
+                       FROM ordenes_compra oc
+                       LEFT JOIN ordenes_compra_detalle ocd ON oc.id_orden_compra = ocd.id_orden_compra
+                       WHERE oc.id_orden_compra = ?
+                       GROUP BY oc.id_orden_compra, oc.numero_orden, oc.estado";
         $stmtOriginal = $connection->prepare($sqlOriginal);
         $stmtOriginal->execute([$orden['id_orden_original']]);
         $ordenOriginal = $stmtOriginal->fetch(PDO::FETCH_ASSOC);
         
         if ($ordenOriginal) {
+            // Determinar estado real de la orden original
+            $estadoRealOriginal = $ordenOriginal['estado'];
+            if ($ordenOriginal['total_recibido'] > 0) {
+                if ($ordenOriginal['total_recibido'] >= $ordenOriginal['total_solicitado']) {
+                    $estadoRealOriginal = 'recibida';
+                } else {
+                    $estadoRealOriginal = 'parcialmente_recibida';
+                }
+            }
+            
             $orden['ordenes_relacionadas'][] = [
                 'tipo' => 'original',
                 'id_orden_compra' => $ordenOriginal['id_orden_compra'],
                 'numero_orden' => $ordenOriginal['numero_orden'],
-                'estado' => $ordenOriginal['estado']
+                'estado' => $estadoRealOriginal
             ];
         }
     }

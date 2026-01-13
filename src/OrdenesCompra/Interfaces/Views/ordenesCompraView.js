@@ -951,11 +951,30 @@ const OrdenesCompraUI = (() => {
                   const precio = parseFloat(producto.precio_unitario || 0);
                   const subtotal = parseFloat(producto.subtotal || 0);
                   
-                  let estadoBadge = '<span class="badge bg-secondary">Pendiente</span>';
-                  if (recibida >= solicitada) {
-                    estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
-                  } else if (recibida > 0) {
-                    estadoBadge = '<span class="badge bg-warning">Recibido parcial</span>';
+                  // Determinar estado según si es orden original o complementaria
+                  const esOrdenOriginal = !orden.es_complementaria;
+                  let estadoBadge;
+                  
+                  if (esOrdenOriginal) {
+                    // Orden original: estados más definitivos
+                    estadoBadge = '<span class="badge bg-danger">No recibido</span>';
+                    if (recibida >= solicitada) {
+                      estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
+                    } else if (recibida > 0) {
+                      estadoBadge = '<span class="badge bg-warning text-dark">Recibido parcial</span>';
+                    } else if (comprada > 0) {
+                      estadoBadge = '<span class="badge bg-warning">Comprado, no recibido</span>';
+                    }
+                  } else {
+                    // Orden complementaria: estados más temporales
+                    estadoBadge = '<span class="badge bg-secondary">Pendiente</span>';
+                    if (recibida >= solicitada) {
+                      estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
+                    } else if (recibida > 0) {
+                      estadoBadge = '<span class="badge bg-warning text-dark">Recibido parcial</span>';
+                    } else if (comprada > 0) {
+                      estadoBadge = '<span class="badge bg-info">Comprado, pendiente recepción</span>';
+                    }
                   }
                   
                   return `
@@ -1009,8 +1028,8 @@ const OrdenesCompraUI = (() => {
       'aprobada': '<span class="badge bg-info">Aprobada</span>',
       'comprada': '<span class="badge bg-success">Comprada</span>',
       'recibida': '<span class="badge bg-primary">Recibida</span>',
+      'parcialmente_recibida': '<span class="badge bg-warning text-dark">Parcialmente Recibida</span>',
       'parcialmente_comprada': '<span class="badge bg-warning text-dark">Parcialmente Comprada</span>',
-      'parcialmente_recibida': '<span class="badge bg-info text-dark">Parcialmente Recibida</span>',
       'cancelada': '<span class="badge bg-danger">Cancelada</span>'
     };
     return badges[estado] || '<span class="badge bg-secondary">Desconocido</span>';

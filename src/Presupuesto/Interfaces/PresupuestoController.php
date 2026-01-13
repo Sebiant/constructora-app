@@ -1290,6 +1290,7 @@ try {
                                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                                         WHERE pd.id_componente = ic.id_componente
                                         AND ped.id_presupuesto = ?
+                                                AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
                                                 AND pd.es_excedente = 0
                                     ), 0.0000) as ya_pedido,
                                     ROUND(ic.cantidad - COALESCE((
@@ -1298,6 +1299,7 @@ try {
                                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                                         WHERE pd.id_componente = ic.id_componente
                                         AND ped.id_presupuesto = ?
+                                                AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
                                                 AND pd.es_excedente = 0
                                     ), 0), 4) as disponible,
                                     m.cod_material,
@@ -1495,6 +1497,7 @@ try {
                                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                                         WHERE pd.id_componente = ic.id_componente
                                         AND ped.id_presupuesto = ?
+                                                AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
                                                 AND pd.es_excedente = 0
                                     ), 0.0000) as ya_pedido,
                                     ROUND(ic.cantidad - COALESCE((
@@ -1503,6 +1506,7 @@ try {
                                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                                         WHERE pd.id_componente = ic.id_componente
                                         AND ped.id_presupuesto = ?
+                                                AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
                                                 AND pd.es_excedente = 0
                                     ), 0), 4) as disponible,
                                     m.cod_material,
@@ -1567,7 +1571,8 @@ try {
                                 INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                                 WHERE pd.id_componente = ic.id_componente
                                 AND ped.id_presupuesto = p.id_presupuesto
-                                AND pd.es_excedente = 0
+                                AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
+                                                AND pd.es_excedente = 0
                             ), 0.0000) as ya_pedido,
                             ROUND(dp.cantidad * ic.cantidad - COALESCE((
                                 SELECT SUM(pd.cantidad)
@@ -1575,7 +1580,8 @@ try {
                                 INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                                 WHERE pd.id_componente = ic.id_componente
                                 AND ped.id_presupuesto = p.id_presupuesto
-                                AND pd.es_excedente = 0
+                                AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
+                                                AND pd.es_excedente = 0
                             ), 0), 4) as disponible,
                         FROM det_presupuesto dp
                         JOIN presupuestos p ON dp.id_presupuesto = p.id_presupuesto
@@ -1696,7 +1702,8 @@ try {
                         WHERE ic2.descripcion = ic.descripcion
                         AND ic2.tipo_componente = ic.tipo_componente
                         AND ped.id_presupuesto = p.id_presupuesto
-                        AND pd.es_excedente = 0
+                        AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
+                                                AND pd.es_excedente = 0
                         AND ped.estado = 'aprobado'
                     ), 4), 0.0000) as ya_pedido_aprobado,
                     
@@ -1708,7 +1715,8 @@ try {
                         WHERE ic2.descripcion = ic.descripcion
                         AND ic2.tipo_componente = ic.tipo_componente
                         AND ped.id_presupuesto = p.id_presupuesto
-                        AND pd.es_excedente = 0
+                        AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
+                                                AND pd.es_excedente = 0
                         AND ped.estado = 'rechazado'
                     ), 4), 0.0000) as ya_pedido_rechazado,
                     
@@ -1720,7 +1728,8 @@ try {
                         WHERE ic2.descripcion = ic.descripcion
                         AND ic2.tipo_componente = ic.tipo_componente
                         AND ped.id_presupuesto = p.id_presupuesto
-                        AND pd.es_excedente = 0
+                        AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
+                                                AND pd.es_excedente = 0
                         AND ped.estado = 'pendiente'
                     ), 4), 0.0000) as ya_pedido_pendiente,
                     
@@ -1770,7 +1779,7 @@ try {
                         WHERE ic2.descripcion = ic.descripcion
                         AND ic2.tipo_componente = ic.tipo_componente
                         AND ped.id_presupuesto = p.id_presupuesto
-                        AND ped.estado IN ('aprobado','pendiente','comprado')
+                        AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
                     ), 4), 0.0000) as ya_pedido,
 
                     -- Total ya comprado (incluye normal y excedente)
@@ -1782,7 +1791,7 @@ try {
                         WHERE ic2.descripcion = ic.descripcion
                         AND ic2.tipo_componente = ic.tipo_componente
                         AND ped.id_presupuesto = p.id_presupuesto
-                        AND ped.estado = 'comprado'
+                        AND ped.estado IN ('comprado','parcialmente_comprado')
                     ), 4), 0.0000) as ya_comprado,
                     
                     -- Calcular disponible restando solo lo aprobado (normal + excedente)
@@ -1817,7 +1826,7 @@ try {
                                 AND ic3.tipo_componente = ic.tipo_componente
                                 AND pd.id_item = i.id_item
                                 AND ped2.id_presupuesto = p.id_presupuesto
-                                AND ped2.estado IN ('aprobado','pendiente','comprado')
+                                AND ped2.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
                             ), 0)
                         )
                         ORDER BY i.codigo_item, c.nombre_cap

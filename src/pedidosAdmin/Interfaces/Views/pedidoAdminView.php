@@ -246,12 +246,15 @@
                                     <th class="text-center">Cantidad</th>
                                     <th class="text-end">Precio Unit.</th>
                                     <th class="text-end">Subtotal</th>
+                                    <th class="text-center">Estado de Compra</th>
+                                    <th class="text-center">Cant. Comprada</th>
+                                    <th class="text-center">Orden de Compra</th>
                                     <th class="text-center">Excedente</th>
                                 </tr>
                             </thead>
                             <tbody id="detalleComponentes">
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted">
+                                    <td colspan="9" class="text-center text-muted">
                                         Los componentes se cargarán aquí
                                     </td>
                                 </tr>

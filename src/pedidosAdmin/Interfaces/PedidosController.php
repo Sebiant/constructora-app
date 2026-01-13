@@ -265,7 +265,32 @@ try {
                                     COALESCE(ic.descripcion, CAST(m.nombremat AS CHAR)) AS descripcion,
                                     COALESCE(ic.unidad, u.unidesc) AS unidad,
                                     m.cod_material AS codigo_material_extra,
-                                    CAST(m.nombremat AS CHAR) AS nombre_material_extra
+                                    CAST(m.nombremat AS CHAR) AS nombre_material_extra,
+                                    
+                                    -- Información de estado de compra/orden
+                                    COALESCE((
+                                        SELECT SUM(ocd.cantidad_solicitada)
+                                        FROM ordenes_compra_detalle ocd
+                                        INNER JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra
+                                        WHERE ocd.id_det_pedido = pd.id_det_pedido
+                                        AND oc.estado IN ('pendiente','aprobada','comprada','parcialmente_comprada','recibida')
+                                    ), 0) as cantidad_en_orden,
+                                    
+                                    COALESCE((
+                                        SELECT SUM(ocd.cantidad_recibida)
+                                        FROM ordenes_compra_detalle ocd
+                                        INNER JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra
+                                        WHERE ocd.id_det_pedido = pd.id_det_pedido
+                                        AND oc.estado IN ('comprada','parcialmente_comprada','recibida')
+                                    ), 0) as cantidad_comprada,
+                                    
+                                    (
+                                        SELECT GROUP_CONCAT(DISTINCT oc.numero_orden ORDER BY oc.numero_orden SEPARATOR ', ')
+                                        FROM ordenes_compra_detalle ocd
+                                        INNER JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra
+                                        WHERE ocd.id_det_pedido = pd.id_det_pedido
+                                        AND oc.estado IN ('pendiente','aprobada','comprada','parcialmente_comprada','recibida')
+                                    ) as numeros_orden
                                 FROM pedidos_detalle pd
                                 LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
                                 LEFT JOIN materiales_extra_presupuesto mep ON pd.id_material_extra = mep.id_material_extra
