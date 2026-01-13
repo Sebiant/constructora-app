@@ -49,6 +49,10 @@ try {
             eliminarOrdenCompra($connection);
             break;
 
+        case 'getPedidosSinOrden':
+            getPedidosSinOrden($connection);
+            break;
+
         case 'getProveedores':
             getProveedores($connection);
             break;
@@ -676,5 +680,58 @@ function generarNumeroOrden($connection) {
     
     $secuencial = str_pad($result['count'] + 1, 4, '0', STR_PAD_LEFT);
     return "OC-{$año}-{$secuencial}";
+}
+
+/**
+ * Obtener pedidos aprobados sin orden de compra
+ */
+function getPedidosSinOrden($connection) {
+    try {
+        // Contar pedidos aprobados sin orden de compra
+        $sql = "SELECT COUNT(*) as total 
+                FROM pedidos p 
+                LEFT JOIN ordenes_compra oc ON p.id_pedido = oc.id_pedido 
+                WHERE p.estado = 'aprobado' 
+                GROUP BY p.id_pedido 
+                HAVING COUNT(oc.id_orden_compra) = 0";
+        
+        $stmt = $connection->prepare($sql);
+        $stmt->execute();
+        $pedidosSinOrden = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $totalPedidos = count($pedidosSinOrden);
+        
+        if ($totalPedidos > 0) {
+            // Obtener detalles de los pedidos
+            $sqlDetalles = "SELECT p.id_pedido, p.fecha_pedido, p.total, 
+                                    pr.nombre as nombre_proyecto, pres.id_presupuesto
+                                FROM pedidos p
+                                LEFT JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
+                                LEFT JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
+                                WHERE p.estado = 'aprobado'
+                                AND p.id_pedido NOT IN (
+                                    SELECT DISTINCT id_pedido FROM ordenes_compra
+                                )
+                                ORDER BY p.fecha_pedido DESC";
+            
+            $stmtDetalles = $connection->prepare($sqlDetalles);
+            $stmtDetalles->execute();
+            $detallesPedidos = $stmtDetalles->fetchAll(PDO::FETCH_ASSOC);
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'total' => $totalPedidos,
+                'detalles' => $detallesPedidos ?? []
+            ]
+        ]);
+        
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]);
+    }
 }
 ?>

@@ -777,21 +777,21 @@ const OrdenesCompraUI = (() => {
       if (!result.success) throw new Error(result.error || 'Error al guardar orden');
       
       mostrarExito('Orden de compra guardada correctamente');
-      // Limpiar y cerrar el modal de forma determinística
-      try {
-        // Reset de formulario y estado
-        const form = document.querySelector(selectores.formOrden);
-        if (form) form.reset();
-        state.productosSeleccionados.clear();
-        const tbody = document.getElementById('tablaProductosBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center py-3 text-muted">Seleccione un pedido para ver sus productos</td></tr>';
-      } catch (e) { console.warn('No se pudo limpiar completamente el modal:', e); }
+      
       // Cerrar modal antes de refrescar listas
-      if (state.modalOrden) { state.modalOrden.hide(); }
+      if (state.modalOrden) { 
+        state.modalOrden.hide(); 
+        console.log('✅ Modal cerrado exitosamente');
+      }
+      
+      // Refrescar datos
       await Promise.all([
         cargarOrdenes(),
         cargarPedidos() // refrescar listado para excluir pedidos que quedaron sin faltantes
       ]);
+      
+      // Actualizar notificación de pedidos sin orden dinámicamente
+      actualizarNotificacionPedidos();
     } catch (error) {
       console.error('Error guardando orden:', error);
       mostrarError(error.message);
@@ -1211,6 +1211,46 @@ const OrdenesCompraUI = (() => {
     }
   }
 
+  // Función para actualizar la notificación de pedidos sin orden dinámicamente
+  async function actualizarNotificacionPedidos() {
+    try {
+      console.log('Actualizando notificación de pedidos sin orden...');
+      const response = await fetch(`${API_ORDENES}?action=getPedidosSinOrden`);
+      const result = await response.json();
+
+      if (!result.success) return;
+
+      console.log('Notificación actualizada:', result.data);
+
+      // Actualizar el contador en la notificación
+      const notificacionBadge = document.querySelector('.notificacion-badge strong');
+      if (notificacionBadge) {
+        const totalPedidos = result.data.total || 0;
+        notificacionBadge.textContent = totalPedidos;
+
+        const notificacionText = notificacionBadge.parentElement;
+        if (totalPedidos > 0) {
+          notificacionText.innerHTML =
+            '<strong>' + totalPedidos + '</strong> pedido' + (totalPedidos > 1 ? 's' : '') + ' aprobado' + (totalPedidos > 1 ? 's' : '') + ' sin orden de compra';
+        } else {
+          const notificacionContainer = document.querySelector('.notificacion-pedidos');
+          if (notificacionContainer) {
+            notificacionContainer.style.display = 'none';
+          }
+        }
+      }
+
+      // Actualizar el contenido desplegable si existe
+      const contenidoNotificacion = document.getElementById('notificacionContenido');
+      if (contenidoNotificacion && result.data.detalles) {
+        location.reload();
+      }
+
+    } catch (error) {
+      console.error('Error actualizando notificación:', error);
+    }
+  }
+
   return {
     init,
     verDetalle,
@@ -1234,7 +1274,6 @@ const OrdenesCompraUI = (() => {
       }
     }
   });
-
 })();
 
 // Exponer en window para uso en handlers inline
