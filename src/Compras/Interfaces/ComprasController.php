@@ -288,7 +288,7 @@ try {
                         LEFT JOIN pedidos p ON oc.id_pedido = p.id_pedido
                         LEFT JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
                         LEFT JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
-                        WHERE oc.estado IN ('pendiente','aprobada')";
+                        WHERE oc.estado IN ('pendiente','aprobada','parcialmente_comprada')";
 
                 $params = [];
 
@@ -419,19 +419,33 @@ try {
                 // Procesar items recibidos y detectar faltantes
                 $itemsFaltantes = [];
                 $todosCompletos = true;
+                $totalCalculado = 0;
                 
                 foreach ($itemsRecibidos as $item) {
                     $idDetPedido = $item['id_det_pedido'];
                     $cantidadEsperada = (float)$item['cantidad_esperada'];
-                    $cantidadRecibida = (float)$item['cantidad_recibida'];
+                    $cantidadRecibidaAhora = (float)$item['cantidad_recibida'];
                     $precioUnitario = (float)$item['precio_unitario'];
                     
-                    // Actualizar cantidad recibida en el detalle de la orden
-                    $stmtUpdDet = $connection->prepare("UPDATE ordenes_compra_detalle SET cantidad_recibida = ?, fecha_recepcion = NOW() WHERE id_orden_compra = ? AND id_det_pedido = ?");
-                    $stmtUpdDet->execute([$cantidadRecibida, $idOrden, $idDetPedido]);
+                    // Calcular subtotal del item para esta recepción
+                    $subtotalItem = $cantidadRecibidaAhora * $precioUnitario;
+                    $totalCalculado += $subtotalItem;
                     
-                    // Verificar si hay faltantes
-                    $cantidadFaltante = $cantidadEsperada - $cantidadRecibida;
+                    // Obtener cantidad previamente recibida
+                    $stmtPrev = $connection->prepare("SELECT COALESCE(cantidad_recibida, 0) as recibida_previa FROM ordenes_compra_detalle WHERE id_orden_compra = ? AND id_det_pedido = ?");
+                    $stmtPrev->execute([$idOrden, $idDetPedido]);
+                    $prevData = $stmtPrev->fetch(PDO::FETCH_ASSOC);
+                    $cantidadRecibidaPrevia = (float)($prevData['recibida_previa'] ?? 0);
+                    
+                    // Acumular cantidad recibida (no reemplazar)
+                    $cantidadRecibidaTotal = $cantidadRecibidaPrevia + $cantidadRecibidaAhora;
+                    
+                    // Actualizar cantidad recibida acumulada y precio unitario en el detalle de la orden
+                    $stmtUpdDet = $connection->prepare("UPDATE ordenes_compra_detalle SET cantidad_recibida = cantidad_recibida + ?, precio_unitario = ?, fecha_recepcion = NOW() WHERE id_orden_compra = ? AND id_det_pedido = ?");
+                    $stmtUpdDet->execute([$cantidadRecibidaAhora, $precioUnitario, $idOrden, $idDetPedido]);
+                    
+                    // Verificar si hay faltantes (comparar con la cantidad esperada total)
+                    $cantidadFaltante = $cantidadEsperada - $cantidadRecibidaTotal;
                     if ($cantidadFaltante > 0.01) { // Tolerancia para decimales
                         $todosCompletos = false;
                         
@@ -445,6 +459,7 @@ try {
                             'descripcion' => $itemInfo['descripcion'],
                             'unidad' => $itemInfo['unidad'],
                             'cantidad_faltante' => $cantidadFaltante,
+                            'cantidad_recibida_total' => $cantidadRecibidaTotal,
                             'precio_unitario' => $precioUnitario
                         ];
                     }
@@ -458,9 +473,9 @@ try {
                 $stmtUpdOrden = $connection->prepare("UPDATE ordenes_compra SET estado = ?, numero_factura = ?, fecha_factura = CURDATE(), observaciones = CONCAT(COALESCE(observaciones,''), ?), fechaupdate = NOW() WHERE id_orden_compra = ?");
                 $stmtUpdOrden->execute([$estadoOrden, $numeroFactura, $obsCompleta, $idOrden]);
 
-                // Insertar en compras (tabla principal)
+                // Insertar en compras (tabla principal) usando el total calculado
                 $stmtCompra = $connection->prepare("INSERT INTO compras (id_pedido, id_orden_compra, fecha_compra, numero_factura, total, estado, observaciones, id_provedor, idusuario) VALUES (?, ?, NOW(), ?, ?, 'completada', ?, ?, ?)");
-                $stmtCompra->execute([$orden['id_pedido'], $idOrden, $numeroFactura, $total, $observaciones, $orden['id_provedor'], $idUsuario]);
+                $stmtCompra->execute([$orden['id_pedido'], $idOrden, $numeroFactura, $totalCalculado, $observaciones, $orden['id_provedor'], $idUsuario]);
 
                 // Actualizar estado del pedido
                 $idPedido = (int)$orden['id_pedido'];
@@ -468,27 +483,23 @@ try {
                 $stmtUpdPedido = $connection->prepare("UPDATE pedidos SET estado = ? WHERE id_pedido = ?");
                 $stmtUpdPedido->execute([$estadoPedido, $idPedido]);
 
-                // Generar orden complementaria si hay faltantes
-                $idOrdenComplementaria = null;
-                if (!empty($itemsFaltantes)) {
-                    $idOrdenComplementaria = generarOrdenComplementaria($connection, $orden, $itemsFaltantes, $idUsuario);
-                }
-
                 $connection->commit();
 
                 // Preparar respuesta
+                $mensaje = 'Compra registrada correctamente';
+                if (!$todosCompletos) {
+                    $mensaje .= '. Hay ' . count($itemsFaltantes) . ' item(s) con cantidades faltantes que pueden ser registrados en futuras recepciones sobre esta misma orden.';
+                }
+                
                 $response = [
                     'success' => true,
-                    'message' => 'Compra registrada correctamente',
+                    'message' => $mensaje,
                     'estado_orden' => $estadoOrden,
                     'items_recibidos' => count($itemsRecibidos),
-                    'items_faltantes' => count($itemsFaltantes)
+                    'items_faltantes' => count($itemsFaltantes),
+                    'total_calculado' => $totalCalculado,
+                    'recepcion_parcial' => !$todosCompletos
                 ];
-
-                if ($idOrdenComplementaria) {
-                    $response['id_orden_complementaria'] = $idOrdenComplementaria;
-                    $response['id_orden_original'] = $idOrden;
-                }
 
                 header('Content-Type: application/json');
                 echo json_encode($response);
@@ -527,74 +538,4 @@ if (ob_get_length()) {
     ob_end_flush();
 }
 
-/**
- * Generar automáticamente una orden de compra complementaria para los faltantes
- */
-function generarOrdenComplementaria($connection, $ordenOriginal, $itemsFaltantes, $idUsuario) {
-    try {
-        // Generar número de orden único
-        $año = date('Y');
-        $sqlCount = "SELECT COUNT(*) as count FROM ordenes_compra WHERE YEAR(fecha_orden) = ?";
-        $stmtCount = $connection->prepare($sqlCount);
-        $stmtCount->execute([$año]);
-        $result = $stmtCount->fetch(PDO::FETCH_ASSOC);
-        $secuencial = str_pad($result['count'] + 1, 4, '0', STR_PAD_LEFT);
-        $numeroOrden = "OC-{$año}-{$secuencial}";
 
-        // Calcular totales de la orden complementaria
-        $subtotal = 0;
-        foreach ($itemsFaltantes as $item) {
-            $subtotal += $item['cantidad_faltante'] * $item['precio_unitario'];
-        }
-        $impuestos = 0; // Ajustar según lógica de impuestos
-        $total = $subtotal + $impuestos;
-
-        // Insertar orden complementaria
-        $sqlOrden = "INSERT INTO ordenes_compra 
-                    (id_pedido, id_provedor, numero_orden, subtotal, impuestos, total, estado, 
-                     observaciones, idusuario, id_orden_original, es_complementaria, motivo_complementaria, fecha_orden) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW())";
-        
-        $stmtOrden = $connection->prepare($sqlOrden);
-        $stmtOrden->execute([
-            $ordenOriginal['id_pedido'],
-            $ordenOriginal['id_provedor'],
-            $numeroOrden,
-            $subtotal,
-            $impuestos,
-            $total,
-            'pendiente',
-            'Orden complementaria generada por recepción parcial de OC ' . ($ordenOriginal['numero_orden'] ?? $ordenOriginal['id_orden_compra']),
-            $idUsuario,
-            $ordenOriginal['id_orden_compra'],
-            'Recepción parcial de orden #' . $ordenOriginal['id_orden_compra']
-        ]);
-
-        $idNuevaOrden = $connection->lastInsertId();
-
-        // Insertar detalles de la orden complementaria
-        foreach ($itemsFaltantes as $item) {
-            $sqlDetalle = "INSERT INTO ordenes_compra_detalle 
-                        (id_orden_compra, id_det_pedido, descripcion, unidad, 
-                         cantidad_solicitada, cantidad_comprada, precio_unitario, subtotal) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            
-            $stmtDetalle = $connection->prepare($sqlDetalle);
-            $subtotalItem = $item['cantidad_faltante'] * $item['precio_unitario'];
-            $stmtDetalle->execute([
-                $idNuevaOrden,
-                $item['id_det_pedido'],
-                $item['descripcion'],
-                $item['unidad'],
-                $item['cantidad_faltante'], // cantidad solicitada = faltante
-                $item['cantidad_faltante'], // cantidad comprada = faltante
-                $item['precio_unitario'],
-                $subtotalItem
-            ]);
-        }
-
-        return $idNuevaOrden;
-    } catch (Exception $e) {
-        throw new Exception('Error al generar orden complementaria: ' . $e->getMessage());
-    }
-}

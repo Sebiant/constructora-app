@@ -139,12 +139,12 @@ async function verDetalleCompra(idCompra) {
         const solicitada = Number(d.cantidad_solicitada || 0);
         const recibida = Number(d.cantidad_recibida || 0);
         const faltante = Number(d.cantidad_faltante || 0);
-        const estadoRecibido = recibida >= solicitada ? 
-          '<span class="badge bg-success">Completo</span>' : 
-          recibida === 0 ? 
-          '<span class="badge bg-danger">No llegó</span>' :
-          '<span class="badge bg-warning">Parcial</span>';
-        
+        const estadoRecibido = recibida >= solicitada ?
+          '<span class="badge bg-success">Completo</span>' :
+          recibida === 0 ?
+            '<span class="badge bg-danger">No llegó</span>' :
+            '<span class="badge bg-warning">Parcial</span>';
+
         return `
           <tr>
             <td>
@@ -153,10 +153,10 @@ async function verDetalleCompra(idCompra) {
             <td class="text-end">${escapeHtml(solicitada.toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
             <td class="text-end">${escapeHtml(recibida.toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
             <td class="text-end">
-              ${faltante > 0 ? 
-                `<span class="text-danger">${escapeHtml(faltante.toFixed(4))} ${escapeHtml(d.unidad || '')}</span>` : 
-                '<span class="text-success">0</span>'
-              }
+              ${faltante > 0 ?
+            `<span class="text-danger">${escapeHtml(faltante.toFixed(4))} ${escapeHtml(d.unidad || '')}</span>` :
+            '<span class="text-success">0</span>'
+          }
             </td>
             <td class="text-center">${estadoRecibido}</td>
             <td class="text-end">${formatMoney(d.precio_unitario)}</td>
@@ -217,10 +217,14 @@ async function verDetalleCompra(idCompra) {
 function autollenarTotalCompra() {
   const el = qs('totalCompra');
   if (!el) return;
-  if (totalCompraTouched) return;
 
   const totalPedido = Number(pedidoSeleccionado?.total || 0);
   el.value = totalPedido ? totalPedido.toFixed(2) : '';
+
+  // Permitir edición manual del total si el usuario lo modifica
+  el.addEventListener('input', () => {
+    totalCompraTouched = true;
+  });
 }
 
 function escapeHtml(str) {
@@ -275,7 +279,7 @@ async function onGuardarCompra(e) {
       const idDetPedidoInput = tr.querySelector('input[name="id_det_pedido"]');
       const cantidadEsperadaInput = tr.querySelector('input[name="cantidad_esperada"]');
       const cantidadRecibidaInput = tr.querySelector('.cantidad-recibida');
-      const precioUnitarioInput = tr.querySelector('input[name="precio_unitario"]');
+      const precioUnitarioInput = tr.querySelector('.precio-unitario');
 
       console.log('Inputs encontrados:', {
         idDetPedido: idDetPedidoInput,
@@ -333,18 +337,18 @@ async function onGuardarCompra(e) {
     const response = await apiPost('registrarCompraDeOrden', payload);
     console.log('Respuesta del servidor:', response);
 
-    let mensaje = 'Compra registrada correctamente';
-    if (response.id_orden_complementaria) {
-      mensaje = `✅ Recepción parcial registrada correctamente
-      
-📋 Se ha generado automáticamente la Orden Complementaria #${response.id_orden_complementaria} con ${response.items_faltantes} items faltantes.
+    let mensaje = response.message || 'Compra registrada correctamente';
 
-📊 Resumen:
-• Orden Original: #${response.id_orden_original} (${response.items_recibidos} items recibidos)
-• Orden Complementaria: #${response.id_orden_complementaria} (${response.items_faltantes} items faltantes)
-• Estado: La orden original queda como "parcialmente recibida"
+    // Si hay items faltantes, mostrar información adicional
+    if (response.recepcion_parcial && response.items_faltantes > 0) {
+      mensaje = `Recepción registrada correctamente
 
-La nueva orden complementaria está en estado "pendiente" y puede ser procesada desde el módulo de Órdenes de Compra.`;
+RESUMEN:
+• Items recibidos: ${response.items_recibidos}
+• Items con cantidades faltantes: ${response.items_faltantes}
+• Estado de la orden: ${response.estado_orden === 'parcialmente_comprada' ? 'Parcialmente Recibida' : 'Completada'}
+
+NOTA: Puede registrar futuras recepciones de los items faltantes sobre esta misma orden de compra.`;
     }
 
     alert(mensaje);
@@ -434,57 +438,75 @@ function generarHtmlItemsRecepcion(items) {
   console.log('Generando HTML para', items.length, 'items'); // Debug
 
   return `
-    <div class="table-responsive">
-      <table class="table table-sm align-middle mb-0">
+    <div class="table-responsive" style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
+      <table class="table table-sm align-middle mb-0" style="min-width: 1000px;">
         <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
           <tr>
             <th style="width: 42px;">#</th>
-            <th>Descripción</th>
-            <th class="text-center">Unidad</th>
-            <th class="text-end">Cant. esperada</th>
-            <th class="text-end">Cant. recibida</th>
-            <th class="text-center">Llegó completo</th>
-            <th class="text-end">Subtotal</th>
+            <th style="min-width: 200px;">Descripción</th>
+            <th class="text-center" style="width: 80px;">Unidad</th>
+            <th class="text-end" style="width: 100px;">Cant. Total</th>
+            <th class="text-end" style="width: 100px;">Ya Recibida</th>
+            <th class="text-end" style="width: 100px;">Pendiente</th>
+            <th class="text-end" style="width: 120px;">Recibir Ahora</th>
+            <th class="text-end" style="width: 120px;">Vr. Unitario</th>
+            <th class="text-end" style="width: 120px;">Vr. Total</th>
           </tr>
         </thead>
         <tbody>
           ${items.map((item, idx) => {
     console.log('Procesando item:', item); // Debug
-    const cantEsperada = Number(item.cantidad_comprada ?? item.cantidad_solicitada ?? 0);
+    const cantTotal = Number(item.cantidad_comprada ?? item.cantidad_solicitada ?? 0);
+    const cantYaRecibida = Number(item.cantidad_recibida ?? 0);
+    const cantPendiente = cantTotal - cantYaRecibida;
     const precio = Number(item.precio_unitario ?? 0);
-    const subtotal = cantEsperada * precio;
-    console.log('Item procesado - cantEsperada:', cantEsperada, 'precio:', precio); // Debug
+
+    // Por defecto, sugerir recibir toda la cantidad pendiente
+    const cantSugerida = cantPendiente > 0 ? cantPendiente : 0;
+    const subtotal = cantSugerida * precio;
+
+    console.log('Item procesado - cantTotal:', cantTotal, 'yaRecibida:', cantYaRecibida, 'pendiente:', cantPendiente); // Debug
+
+    // Determinar el estado visual del item
+    const estadoClass = cantPendiente <= 0 ? 'table-success' : (cantYaRecibida > 0 ? 'table-warning' : '');
+
     return `
-              <tr>
+              <tr class="${estadoClass}">
                 <td>${idx + 1}</td>
                 <td>
                   <div class="fw-semibold">${escapeHtml(item.descripcion)}</div>
+                  ${cantYaRecibida > 0 ? '<small class="text-muted">Recepción parcial previa</small>' : ''}
                   <input type="hidden" name="id_det_pedido" value="${item.id_det_pedido}">
-                  <input type="hidden" name="cantidad_esperada" value="${cantEsperada}">
-                  <input type="hidden" name="precio_unitario" value="${precio}">
+                  <input type="hidden" name="cantidad_esperada" value="${cantTotal}">
                 </td>
                 <td class="text-center">${escapeHtml(item.unidad || '')}</td>
-                <td class="text-end">${cantEsperada.toFixed(2)}</td>
+                <td class="text-end fw-bold">${cantTotal.toFixed(2)}</td>
+                <td class="text-end ${cantYaRecibida > 0 ? 'text-warning fw-bold' : 'text-muted'}">${cantYaRecibida.toFixed(2)}</td>
+                <td class="text-end ${cantPendiente > 0 ? 'text-danger fw-bold' : 'text-success'}">${cantPendiente.toFixed(2)}</td>
                 <td class="text-end">
                   <input type="number" 
-                         class="form-control form-control-sm text-end cantidad-recibida" 
+                         class="form-control form-control-sm cantidad-recibida text-end" 
                          name="cantidad_recibida" 
-                         value="${cantEsperada}" 
+                         value="${cantSugerida.toFixed(2)}" 
                          min="0" 
-                         max="${cantEsperada}" 
+                         max="${cantPendiente}" 
                          step="0.01"
-                         data-esperada="${cantEsperada}"
-                         data-precio="${precio}">
+                         data-esperada="${cantTotal}"
+                         data-pendiente="${cantPendiente}"
+                         ${cantPendiente <= 0 ? 'disabled' : ''}
+                         style="width: 100px; font-size: 0.9rem;">
                 </td>
-                <td class="text-center">
-                  <div class="form-check">
-                    <input class="form-check-input llego-completo" 
-                           type="checkbox" 
-                           checked 
-                           data-id="${item.id_det_pedido}">
-                  </div>
+                <td class="text-end">
+                  <input type="number" 
+                         class="form-control form-control-sm precio-unitario text-end" 
+                         name="precio_unitario" 
+                         value="${precio.toFixed(2)}" 
+                         min="0" 
+                         step="0.01"
+                         data-esperada="${cantTotal}"
+                         style="width: 110px; font-size: 0.9rem; font-weight: 500;">
                 </td>
-                <td class="text-end subtotal-item">${formatMoney(subtotal)}</td>
+                <td class="text-end valor-total-item" style="font-weight: 600; min-width: 100px; padding-right: 15px;">${formatMoney(subtotal)}</td>
               </tr>
             `;
   }).join('')}
@@ -495,18 +517,27 @@ function generarHtmlItemsRecepcion(items) {
 }
 
 function actualizarTotalCompra() {
-  // Recalcular total desde la tabla de recepción
+  // Recalcular total desde la tabla de recepción con valores individuales
   const rowsContainer = qs('itemsRecepcion');
   let total = 0;
 
   if (rowsContainer && rowsContainer.querySelectorAll('tbody tr').length > 0) {
     rowsContainer.querySelectorAll('tbody tr').forEach(tr => {
       const cantidadRecibidaInput = tr.querySelector('.cantidad-recibida');
-      const precio = parseFloat(cantidadRecibidaInput?.dataset.precio || 0);
-      const cantidadRecibida = parseFloat(cantidadRecibidaInput?.value || 0);
+      const precioUnitarioInput = tr.querySelector('.precio-unitario');
 
-      if (!isNaN(cantidadRecibida) && !isNaN(precio)) {
-        total += cantidadRecibida * precio;
+      const cantidadRecibida = parseFloat(cantidadRecibidaInput?.value || 0);
+      const precioUnitario = parseFloat(precioUnitarioInput?.value || 0);
+
+      if (!isNaN(cantidadRecibida) && !isNaN(precioUnitario)) {
+        const subtotalItem = cantidadRecibida * precioUnitario;
+        total += subtotalItem;
+
+        // Actualizar el valor total visual del item
+        const valorTotalTd = tr.querySelector('.valor-total-item');
+        if (valorTotalTd) {
+          valorTotalTd.textContent = formatMoney(subtotalItem);
+        }
       }
     });
   }
@@ -517,10 +548,7 @@ function actualizarTotalCompra() {
 
   const totalElement = qs('totalCompra');
   if (totalElement) {
-    const currentTotal = parseFloat(totalElement.value) || 0;
-    if (currentTotal === 0 || Math.abs(currentTotal - total) < 0.01) {
-      totalElement.value = total.toFixed(2);
-    }
+    totalElement.value = total.toFixed(2);
   }
 
   // Habilitar botón únicamente por: orden seleccionada + número de factura
@@ -619,12 +647,26 @@ function renderListaPedidos() {
     .map((o) => {
       const id = o.id_orden_compra;
       const fecha = o.fecha_orden ? new Date(o.fecha_orden).toLocaleString('es-CO') : '-';
+
+      // Determinar badge según el estado
+      let estadoBadge = '';
+      if (o.estado === 'parcialmente_comprada') {
+        estadoBadge = '<span class="badge bg-warning text-dark ms-2">Recepción Parcial</span>';
+      } else if (o.estado === 'aprobada') {
+        estadoBadge = '<span class="badge bg-success ms-2">Aprobada</span>';
+      } else if (o.estado === 'pendiente') {
+        estadoBadge = '<span class="badge bg-secondary ms-2">Pendiente</span>';
+      }
+
       return `
-        <div class="card mb-2" style="cursor:pointer;" onclick="seleccionarPedido(${id})">
+        <div class="card mb-2 ${o.estado === 'parcialmente_comprada' ? 'border-warning' : ''}" style="cursor:pointer;" onclick="seleccionarPedido(${id})">
           <div class="card-body py-2">
             <div class="d-flex justify-content-between align-items-center">
               <div>
-                <div class="fw-bold">OC ${escapeHtml(o.numero_orden || '#' + id)}</div>
+                <div class="fw-bold">
+                  OC ${escapeHtml(o.numero_orden || '#' + id)}
+                  ${estadoBadge}
+                </div>
                 <div class="text-muted small">${escapeHtml(o.nombre_proyecto || '')} • ${escapeHtml(fecha)}</div>
               </div>
               <div class="text-end">
@@ -755,43 +797,16 @@ function limpiarSeleccionPedido() {
 }
 
 function agregarEventosRecepcion() {
-  // Evento para checkboxes "Llegó completo"
-  document.querySelectorAll('.llego-completo').forEach(checkbox => {
-    checkbox.addEventListener('change', function () {
-      const tr = this.closest('tr');
-      const cantidadInput = tr.querySelector('.cantidad-recibida');
-      const cantidadEsperada = parseFloat(cantidadInput.dataset.esperada);
-
-      if (this.checked) {
-        cantidadInput.value = cantidadEsperada;
-        cantidadInput.disabled = true;
-      } else {
-        cantidadInput.disabled = false;
-        cantidadInput.focus();
-      }
-
+  // Evento para cambios en cantidades recibidas
+  document.querySelectorAll('.cantidad-recibida').forEach(input => {
+    input.addEventListener('input', function () {
       actualizarTotalCompra();
     });
   });
 
-  // Evento para cambios en cantidades recibidas
-  document.querySelectorAll('.cantidad-recibida').forEach(input => {
+  // Evento para cambios en precios unitarios
+  document.querySelectorAll('.precio-unitario').forEach(input => {
     input.addEventListener('input', function () {
-      const tr = this.closest('tr');
-      const checkbox = tr.querySelector('.llego-completo');
-      const cantidadEsperada = parseFloat(this.dataset.esperada);
-      const cantidadRecibida = parseFloat(this.value) || 0;
-
-      // Actualizar checkbox según la cantidad
-      checkbox.checked = (cantidadRecibida >= cantidadEsperada);
-
-      // Actualizar subtotal visual
-      const precio = parseFloat(this.dataset.precio);
-      const subtotalTd = tr.querySelector('.subtotal-item');
-      if (subtotalTd) {
-        subtotalTd.textContent = formatMoney(cantidadRecibida * precio);
-      }
-
       actualizarTotalCompra();
     });
   });

@@ -117,8 +117,8 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 
                   <div class="row g-2 mt-1">
                     <div class="col-md-6">
-                      <label class="form-label">Total compra <small class="text-muted">(autocalculado, editable)</small></label>
-                      <input type="number" class="form-control" id="totalCompra" step="0.01" min="0" placeholder="0.00" />
+                      <label class="form-label">Total compra <small class="text-muted">(calculado automáticamente)</small></label>
+                      <input type="number" class="form-control" id="totalCompra" step="0.01" min="0" placeholder="0.00" readonly />
                     </div>
                   </div>
 
