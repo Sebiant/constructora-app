@@ -173,6 +173,11 @@ async function verDetalleCompra(idCompra) {
         <div class="col-md-3"><div class="text-muted small">Fecha</div><div class="fw-bold">${escapeHtml(fecha)}</div></div>
         <div class="col-md-3"><div class="text-muted small">Total</div><div class="fw-bold">${formatMoney(data.total)}</div></div>
       </div>
+      ${data.advertencia ? `
+        <div class="alert alert-warning py-2 mb-2">
+          <small><i class="bi bi-exclamation-triangle"></i> ${data.advertencia}</small>
+        </div>
+      ` : ''}
       <div class="mb-2">
         <div class="text-muted small">Proyecto</div>
         <div class="fw-bold">${escapeHtml(data.nombre_proyecto || '')}</div>

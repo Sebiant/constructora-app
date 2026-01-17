@@ -140,30 +140,26 @@ try {
                     throw new Exception('Compra no encontrada');
                 }
 
-                // Intentar obtener detalles por id_orden_compra (método nuevo)
-                $sqlDet = "SELECT DISTINCT
-                                ocd.id_det_pedido,
-                                ocd.descripcion,
-                                ocd.unidad,
-                                ocd.cantidad_solicitada,
-                                COALESCE(ocd.cantidad_recibida, 0) AS cantidad_recibida,
-                                (ocd.cantidad_solicitada - COALESCE(ocd.cantidad_recibida, 0)) AS cantidad_faltante,
-                                ocd.precio_unitario,
-                                ocd.subtotal,
-                                oc.id_provedor,
+                // Intentar obtener detalles desde log_recepciones (método nuevo y preciso)
+                $sqlDet = "SELECT 
+                                lr.id_det_pedido,
+                                lr.descripcion,
+                                lr.unidad,
+                                lr.cantidad_recibida,
+                                0 AS cantidad_faltante,
+                                lr.precio_unitario,
+                                lr.subtotal_item AS subtotal,
                                 pv.nombre AS nombre_provedor
-                           FROM compras c
-                           INNER JOIN ordenes_compra_detalle ocd ON c.id_orden_compra = ocd.id_orden_compra
-                           LEFT JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra
-                           LEFT JOIN provedores pv ON oc.id_provedor = pv.id_provedor
-                           WHERE c.id_compra = ?
-                           ORDER BY ocd.id_det_pedido ASC";
+                           FROM log_recepciones lr
+                           LEFT JOIN provedores pv ON c.id_provedor = pv.id_provedor
+                           WHERE lr.id_compra = ?
+                           ORDER BY lr.id_det_pedido ASC";
                 
                 $stmtD = $connection->prepare($sqlDet);
                 $stmtD->execute([(int)$idCompra]);
                 $detalles = $stmtD->fetchAll(PDO::FETCH_ASSOC);
                 
-                // Si no hay detalles (compra antigua), intentar por el método antiguo
+                // Si no hay detalles en log_recepciones (compra antigua), intentar por el método antiguo
                 if (empty($detalles)) {
                     $sqlDetAntiguo = "SELECT
                                         ocd.id_det_pedido,
@@ -174,7 +170,6 @@ try {
                                         (ocd.cantidad_solicitada - COALESCE(ocd.cantidad_recibida, 0)) AS cantidad_faltante,
                                         ocd.precio_unitario,
                                         ocd.subtotal,
-                                        oc.id_provedor,
                                         pv.nombre AS nombre_provedor
                                      FROM compras c
                                      INNER JOIN ordenes_compra oc ON c.id_pedido = oc.id_pedido
@@ -186,6 +181,11 @@ try {
                     $stmtD = $connection->prepare($sqlDetAntiguo);
                     $stmtD->execute([(int)$idCompra]);
                     $detalles = $stmtD->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    // Agregar advertencia para compras antiguas
+                    if (!empty($detalles)) {
+                        $compra['advertencia'] = 'Esta compra fue registrada antes de implementar el historial detallado. Los valores mostrados corresponden al estado acumulado actual, no a lo recibido específicamente en esta transacción.';
+                    }
                 }
 
                 $compra['detalles'] = $detalles;
@@ -476,6 +476,29 @@ try {
                 // Insertar en compras (tabla principal) usando el total calculado
                 $stmtCompra = $connection->prepare("INSERT INTO compras (id_pedido, id_orden_compra, fecha_compra, numero_factura, total, estado, observaciones, id_provedor, idusuario) VALUES (?, ?, NOW(), ?, ?, 'completada', ?, ?, ?)");
                 $stmtCompra->execute([$orden['id_pedido'], $idOrden, $numeroFactura, $totalCalculado, $observaciones, $orden['id_provedor'], $idUsuario]);
+                $idCompra = $connection->lastInsertId();
+
+                // Guardar detalle de cada item recibido en el log
+                foreach ($itemsRecibidos as $item) {
+                    $idDetPedido = $item['id_det_pedido'];
+                    $cantidadRecibida = (float)$item['cantidad_recibida'];
+                    $precioUnitario = (float)$item['precio_unitario'];
+                    
+                    if ($cantidadRecibida > 0) {
+                        // Obtener información del item
+                        $stmtItem = $connection->prepare("SELECT descripcion, unidad FROM ordenes_compra_detalle WHERE id_orden_compra = ? AND id_det_pedido = ?");
+                        $stmtItem->execute([$idOrden, $idDetPedido]);
+                        $itemInfo = $stmtItem->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($itemInfo) {
+                            $subtotalItem = $cantidadRecibida * $precioUnitario;
+                            
+                            // Insertar en el log de recepciones
+                            $stmtLog = $connection->prepare("INSERT INTO log_recepciones (id_compra, id_orden_compra, id_det_pedido, descripcion, unidad, cantidad_recibida, precio_unitario, subtotal_item) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                            $stmtLog->execute([$idCompra, $idOrden, $idDetPedido, $itemInfo['descripcion'], $itemInfo['unidad'], $cantidadRecibida, $precioUnitario, $subtotalItem]);
+                        }
+                    }
+                }
 
                 // Actualizar estado del pedido
                 $idPedido = (int)$orden['id_pedido'];

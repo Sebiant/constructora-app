@@ -214,6 +214,51 @@ function getDetalleOrden($connection) {
 
     $orden['productos'] = $productos;
 
+    // Obtener historial de recepciones/compras para esta orden
+    $sqlH = "SELECT 
+                c.id_compra,
+                c.fecha_compra,
+                c.numero_factura,
+                c.total as total_recepcion,
+                c.observaciones,
+                u.u_nombre as nombre_usuario
+             FROM compras c
+             LEFT JOIN gr_usuarios u ON c.idusuario = u.u_id
+             WHERE c.id_orden_compra = ?
+             ORDER BY c.fecha_compra ASC";
+    
+    $stmtH = $connection->prepare($sqlH);
+    $stmtH->execute([$idOrden]);
+    $historialRecepciones = $stmtH->fetchAll(PDO::FETCH_ASSOC);
+
+    // Para cada recepción, obtener los detalles de items recibidos
+    foreach ($historialRecepciones as &$recepcion) {
+        // Obtener los detalles desde log_recepciones
+        $sqlLog = "SELECT 
+                    lr.id_det_pedido,
+                    lr.descripcion,
+                    lr.unidad,
+                    lr.cantidad_recibida,
+                    lr.precio_unitario,
+                    (lr.cantidad_recibida * lr.precio_unitario) as subtotal_item
+                  FROM log_recepciones lr
+                  WHERE lr.id_compra = ?
+                  ORDER BY lr.id_det_pedido";
+        
+        $stmtLog = $connection->prepare($sqlLog);
+        $stmtLog->execute([$recepcion['id_compra']]);
+        $itemsRecibidos = $stmtLog->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Si no hay detalles en el log, mostrar mensaje informativo
+        if (empty($itemsRecibidos)) {
+            $recepcion['advertencia'] = 'Esta recepción fue registrada antes de implementar el historial detallado. Para ver detalles exactos, las recepciones futuras mostrarán información completa.';
+        }
+        
+        $recepcion['items_recibidos'] = $itemsRecibidos;
+    }
+
+    $orden['historial_recepciones'] = $historialRecepciones;
+
     // Determinar estado real basado en cantidades recibidas
     $totalSolicitado = array_sum(array_column($productos, 'cantidad_solicitada'));
     $totalRecibido = array_sum(array_column($productos, 'cantidad_recibida'));

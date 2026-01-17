@@ -803,6 +803,7 @@ const OrdenesCompraUI = (() => {
     
     try {
       console.log('📡 Haciendo llamada a la API...');
+      
       const response = await fetch(`${API_ORDENES}?action=getDetalleOrden&id_orden_compra=${idOrden}`);
       console.log('📡 Response status:', response.status);
       
@@ -995,6 +996,94 @@ const OrdenesCompraUI = (() => {
           </div>
         </div>
       </div>
+      
+      // Historial de recepciones
+      ${orden.historial_recepciones && orden.historial_recepciones.length > 0 ? `
+        <div class="row mt-4">
+          <div class="col-12">
+            <h6 class="fw-bold mb-3">
+              <i class="bi bi-clock-history"></i> Historial de Recepciones (${orden.historial_recepciones.length})
+            </h6>
+            <div class="accordion" id="accordionHistorial">
+              ${orden.historial_recepciones.map((recepcion, index) => {
+                const fecha = new Date(recepcion.fecha_compra).toLocaleString('es-CO');
+                const itemsRecibidos = recepcion.items_recibidos || [];
+                
+                return `
+                  <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading${index}">
+                      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}" aria-expanded="false" aria-controls="collapse${index}">
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                          <div>
+                            <strong>Recepción #${recepcion.id_compra}</strong>
+                            <span class="badge bg-success ms-2">$${parseFloat(recepcion.total_recepcion || 0).toFixed(2)}</span>
+                          </div>
+                          <div class="text-end">
+                            <small class="text-muted">${fecha}</small>
+                            ${recepcion.numero_factura ? `<span class="ms-2">Factura: ${recepcion.numero_factura}</span>` : ''}
+                          </div>
+                        </div>
+                      </button>
+                    </h2>
+                    <div id="collapse${index}" class="accordion-collapse collapse" aria-labelledby="heading${index}" data-bs-parent="#accordionHistorial">
+                      <div class="accordion-body">
+                        <div class="row mb-2">
+                          <div class="col-md-6">
+                            <small class="text-muted">Registrado por:</small><br>
+                            <strong>${recepcion.nombre_usuario || 'Sistema'}</strong>
+                          </div>
+                          <div class="col-md-6 text-end">
+                            <small class="text-muted">Total recepción:</small><br>
+                            <strong class="text-success">$${parseFloat(recepcion.total_recepcion || 0).toFixed(2)}</strong>
+                          </div>
+                        </div>
+                        ${recepcion.observaciones ? `
+                          <div class="mb-2">
+                            <small class="text-muted">Observaciones:</small><br>
+                            <div>${recepcion.observaciones.replace(/\n/g, '<br>')}</div>
+                          </div>
+                        ` : ''}
+                        ${recepcion.advertencia ? `
+                          <div class="alert alert-warning py-2">
+                            <small><i class="bi bi-exclamation-triangle"></i> ${recepcion.advertencia}</small>
+                          </div>
+                        ` : ''}
+                        ${itemsRecibidos.length > 0 ? `
+                          <div class="table-responsive mt-2">
+                            <table class="table table-sm">
+                              <thead class="table-light">
+                                <tr>
+                                  <th>Item</th>
+                                  <th class="text-end">Cantidad</th>
+                                  <th class="text-end">Vr. Unitario</th>
+                                  <th class="text-end">Subtotal</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${itemsRecibidos.map(item => `
+                                  <tr>
+                                    <td>
+                                      <div>${item.descripcion}</div>
+                                      <small class="text-muted">${item.unidad || ''}</small>
+                                    </td>
+                                    <td class="text-end">${parseFloat(item.cantidad_recibida).toFixed(2)}</td>
+                                    <td class="text-end">$${parseFloat(item.precio_unitario).toFixed(2)}</td>
+                                    <td class="text-end fw-bold">$${parseFloat(item.subtotal_item).toFixed(2)}</td>
+                                  </tr>
+                                `).join('')}
+                              </tbody>
+                            </table>
+                          </div>
+                        ` : '<div class="text-muted">No hay detalles de items en esta recepción.</div>'}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      ` : ''}
     `;
     
     // Mostrar el modal
