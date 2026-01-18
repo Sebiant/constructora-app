@@ -145,13 +145,13 @@ try {
                                 lr.id_det_pedido,
                                 lr.descripcion,
                                 lr.unidad,
+                                ocd.cantidad_solicitada,
                                 lr.cantidad_recibida,
-                                0 AS cantidad_faltante,
+                                (ocd.cantidad_solicitada - lr.cantidad_recibida) AS cantidad_faltante,
                                 lr.precio_unitario,
-                                lr.subtotal_item AS subtotal,
-                                pv.nombre AS nombre_provedor
+                                lr.subtotal_item AS subtotal
                            FROM log_recepciones lr
-                           LEFT JOIN provedores pv ON c.id_provedor = pv.id_provedor
+                           INNER JOIN ordenes_compra_detalle ocd ON lr.id_det_pedido = ocd.id_det_pedido AND lr.id_orden_compra = ocd.id_orden_compra
                            WHERE lr.id_compra = ?
                            ORDER BY lr.id_det_pedido ASC";
                 

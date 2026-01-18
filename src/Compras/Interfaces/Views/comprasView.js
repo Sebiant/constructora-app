@@ -127,13 +127,23 @@ function renderTablaCompras() {
 
 async function verDetalleCompra(idCompra) {
   try {
+    console.log('🔍 Iniciando verDetalleCompra. ID Compra:', idCompra);
+    
     qs('detalleCompraId').textContent = String(idCompra);
     qs('detalleCompraContenido').innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border" role="status"></div><div class="mt-2">Cargando...</div></div>';
 
+    console.log('📡 Llamando a la API...');
     const data = await apiGet(`action=getCompraDetalle&id_compra=${encodeURIComponent(idCompra)}`);
+    console.log('📊 Respuesta de la API:', data);
+
+    if (!data) {
+      throw new Error('No se recibieron datos de la API');
+    }
 
     const fecha = data.fecha_compra ? new Date(data.fecha_compra).toLocaleString('es-CO') : '-';
     const detalles = Array.isArray(data.detalles) ? data.detalles : [];
+    console.log('📋 Detalles recibidos:', detalles.length);
+
     const filas = detalles
       .map((d) => {
         const solicitada = Number(d.cantidad_solicitada || 0);
@@ -166,6 +176,7 @@ async function verDetalleCompra(idCompra) {
       })
       .join('');
 
+    console.log('🎨 Generando HTML del modal...');
     qs('detalleCompraContenido').innerHTML = `
       <div class="row g-2 mb-2">
         <div class="col-md-3"><div class="text-muted small">Compra</div><div class="fw-bold">#${escapeHtml(data.id_compra)}</div></div>
@@ -208,14 +219,25 @@ async function verDetalleCompra(idCompra) {
       </div>
     `;
 
+    console.log('📋 Buscando elemento del modal...');
     const modalEl = qs('modalDetalleCompra');
+    console.log('📋 Elemento modal encontrado:', modalEl);
+    
     if (modalEl) {
+      console.log('🎭 Creando instancia del modal...');
       const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+      console.log('🎭 Modal creado, mostrando...');
       modal.show();
+      console.log('✅ Modal mostrado exitosamente');
+    } else {
+      console.error('❌ No se encontró el elemento modalDetalleCompra');
+      alert('Error: No se encontró el modal de detalle');
     }
   } catch (e) {
-    console.error(e);
-    qs('detalleCompraContenido').innerHTML = `<div class="alert alert-danger">${escapeHtml(e.message)}</div>`;
+    console.error('❌ Error en verDetalleCompra:', e);
+    console.error('❌ Stack trace:', e.stack);
+    qs('detalleCompraContenido').innerHTML = `<div class="alert alert-danger">Error: ${escapeHtml(e.message)}</div>`;
+    alert('Error al cargar el detalle: ' + e.message);
   }
 }
 
