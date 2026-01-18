@@ -156,28 +156,28 @@ function cargarMultiplicadores() {
   });
 }
 
-function cargarMaterialesEnSelect(materialSeleccionado = "") {
+function cargarMateriales(
+  materialSeleccionado = ""
+) {
   const selectMaterial = $("#material");
-  selectMaterial.html('<option value="">Cargando materiales...</option>');
+  selectMaterial.html('<option value="">Cargando items...</option>');
 
   $.ajax({
-    url: API_PRESUPUESTOS + "?action=getMateriales",
+    url: API_PRESUPUESTOS + "?action=getItems",
     method: "GET",
     dataType: "json",
     success: function (res) {
       selectMaterial.empty();
       if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         selectMaterial.append(
-          '<option value="">Seleccione un material</option>'
+          '<option value="">Seleccione un item</option>'
         );
-        res.data.forEach((m) => {
+        res.data.forEach((item) => {
           selectMaterial.append(`
-                        <option value="${m.cod_material}" 
-                            data-id_material="${m.id_material}"
-                            data-id_mat_precio="${m.id_mat_precio}"
-                            data-precio="${m.precio_actual}"
-                            data-unidad="${m.unidad}">
-                            ${m.cod_material} - ${m.nombre_material}
+                        <option value="${item.codigo_item}" 
+                            data-id_item="${item.id_item}"
+                            data-unidad="${item.unidad}">
+                            ${item.codigo_item} - ${item.nombre_item}
                         </option>
                     `);
         });
@@ -187,13 +187,13 @@ function cargarMaterialesEnSelect(materialSeleccionado = "") {
         }
       } else {
         selectMaterial.html(
-          '<option value="">No hay materiales disponibles</option>'
+          '<option value="">No hay items disponibles</option>'
         );
       }
     },
     error: function (xhr, status, error) {
-      console.error("Error al cargar materiales:", error);
-      alert("Error al cargar materiales: " + error);
+      console.error("Error al cargar items:", error);
+      alert("Error al cargar items: " + error);
     },
   });
 }

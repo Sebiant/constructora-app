@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Proyectos y Materiales</title>
+    <title>Gestión de Proyectos e Items</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 </head>
@@ -12,7 +12,7 @@
         <!-- Card Principal Única -->
         <div class="card shadow-lg">
             <div class="card-header bg-info text-white">
-                <h4 class="mb-0">Sistema de Gestión de Materiales y Pedidos</h4>
+                <h4 class="mb-0">Sistema de Gestión de Items y Pedidos</h4>
             </div>
             <div class="card-body">
                 <!-- Sección de Selección -->
@@ -66,7 +66,7 @@
                 <!-- Sección de Gestión de Materiales -->
                 <div class="row">
                     <div class="col-12">
-                        <h5 class="text-success mb-3">Gestión de Materiales y Pedidos</h5>
+                        <h5 class="text-success mb-3">Gestión de Items y Pedidos</h5>
                         <small id="currentSelectionInfo" class="text-muted fst-italic mb-3 d-block">
                             Seleccione un proyecto y presupuesto para comenzar
                         </small>

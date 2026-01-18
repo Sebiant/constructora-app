@@ -144,14 +144,14 @@ try {
             }
             break;
 
-        case 'getMateriales':
+        case 'getItems':
             try {
                 $repo = new PresupuestoMySQLRepository($connection);
-                $materiales = $repo->getMaterialesConPrecios();
+                $items = $repo->getItemsConPrecios();
 
                 echo json_encode([
                     'success' => true,
-                    'data' => $materiales
+                    'data' => $items
                 ]);
             } catch (\Exception $e) {
                 echo json_encode([
@@ -324,7 +324,7 @@ try {
             }
             break;
 
-        case 'getMaterialesByPresupuesto':
+        case 'getItemsByPresupuesto':
             try {
                 $presupuestoId = $_POST['presupuesto_id'] ?? null;
                 $capituloId = $_POST['capitulo_id'] ?? null;
@@ -333,24 +333,20 @@ try {
                     throw new \Exception('ID de presupuesto requerido');
                 }
                 
-                // Consulta corregida para usar tu estructura real de tablas
+                // Consulta actualizada para usar items en lugar de materiales
                 $sql = "SELECT 
-                            m.cod_material,
-                            CAST(m.nombremat AS CHAR) AS nombre_material,
+                            i.codigo_item,
+                            i.nombre_item,
                             c.id_capitulo,
                             c.nombre_cap,
-                            u.unidesc as unidad,
+                            i.unidad,
                             dp.cantidad,
-                            mp.valor AS precio,
-                            m.id_tipo_material,
-                            m.id_material,
+                            dp.id_item,
                             dp.id_det_presupuesto
                         FROM det_presupuesto dp
-                        INNER JOIN materiales m ON dp.id_material = m.id_material
+                        INNER JOIN items i ON dp.id_item = i.id_item
                         INNER JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
-                        INNER JOIN material_precio mp ON dp.id_mat_precio = mp.id_mat_precio
-                        INNER JOIN gr_unidad u ON m.idunidad = u.idunidad
-                        WHERE dp.id_presupuesto = ?";
+                        WHERE dp.id_presupuesto = ? AND dp.idestado = 1";
                 
                 $params = [$presupuestoId];
                 
@@ -359,15 +355,15 @@ try {
                     $params[] = $capituloId;
                 }
                 
-                $sql .= " ORDER BY c.id_capitulo, m.cod_material";
+                $sql .= " ORDER BY c.id_capitulo, i.codigo_item";
                 
                 $stmt = $connection->prepare($sql);
                 $stmt->execute($params);
-                $materiales = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                $items = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                 
                 echo json_encode([
                     'success' => true,
-                    'data' => $materiales
+                    'data' => $items
                 ]);
                 
             } catch (\Exception $e) {
@@ -2537,12 +2533,12 @@ try {
                     'getAll' => 'Listar todos los presupuestos',
                     'importPreview' => 'Leer archivo Excel y devolver vista previa',
                     'getProyectos' => 'Obtener lista de proyectos',
-                    'getMateriales' => 'Obtener lista de materiales',
-                    'getMultiplicadores' => 'Obtener porcentajes de costos indirectos',
+                    'getItems' => 'Obtener items con precios disponibles para presupuestos',
+                    'getMultiplicadores' => 'Obtener multiplicadores de costos indirectos',
                     'guardarPresupuestos' => 'Guardar presupuestos en base de datos',
                     'getPresupuestosByProyecto' => 'Obtener presupuestos por proyecto',
                     'getCapitulosByPresupuesto' => 'Obtener capítulos ordenados por presupuesto',
-                    'getMaterialesByPresupuesto' => 'Obtener materiales por presupuesto',
+                    'getItemsByPresupuesto' => 'Obtener items por presupuesto',
                     'getPresupuestosCompletos' => 'Obtener presupuestos con estadísticas',
                     'getDetallesCompletosPresupuesto' => 'Obtener detalles completos de presupuesto',
                     'getUnidades' => 'Obtener lista de unidades de medida',
