@@ -35,7 +35,9 @@ try {
                         mp.valor AS precio_actual,
                         mp.fecha AS fecha_precio,
                         mp.estado AS estado_precio,
-                        m.idestado
+                        m.idestado,
+                        COALESCE(m.minimo_comercial, 1.0) AS minimo_comercial,
+                        COALESCE(m.presentacion_comercial, 'Unidad') AS presentacion_comercial
                     FROM materiales m
                     LEFT JOIN tipo_material tm ON m.id_tipo_material = tm.id_tipo_material
                     LEFT JOIN gr_unidad u ON m.idunidad = u.idunidad
@@ -68,6 +70,8 @@ try {
             $tipoId = (int)($data['id_tipo_material'] ?? 0);
             $unidadId = (string)($data['idunidad'] ?? '');
             $precio = (float)($data['precio'] ?? 0);
+            $minimoComercial = (float)($data['minimo_comercial'] ?? 1.0);
+            $presentacionComercial = trim($data['presentacion_comercial'] ?? '');
             $usuarioId = (int)($data['idusuario'] ?? 1);
 
             if ($codigo === '' || $nombre === '' || !$tipoId || $unidadId === '' || $precio <= 0) {
@@ -77,15 +81,17 @@ try {
             $connection->beginTransaction();
 
             $sqlMaterial = "INSERT INTO materiales 
-                                (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate)
-                            VALUES (?, ?, ?, ?, ?, NOW(), 1, NOW())";
+                                (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate, minimo_comercial, presentacion_comercial)
+                            VALUES (?, ?, ?, ?, ?, NOW(), 1, NOW(), ?, ?)";
             $stmt = $connection->prepare($sqlMaterial);
             $stmt->execute([
                 $codigo,
                 $nombre,
                 $tipoId,
                 $unidadId,
-                $usuarioId
+                $usuarioId,
+                $minimoComercial,
+                $presentacionComercial
             ]);
 
             $materialId = (int)$connection->lastInsertId();
@@ -118,6 +124,8 @@ try {
             $unidadId = (string)($data['idunidad'] ?? '');
             $estado = (int)($data['estado'] ?? 1);
             $precio = isset($data['precio']) ? (float)$data['precio'] : null;
+            $minimoComercial = (float)($data['minimo_comercial'] ?? 1.0);
+            $presentacionComercial = trim($data['presentacion_comercial'] ?? '');
             $usuarioId = (int)($data['idusuario'] ?? 1);
 
             if ($codigo === '' || $nombre === '' || !$tipoId || $unidadId === '') {
@@ -132,10 +140,12 @@ try {
                                 id_tipo_material = ?, 
                                 idunidad = ?, 
                                 idestado = ?, 
-                                matfupdate = NOW()
+                                matfupdate = NOW(),
+                                minimo_comercial = ?,
+                                presentacion_comercial = ?
                             WHERE id_material = ?";
             $stmt = $connection->prepare($sqlMaterial);
-            $stmt->execute([$codigo, $nombre, $tipoId, $unidadId, $estado, $materialId]);
+            $stmt->execute([$codigo, $nombre, $tipoId, $unidadId, $estado, $minimoComercial, $presentacionComercial, $materialId]);
 
             if ($precio !== null && $precio > 0) {
                 $connection->prepare("UPDATE material_precio SET estado = 0 WHERE id_material = ?")

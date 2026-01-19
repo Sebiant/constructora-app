@@ -202,7 +202,7 @@ const ItemsUI = (() => {
     if (!tbody) return;
 
     if (!data.length) {
-      setEmpty(tbody, 7, "No hay materiales registrados.");
+      setEmpty(tbody, 9, "No hay materiales registrados.");
       return;
     }
 
@@ -231,6 +231,14 @@ const ItemsUI = (() => {
           <td>${material.desc_tipo || "-"}</td>
           <td>${material.unidesc || "-"}</td>
           <td class="text-end">$${formatCurrency(material.precio_actual)}</td>
+          <td class="text-center">
+            <span class="badge bg-info">
+              ${Number(material.minimo_comercial || 1.0).toFixed(2)}
+            </span>
+          </td>
+          <td>
+            <small class="text-muted">${material.presentacion_comercial || 'Unidad'}</small>
+          </td>
           <td>${formatDate(material.fecha_precio)}</td>
           <td class="text-center">
             <div class="btn-group btn-group-sm" role="group">
@@ -340,12 +348,16 @@ const ItemsUI = (() => {
       document.getElementById("materialTipo").value = material.id_tipo_material;
       document.getElementById("materialUnidad").value = material.idunidad;
       document.getElementById("materialPrecio").value = material.precio_actual;
+      document.getElementById("materialMinimoComercial").value = material.minimo_comercial || 1.0;
+      document.getElementById("materialPresentacionComercial").value = material.presentacion_comercial || '';
       priceWrapper?.classList.remove("d-none");
       resetMaterialPriceForm(material.id_material);
       hideCollapse("materialPriceForm");
       renderMaterialImpactSummary(material.id_material);
       loadMaterialPriceHistory(material.id_material);
     } else {
+      document.getElementById("materialMinimoComercial").value = 1.0;
+      document.getElementById("materialPresentacionComercial").value = '';
       priceWrapper?.classList.add("d-none");
       resetMaterialPriceForm("");
       hideCollapse("materialPriceForm");

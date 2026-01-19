@@ -125,13 +125,15 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                         <th>Tipo</th>
                                         <th>Unidad</th>
                                         <th class="text-end">Precio actual</th>
+                                        <th class="text-center">Mínimo comercial</th>
+                                        <th>Presentación</th>
                                         <th>Actualizado</th>
                                         <th class="text-center">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td colspan="7" class="text-center py-4 text-muted">
+                                        <td colspan="9" class="text-center py-4 text-muted">
                                             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                                             <p class="mb-0 mt-2">Cargando recursos...</p>
                                         </td>
@@ -217,6 +219,16 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                         <div class="col-md-4">
                             <label class="form-label">Precio vigente</label>
                             <input type="number" step="0.01" min="0" class="form-control" name="precio" id="materialPrecio" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Mínimo comercial <small class="text-muted">(unidades)</small></label>
+                            <input type="number" step="0.001" min="0.001" class="form-control" name="minimo_comercial" id="materialMinimoComercial" placeholder="Ej: 1.0">
+                            <div class="form-text">Cantidad mínima que se puede comprar (ej: 1 frasco, 1 saco)</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Presentación comercial</label>
+                            <input type="text" class="form-control" name="presentacion_comercial" id="materialPresentacionComercial" placeholder="Ej: Frasco x 1kg, Caja x 25 und">
+                            <div class="form-text">Cómo se vende el producto al proveedor</div>
                         </div>
                         <div class="col-12">
                             <label class="form-label">Estado</label>
