@@ -1215,8 +1215,8 @@ async function cargarPresupuestos() {
         presupuestos.forEach((presupuesto) => {
           const option = document.createElement("option");
           option.value = presupuesto.id_presupuesto;
-          option.textContent = `${presupuesto.nombre_proyecto || presupuesto.nombre || ('Presupuesto ' + presupuesto.id_presupuesto)
-            } - $${parseFloat(presupuesto.monto_total || 0).toLocaleString()}`;
+          option.textContent = `${presupuesto.nombre || presupuesto.codigo || ('Presupuesto ' + presupuesto.id_presupuesto)
+            } - ${presupuesto.nombre_proyecto || 'Sin proyecto'} - $${parseFloat(presupuesto.monto_total || 0).toLocaleString()}`;
           option.setAttribute("data-presupuesto", JSON.stringify(presupuesto));
           selectPresupuesto.appendChild(option);
         });
@@ -1268,7 +1268,7 @@ async function cargarItems() {
       itemsData = items;
       seleccionActual = {
         proyecto: proyectoNombre,
-        presupuesto: presupuesto?.nombre_proyecto || presupuesto?.nombre || `Presupuesto ${presupuestoId}`,
+        presupuesto: presupuesto?.nombre || presupuesto?.codigo || `Presupuesto ${presupuestoId}`,
         capitulo: "Todos los capítulos",
         datos: { proyectoId, presupuestoId, capituloId: null, presupuesto: presupuesto || {} },
       };

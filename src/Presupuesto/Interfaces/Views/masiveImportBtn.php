@@ -25,7 +25,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                 <select id="id_presupuesto" name="id_presupuesto" class="form-control" disabled>
                     <option value="">Primero seleccione un proyecto</option>
                 </select>
-                <button type="button" class="btn btn-success" id="btnCrearNuevoPresupuesto" onclick="mostrarModalCrearPresupuesto()" disabled>
+                <button type="button" class="btn btn-success" id="btnCrearNuevoPresupuesto" onclick="console.log(' Botón clickeado'); mostrarModalCrearPresupuesto();" disabled>
                     <i class="bi bi-plus-circle me-1"></i>Crear Nuevo Presupuesto
                 </button>
             </div>
@@ -98,6 +98,24 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
       <div class="modal-body">
         <form id="formCrearPresupuesto">
           <div class="row g-3">
+            <!-- Código del Presupuesto -->
+            <div class="col-md-6">
+              <label for="codigo_presupuesto" class="form-label fw-bold">
+                <i class="bi bi-tag me-1"></i>Código del Presupuesto *
+              </label>
+              <input type="text" id="codigo_presupuesto" class="form-control" placeholder="Ej: PRES-2024-001" required>
+              <small class="text-muted">Código único de identificación</small>
+            </div>
+
+            <!-- Nombre del Presupuesto -->
+            <div class="col-md-6">
+              <label for="nombre_presupuesto" class="form-label fw-bold">
+                <i class="bi bi-file-text me-1"></i>Nombre del Presupuesto *
+              </label>
+              <input type="text" id="nombre_presupuesto" class="form-control" placeholder="Ej: Presupuesto Obra Principal" required>
+              <small class="text-muted">Nombre descriptivo del presupuesto</small>
+            </div>
+
             <!-- Fecha de Creación -->
             <div class="col-md-6">
               <label for="fecha_creacion" class="form-label fw-bold">
@@ -271,3 +289,5 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
 <script>
     const API_PRESUPUESTOS = '/sgigescomnew/src/Presupuesto/Interfaces/PresupuestoController.php';
 </script>
+
+<script src="/sgigescomnew/src/Presupuesto/Interfaces/Views/masiveImportBtn.js?v=<?php echo time(); ?>"></script>

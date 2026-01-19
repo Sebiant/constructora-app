@@ -15,21 +15,71 @@ $(document).ready(function () {
 });
 
 function mostrarModalCrearPresupuesto() {
-  // Limpiar formulario
-  $("#fecha_creacion").val("");
-  $("#monto_total").val("");
-  $("#observaciones").val("");
+  console.log("🔍 Abriendo modal de crear presupuesto...");
   
-  // Establecer fecha actual por defecto
-  const hoy = new Date().toISOString().split('T')[0];
-  $("#fecha_creacion").val(hoy);
-  
-  // Mostrar modal
-  $("#modalCrearPresupuesto").modal("show");
+  // Esperar a que el DOM esté completamente cargado
+  setTimeout(() => {
+    console.log("🔍 Verificando elementos en el DOM...");
+    
+    // Verificar que el formulario exista
+    const formulario = $("#formCrearPresupuesto");
+    console.log("📝 Formulario encontrado:", formulario.length > 0, formulario);
+    
+    if (formulario.length === 0) {
+      console.error("❌ Formulario no encontrado en el DOM");
+      console.log("🔍 Buscando todos los formularios:", $("form").length);
+      console.log("🔍 IDs de formularios:", $("form").map((i, el) => $(el).attr('id')).get());
+      alert("Error: No se encontró el formulario. Recargue la página.");
+      return;
+    }
+    
+    // Limpiar formulario
+    formulario[0].reset();
+    console.log("✅ Formulario reseteado");
+    
+    // Establecer fecha actual por defecto
+    const hoy = new Date().toISOString().split('T')[0];
+    $("#fecha_creacion").val(hoy);
+    console.log("📅 Fecha establecida:", hoy);
+    
+    // Generar código sugerido
+    const proyectoId = $("#id_proyecto").val();
+    if (proyectoId) {
+      const año = new Date().getFullYear();
+      const codigoSugerido = `PRES-${año}-${proyectoId}`;
+      $("#codigo_presupuesto").val(codigoSugerido);
+      console.log("📝 Código sugerido:", codigoSugerido);
+    }
+    
+    // Verificar que el modal exista
+    const modal = $("#modalCrearPresupuesto");
+    console.log("🎭 Modal encontrado:", modal.length > 0, modal);
+    
+    if (modal.length === 0) {
+      console.error("❌ Modal no encontrado en el DOM");
+      console.log("🔍 Buscando todos los modales:", $(".modal").length);
+      console.log("🔍 IDs de modales:", $(".modal").map((i, el) => $(el).attr('id')).get());
+      alert("Error: No se encontró el modal. Recargue la página.");
+      return;
+    }
+    
+    console.log("✅ Modal encontrado, abriendo...");
+    
+    // Mostrar modal
+    try {
+      modal.modal("show");
+      console.log("✅ Modal abierto correctamente");
+    } catch (error) {
+      console.error("❌ Error al abrir modal:", error);
+      alert("Error al abrir el modal: " + error.message);
+    }
+  }, 100); // Pequeño retraso para asegurar que el DOM esté listo
 }
 
 function crearNuevoPresupuesto() {
   const proyectoId = $("#id_proyecto").val();
+  const codigoPresupuesto = $("#codigo_presupuesto").val();
+  const nombrePresupuesto = $("#nombre_presupuesto").val();
   const fechaCreacion = $("#fecha_creacion").val();
   const montoTotal = $("#monto_total").val();
   const observaciones = $("#observaciones").val();
@@ -37,6 +87,16 @@ function crearNuevoPresupuesto() {
   // Validaciones
   if (!proyectoId) {
     alert("Debe seleccionar un proyecto primero");
+    return;
+  }
+
+  if (!codigoPresupuesto) {
+    alert("El código del presupuesto es requerido");
+    return;
+  }
+
+  if (!nombrePresupuesto) {
+    alert("El nombre del presupuesto es requerido");
     return;
   }
 
@@ -52,6 +112,8 @@ function crearNuevoPresupuesto() {
 
   const datos = {
     id_proyecto: parseInt(proyectoId),
+    codigo: codigoPresupuesto.trim(),
+    nombre: nombrePresupuesto.trim(),
     fecha_creacion: fechaCreacion,
     monto_total: parseFloat(montoTotal),
     observaciones: observaciones
@@ -193,10 +255,11 @@ function cargarPresupuestosPorProyecto(proyectoId) {
           const fechaFormateada = fecha.toLocaleDateString("es-ES");
           const montoFormateado = formatCurrency(presupuesto.monto_total || 0);
           const nombreProyecto = presupuesto.nombre_proyecto || 'Sin proyecto';
+          const nombrePresupuesto = presupuesto.nombre || presupuesto.codigo || `Presupuesto ${presupuesto.id_presupuesto}`;
 
           selectPresupuesto.append(
             `<option value="${presupuesto.id_presupuesto}">
-                            Presupuesto ${presupuesto.id_presupuesto} - ${nombreProyecto} - ${fechaFormateada} - ${montoFormateado}
+                            ${nombrePresupuesto} - ${nombreProyecto} - ${fechaFormateada} - ${montoFormateado}
                         </option>`
           );
         });

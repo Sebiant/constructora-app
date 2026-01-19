@@ -28,15 +28,22 @@ try {
                 exit;
             }
 
+            if (empty($data['codigo']) || empty($data['nombre'])) {
+                echo json_encode(['success' => false, 'error' => 'codigo y nombre son requeridos']);
+                exit;
+            }
+
             $monto_total = isset($data['monto_total']) ? (float)$data['monto_total'] : 0;
             $observaciones = $data['observaciones'] ?? '';
 
             // Crear presupuesto directamente con SQL
-            $sql = "INSERT INTO presupuestos (id_proyecto, fecha_creacion, monto_total, observaciones, idestado, fechareg, idusuario) 
-                    VALUES (:id_proyecto, :fecha_creacion, :monto_total, :observaciones, 1, NOW(), 1)";
+            $sql = "INSERT INTO presupuestos (id_proyecto, codigo, nombre, fecha_creacion, monto_total, observaciones, idestado, fechareg, idusuario) 
+                    VALUES (:id_proyecto, :codigo, :nombre, :fecha_creacion, :monto_total, :observaciones, 1, NOW(), 1)";
             $stmt = $connection->prepare($sql);
             $result = $stmt->execute([
                 'id_proyecto' => (int)$data['id_proyecto'],
+                'codigo' => $data['codigo'],
+                'nombre' => $data['nombre'],
                 'fecha_creacion' => $data['fecha_creacion'],
                 'monto_total' => $monto_total,
                 'observaciones' => $observaciones
@@ -46,7 +53,7 @@ try {
                 $id_presupuesto = $connection->lastInsertId();
                 
                 // Obtener el presupuesto creado para devolverlo
-                $sql_get = "SELECT id_presupuesto, id_proyecto, fecha_creacion, monto_total, observaciones 
+                $sql_get = "SELECT id_presupuesto, id_proyecto, codigo, nombre, fecha_creacion, monto_total, observaciones 
                              FROM presupuestos 
                              WHERE id_presupuesto = :id_presupuesto";
                 $stmt_get = $connection->prepare($sql_get);
