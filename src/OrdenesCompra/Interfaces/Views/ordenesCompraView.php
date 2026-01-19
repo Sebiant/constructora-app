@@ -217,19 +217,20 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                       <th width="5%">
                         <input type="checkbox" id="selectAll" />
                       </th>
-                      <th>Descripción</th>
+                      <th>Producto</th>
                       <th class="text-center">Unidad</th>
-                      <th class="text-center">Cantidad Pedida</th>
-                      <th class="text-center">En Órdenes</th>
+                      <th class="text-center">Solicitada</th>
+                      <th class="text-center">Comprada</th>
                       <th class="text-center">Disponible</th>
-                      <th class="text-center">Cantidad a Comprar</th>
+                      <th class="text-center">A Comprar</th>
+                      <th class="text-center">Desperdicio</th>
                       <th class="text-end">Precio Unitario</th>
                       <th class="text-end">Subtotal</th>
                     </tr>
                   </thead>
                   <tbody id="tablaProductosBody">
                     <tr>
-                      <td colspan="9" class="text-center py-3 text-muted">
+                      <td colspan="10" class="text-center py-3 text-muted">
                         Seleccione un pedido para ver sus productos
                       </td>
                     </tr>

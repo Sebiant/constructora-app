@@ -14,7 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/config/database.php';
+require __DIR__ . '/../../../vendor/autoload.php';
+require __DIR__ . '/../../../config/database.php';
+require __DIR__ . '/../../../src/Shared/Utils/CalculosComerciales.php';
 
 try {
     $db = new Database();
@@ -653,7 +655,9 @@ function getProductosPedido($connection) {
                     WHEN GREATEST(pd.cantidad - COALESCE(SUM(ocd.cantidad_comprada), 0), 0) > 0 THEN 'disponible'
                     ELSE 'completado'
                 END AS estado_producto,
-                GREATEST(pd.cantidad - COALESCE(SUM(ocd.cantidad_comprada), 0), 0) AS cantidad_maxima_seleccionable
+                GREATEST(pd.cantidad - COALESCE(SUM(ocd.cantidad_comprada), 0), 0) AS cantidad_maxima_seleccionable,
+                COALESCE(m.minimo_comercial, 1.0) AS minimo_comercial,
+                COALESCE(m.presentacion_comercial, 'Unidad') AS presentacion_comercial
             FROM pedidos_detalle pd
             LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
             LEFT JOIN materiales_extra_presupuesto mep ON pd.id_material_extra = mep.id_material_extra
@@ -668,7 +672,9 @@ function getProductosPedido($connection) {
                 pd.precio_unitario,
                 pd.subtotal,
                 COALESCE(ic.descripcion, CAST(m.nombremat AS CHAR)),
-                COALESCE(ic.unidad, u.unidesc, 'unidad')
+                COALESCE(ic.unidad, u.unidesc, 'unidad'),
+                m.minimo_comercial,
+                m.presentacion_comercial
             HAVING cantidad_disponible > 0
             ORDER BY COALESCE(ic.descripcion, m.nombremat) ASC";
 
@@ -692,7 +698,9 @@ function getProductosPedido($connection) {
                 'cantidad_comprada' => 0,
                 'cantidad_disponible' => 0,
                 'estado_producto' => 'disponible',
-                'cantidad_maxima_seleccionable' => 0
+                'cantidad_maxima_seleccionable' => 0,
+                'minimo_comercial' => $producto['minimo_comercial'],
+                'presentacion_comercial' => $producto['presentacion_comercial']
             ];
         }
         

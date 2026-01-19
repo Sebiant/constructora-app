@@ -346,7 +346,7 @@ const OrdenesCompraUI = (() => {
       console.log('📭 No hay productos para mostrar');
       contenedor.innerHTML = `
         <tr>
-          <td colspan="9" class="text-center py-3 text-muted">
+          <td colspan="10" class="text-center py-3 text-muted">
             <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
             <p class="mb-0 mt-2">Seleccione un pedido para ver sus productos</p>
           </td>
@@ -363,7 +363,14 @@ const OrdenesCompraUI = (() => {
       const precio = Number(producto.precio_unitario ?? 0);
       const subtotal = Number(producto.subtotal ?? (cantOC * precio));
       const disponible = Number(producto.cantidad_disponible ?? 0);
-      const cantComprar = Math.min(disponible, cantPedida - cantOC);
+      const minimoComercial = Number(producto.minimo_comercial ?? 1.0);
+      
+      // Calcular cantidad real a comprar con mínimo comercial
+      const cantNecesaria = Math.min(disponible, cantPedida - cantOC);
+      const unidadesMinimas = Math.ceil(cantNecesaria / minimoComercial);
+      const cantComprar = unidadesMinimas * minimoComercial;
+      const desperdicio = cantComprar - cantNecesaria;
+      const porcentajeDesperdicio = cantNecesaria > 0 ? (desperdicio / cantNecesaria) * 100 : 0;
       
       // Obtener IDs originales para el checkbox y otros elementos
       const idsOriginales = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido : [producto.id_det_pedido];
@@ -373,15 +380,25 @@ const OrdenesCompraUI = (() => {
       const indicadorAgrupado = idsOriginales.length > 1 ? 
         '<span class="badge bg-info ms-1" title="Productos agrupados"><i class="bi bi-layers"></i></span>' : '';
       
+      // Indicador de desperdicio
+      const indicadorDesperdicio = desperdicio > 0.01 ? 
+        `<span class="badge bg-warning ms-1" title="Desperdicio: ${desperdicio.toFixed(2)} (${porcentajeDesperdicio.toFixed(1)}%)"><i class="bi bi-exclamation-triangle"></i> ${desperdicio.toFixed(2)}</span>` : '';
+      
+      // Información de presentación comercial
+      const presentacionInfo = producto.presentacion_comercial && producto.presentacion_comercial !== 'Unidad' ? 
+        `<br><small class="text-muted">${producto.presentacion_comercial}</small>` : '';
+      
       console.log(`📦 Producto ${index + 1}:`, {
         ids_originales: idsOriginales,
         descripcion: producto.descripcion,
         cantPedida,
         cantOC,
-        precio,
-        subtotal,
         disponible,
-        cantComprar
+        minimoComercial,
+        cantNecesaria,
+        cantComprar,
+        desperdicio,
+        porcentajeDesperdicio
       });
       
       return `
@@ -391,12 +408,16 @@ const OrdenesCompraUI = (() => {
                    data-id="${primerId}" 
                    data-ids-originales="${JSON.stringify(idsOriginales)}"
                    data-disponible="${disponible}"
+                   data-cant-comprar="${cantComprar}"
+                   data-desperdicio="${desperdicio}"
                    ${cantComprar <= 0 ? 'disabled' : ''}
                    onchange="OrdenesCompraUI.actualizarProductoSeleccionado(${primerId}, this)">
           </td>
           <td>
             ${escapeHtml(producto.descripcion)}
             ${indicadorAgrupado}
+            ${indicadorDesperdicio}
+            ${presentacionInfo}
           </td>
           <td class="text-center">${escapeHtml(producto.unidad || '')}</td>
           <td class="text-center">${cantPedida.toFixed(2)}</td>
@@ -413,13 +434,24 @@ const OrdenesCompraUI = (() => {
                      data-id="${primerId}"
                      data-ids-originales="${JSON.stringify(idsOriginales)}"
                      data-cant-pedida="${cantPedida}"
+                     data-cant-necesaria="${cantNecesaria}"
+                     data-minimo-comercial="${minimoComercial}"
                      onchange="OrdenesCompraUI.actualizarCantidadComprar(this)">
               <button class="btn btn-outline-primary btn-sm" type="button"
-                      title="Usar cantidad pedida"
+                      title="Usar cantidad calculada con mínimo comercial"
                       onclick="OrdenesCompraUI.autofillCantidadPedida(${primerId})">
                 <i class="bi bi-arrow-repeat"></i>
               </button>
             </div>
+            ${desperdicio > 0.01 ? `<small class="text-warning d-block mt-1">+${desperdicio.toFixed(2)} (${porcentajeDesperdicio.toFixed(1)}%)</small>` : ''}
+          </td>
+          <td class="text-center">
+            ${desperdicio > 0.01 ? 
+              `<span class="badge bg-warning" title="Desperdicio: ${desperdicio.toFixed(2)} (${porcentajeDesperdicio.toFixed(1)}%)">
+                <i class="bi bi-exclamation-triangle"></i> ${desperdicio.toFixed(2)}
+              </span>` : 
+              '<span class="text-muted">-</span>'
+            }
           </td>
           <td class="text-end">${formatMoney(precio)}</td>
           <td class="text-end">${formatMoney(subtotal)}</td>
@@ -1272,18 +1304,28 @@ const OrdenesCompraUI = (() => {
   function autofillCantidadPedida(idDetPedido) {
     const input = document.querySelector(`.cantidad-comprar[data-id="${idDetPedido}"]`);
     if (!input) return;
-    const cantPedidaAttr = input.getAttribute('data-cant-pedida');
-    let cantPedida = parseFloat(cantPedidaAttr);
-    if (isNaN(cantPedida)) cantPedida = 0;
-
-    // Si hay max (disponible), llenar con el mínimo entre pedida y max para evitar bloqueo por max
-    const max = parseFloat(input.max);
-    if (!isNaN(max)) {
-      input.value = Math.min(cantPedida, max);
-    } else {
-      input.value = cantPedida;
-    }
+    
+    // Obtener datos del cálculo comercial
+    const cantNecesariaAttr = input.getAttribute('data-cant-necesaria');
+    const cantComprarAttr = input.getAttribute('data-cant-comprar');
+    const minimoComercialAttr = input.getAttribute('data-minimo-comercial');
+    
+    let cantNecesaria = parseFloat(cantNecesariaAttr) || 0;
+    let cantComprar = parseFloat(cantComprarAttr) || 0;
+    let minimoComercial = parseFloat(minimoComercialAttr) || 1.0;
+    
+    // Usar la cantidad calculada con mínimo comercial
+    input.value = cantComprar;
     actualizarCantidadComprar(input);
+
+    // Mostrar información del cálculo en consola
+    console.log(`🔄 Autofill con mínimo comercial:`, {
+      idDetPedido,
+      cantNecesaria,
+      minimoComercial,
+      cantComprar,
+      desperdicio: cantComprar - cantNecesaria
+    });
 
     // Marcar/asegurar selección del producto si no lo está
     const checkbox = document.querySelector(`.producto-checkbox[data-id="${idDetPedido}"]`);
