@@ -14,6 +14,97 @@ $(document).ready(function () {
   cargarMultiplicadores();
 });
 
+function mostrarModalCrearPresupuesto() {
+  // Limpiar formulario
+  $("#fecha_creacion").val("");
+  $("#monto_total").val("");
+  $("#observaciones").val("");
+  
+  // Establecer fecha actual por defecto
+  const hoy = new Date().toISOString().split('T')[0];
+  $("#fecha_creacion").val(hoy);
+  
+  // Mostrar modal
+  $("#modalCrearPresupuesto").modal("show");
+}
+
+function crearNuevoPresupuesto() {
+  const proyectoId = $("#id_proyecto").val();
+  const fechaCreacion = $("#fecha_creacion").val();
+  const montoTotal = $("#monto_total").val();
+  const observaciones = $("#observaciones").val();
+
+  // Validaciones
+  if (!proyectoId) {
+    alert("Debe seleccionar un proyecto primero");
+    return;
+  }
+
+  if (!fechaCreacion) {
+    alert("La fecha de creación es requerida");
+    return;
+  }
+
+  if (!montoTotal || montoTotal <= 0) {
+    alert("El monto total debe ser mayor a 0");
+    return;
+  }
+
+  const datos = {
+    id_proyecto: parseInt(proyectoId),
+    fecha_creacion: fechaCreacion,
+    monto_total: parseFloat(montoTotal),
+    observaciones: observaciones
+  };
+
+  // Deshabilitar botón y mostrar loading
+  const btn = $("#btnGuardarPresupuesto");
+  const textoOriginal = btn.html();
+  btn.prop("disabled", true).html('<span class="spinner-border spinner-border-sm" role="status"></span> Creando...');
+
+  console.log("📡 Enviando datos para crear presupuesto:", datos);
+
+  $.ajax({
+    url: API_PRESUPUESTOS + "?action=create",
+    method: "POST",
+    data: JSON.stringify(datos),
+    contentType: "application/json",
+    dataType: "json",
+    success: function (res) {
+      console.log("✅ Respuesta crear presupuesto:", res);
+      if (res.success) {
+        alert("✅ Presupuesto creado correctamente");
+        
+        // Cerrar modal
+        $("#modalCrearPresupuesto").modal("hide");
+        
+        // Recargar presupuestos del proyecto
+        cargarPresupuestosPorProyecto(proyectoId);
+        
+        // Seleccionar automáticamente el nuevo presupuesto
+        setTimeout(() => {
+          if (res.presupuesto && res.presupuesto.id_presupuesto) {
+            $("#id_presupuesto").val(res.presupuesto.id_presupuesto);
+            cargarCapitulosDelPresupuesto(res.presupuesto.id_presupuesto);
+          }
+        }, 500);
+        
+      } else {
+        alert("❌ Error al crear presupuesto: " + (res.error || "Error desconocido"));
+      }
+    },
+    error: function (xhr, status, error) {
+      console.error("❌ Error al crear presupuesto:", error);
+      console.error("❌ Detalles:", xhr.responseText);
+      alert("❌ Error al crear presupuesto: " + error);
+    },
+    complete: function () {
+      // Restaurar botón
+      btn.prop("disabled", false).html(textoOriginal);
+    }
+  });
+}
+
 function cargarProyectos() {
   const selectProyecto = $("#id_proyecto");
   selectProyecto.html('<option value="">Cargando proyectos...</option>');
@@ -61,20 +152,27 @@ function cargarProyectos() {
 
 function cargarPresupuestosPorProyecto(proyectoId) {
   const selectPresupuesto = $("#id_presupuesto");
+  const btnCrearNuevo = $("#btnCrearNuevoPresupuesto");
+
+  console.log(" Cargando presupuestos para proyecto:", proyectoId);
 
   if (!proyectoId || proyectoId === "") {
     selectPresupuesto.html(
       '<option value="">Primero seleccione un proyecto</option>'
     );
     selectPresupuesto.prop("disabled", true);
+    btnCrearNuevo.prop("disabled", true);
     return;
   }
 
   selectPresupuesto.html('<option value="">Cargando presupuestos...</option>');
   selectPresupuesto.prop("disabled", true);
+  btnCrearNuevo.prop("disabled", false); // Habilitar botón de crear
 
   const formData = new FormData();
   formData.append("proyecto_id", proyectoId);
+
+  console.log(" Enviando petición a:", API_PRESUPUESTOS + "?action=getPresupuestosByProyecto");
 
   $.ajax({
     url: API_PRESUPUESTOS + "?action=getPresupuestosByProyecto",
@@ -84,17 +182,21 @@ function cargarPresupuestosPorProyecto(proyectoId) {
     processData: false,
     dataType: "json",
     success: function (res) {
+      console.log(" Respuesta recibida:", res);
       selectPresupuesto.empty();
 
       if (res.success && res.data && res.data.length > 0) {
+        console.log(" Hay", res.data.length, "presupuestos existentes");
+
         res.data.forEach((presupuesto) => {
           const fecha = new Date(presupuesto.fecha_creacion);
           const fechaFormateada = fecha.toLocaleDateString("es-ES");
           const montoFormateado = formatCurrency(presupuesto.monto_total || 0);
+          const nombreProyecto = presupuesto.nombre_proyecto || 'Sin proyecto';
 
           selectPresupuesto.append(
             `<option value="${presupuesto.id_presupuesto}">
-                            Presupuesto ${presupuesto.id_presupuesto} - ${fechaFormateada} - ${montoFormateado}
+                            Presupuesto ${presupuesto.id_presupuesto} - ${nombreProyecto} - ${fechaFormateada} - ${montoFormateado}
                         </option>`
           );
         });
@@ -102,22 +204,29 @@ function cargarPresupuestosPorProyecto(proyectoId) {
         selectPresupuesto.prop("disabled", false);
 
         selectPresupuesto.off("change").on("change", function () {
-          const idPresupuesto = $(this).val();
-          if (idPresupuesto) {
-            cargarCapitulosDelPresupuesto(idPresupuesto);
+          const valorSeleccionado = $(this).val();
+
+          if (valorSeleccionado) {
+            cargarCapitulosDelPresupuesto(valorSeleccionado);
           }
         });
       } else {
+        console.log(" No hay presupuestos existentes");
+
         selectPresupuesto.append(
           '<option value="">No hay presupuestos para este proyecto</option>'
         );
+        selectPresupuesto.prop("disabled", false);
       }
     },
     error: function (xhr, status, error) {
-      console.error("Error al cargar presupuestos:", error);
+      console.error(" Error al cargar presupuestos:", error);
+      console.error(" Detalles:", xhr.responseText);
       selectPresupuesto.html(
         '<option value="">Error al cargar presupuestos</option>'
       );
+      selectPresupuesto.prop("disabled", false);
+      btnCrearNuevo.prop("disabled", false); // Mantener botón habilitado incluso si hay error
     },
   });
 }

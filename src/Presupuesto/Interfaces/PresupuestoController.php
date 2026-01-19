@@ -24,26 +24,46 @@ try {
             $data = json_decode(file_get_contents('php://input'), true);
 
             if (empty($data['id_proyecto']) || empty($data['fecha_creacion'])) {
-                echo json_encode(['error' => 'id_proyecto y fecha_creacion son requeridos']);
+                echo json_encode(['success' => false, 'error' => 'id_proyecto y fecha_creacion son requeridos']);
                 exit;
             }
 
             $monto_total = isset($data['monto_total']) ? (float)$data['monto_total'] : 0;
+            $observaciones = $data['observaciones'] ?? '';
 
-            $presupuesto = Presupuesto::crear(
-                $data['id_proyecto'],
-                $monto_total,
-                $data['fecha_creacion']
-            );
-
-            $useCase = new CreatePresupuesto($repo);
-            $resultado = $useCase->execute($presupuesto);
-
-            echo json_encode([
-                'success' => true,
-                'message' => 'Presupuesto creado correctamente',
-                'presupuesto' => $resultado->toArray()
+            // Crear presupuesto directamente con SQL
+            $sql = "INSERT INTO presupuestos (id_proyecto, fecha_creacion, monto_total, observaciones, idestado, fechareg, idusuario) 
+                    VALUES (:id_proyecto, :fecha_creacion, :monto_total, :observaciones, 1, NOW(), 1)";
+            $stmt = $connection->prepare($sql);
+            $result = $stmt->execute([
+                'id_proyecto' => (int)$data['id_proyecto'],
+                'fecha_creacion' => $data['fecha_creacion'],
+                'monto_total' => $monto_total,
+                'observaciones' => $observaciones
             ]);
+
+            if ($result) {
+                $id_presupuesto = $connection->lastInsertId();
+                
+                // Obtener el presupuesto creado para devolverlo
+                $sql_get = "SELECT id_presupuesto, id_proyecto, fecha_creacion, monto_total, observaciones 
+                             FROM presupuestos 
+                             WHERE id_presupuesto = :id_presupuesto";
+                $stmt_get = $connection->prepare($sql_get);
+                $stmt_get->execute(['id_presupuesto' => $id_presupuesto]);
+                $presupuesto = $stmt_get->fetch(\PDO::FETCH_ASSOC);
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Presupuesto creado correctamente',
+                    'presupuesto' => $presupuesto
+                ]);
+            } else {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Error al crear presupuesto'
+                ]);
+            }
             break;
 
         case 'getAll':
@@ -257,6 +277,8 @@ try {
 
                 $query = "SELECT 
                             p.id_presupuesto,
+                            p.codigo,
+                            p.nombre,
                             p.id_proyecto,
                             p.fecha_creacion,
                             p.monto_total,

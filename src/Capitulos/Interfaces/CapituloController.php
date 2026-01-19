@@ -54,7 +54,7 @@ try {
             break;
 
         case 'getPresupuestos':
-            $sql = "SELECT id_presupuesto, fecha_creacion 
+            $sql = "SELECT id_presupuesto, codigo, nombre, fecha_creacion 
                      FROM presupuestos 
                      ORDER BY fecha_creacion DESC";
             $stmt = $connection->prepare($sql);
