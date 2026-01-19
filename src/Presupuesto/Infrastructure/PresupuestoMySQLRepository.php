@@ -257,12 +257,12 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
             }
 
             $numeroCapitulo = trim($fila[0] ?? '');
-            $codigoItem = trim($fila[1] ?? ''); 
+            $codigoMaterial = trim($fila[1] ?? ''); 
             $cantidad = trim($fila[2] ?? '');
             $fecha = trim($fila[3] ?? '');
             $nombrePresupuesto = trim($fila[4] ?? '');
 
-            if (empty($numeroCapitulo) && empty($codigoItem)) {
+            if (empty($numeroCapitulo) && empty($codigoMaterial)) {
                 continue;
             }
 
@@ -286,9 +286,9 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
                 }
             }
 
-            if (empty($codigoItem)) {
+            if (empty($codigoMaterial)) {
                 $errores[] = 'Código de ítem requerido';
-            } elseif (!isset($itemsMap[$codigoItem])) {
+            } elseif (!isset($itemsMap[$codigoMaterial])) {
                 $errores[] = 'Ítem no encontrado en base de datos';
             }
 
@@ -298,16 +298,18 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
                 $errores[] = 'Cantidad debe ser un número mayor a 0';
             }
 
-            $nombreItem = 'No encontrado';
+            $nombreMaterial = 'No encontrado';
             $precioUnitario = 0;
             $unidad = 'N/A';
-            $tipoItem = 'APU'; // Siempre APU para presupuestos
+            $tipoMaterial = 'APU'; // Siempre APU para presupuestos
+            $idMaterial = null;
+            $idMatPrecio = null;
             $idItem = null;
 
-            // SOLO ITEMS - Obtener datos del item
-            if (isset($itemsMap[$codigoItem])) {
-                $itemData = $itemsMap[$codigoItem];
-                $nombreItem = $itemData['nombre_item'];
+            // SOLO ITEMS - Eliminada la lógica de materiales
+            if (isset($itemsMap[$codigoMaterial])) {
+                $itemData = $itemsMap[$codigoMaterial];
+                $nombreMaterial = $itemData['nombre_item'];
                 $unidad = $itemData['unidad'];
                 $idItem = $itemData['id_item'];
                 
@@ -333,9 +335,9 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
             $filas[] = [
                 'presupuesto' => $nombrePresupuesto,
                 'capitulo' => $nombreCapitulo,
-                'item_codigo' => $codigoItem,
-                'item_nombre' => $nombreItem,
-                'tipo_item' => $tipoItem,
+                'material_codigo' => $codigoMaterial,
+                'material_nombre' => $nombreMaterial,
+                'tipo_material' => $tipoMaterial,
                 'unidad' => $unidad,
                 'cantidad' => (float)$cantidad,
                 'precio_unitario' => (float)$precioUnitario,
@@ -345,9 +347,9 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
 
                 'id_det_presupuesto' => null,
                 'id_presupuesto' => $idPresupuesto,
-                'id_material' => null, // Siempre null para presupuestos de items
+                'id_material' => $idMaterial,
                 'id_capitulo' => $idCapitulo,
-                'id_mat_precio' => null, // Siempre null para presupuestos de items
+                'id_mat_precio' => $idMatPrecio,
                 'id_item' => $idItem,
                 'idestado' => 1,
                 'idusuario' => 1,
