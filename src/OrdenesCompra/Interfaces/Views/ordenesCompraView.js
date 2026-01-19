@@ -365,8 +365,16 @@ const OrdenesCompraUI = (() => {
       const disponible = Number(producto.cantidad_disponible ?? 0);
       const cantComprar = Math.min(disponible, cantPedida - cantOC);
       
+      // Obtener IDs originales para el checkbox y otros elementos
+      const idsOriginales = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido : [producto.id_det_pedido];
+      const primerId = idsOriginales[0]; // Usar el primer ID para el checkbox
+      
+      // Indicador visual si hay múltiples productos agrupados
+      const indicadorAgrupado = idsOriginales.length > 1 ? 
+        '<span class="badge bg-info ms-1" title="Productos agrupados"><i class="bi bi-layers"></i></span>' : '';
+      
       console.log(`📦 Producto ${index + 1}:`, {
-        id_det_pedido: producto.id_det_pedido,
+        ids_originales: idsOriginales,
         descripcion: producto.descripcion,
         cantPedida,
         cantOC,
@@ -380,12 +388,16 @@ const OrdenesCompraUI = (() => {
         <tr>
           <td width="5%">
             <input type="checkbox" class="form-check-input producto-checkbox" 
-                   data-id="${producto.id_det_pedido}" 
+                   data-id="${primerId}" 
+                   data-ids-originales="${JSON.stringify(idsOriginales)}"
                    data-disponible="${disponible}"
                    ${cantComprar <= 0 ? 'disabled' : ''}
-                   onchange="OrdenesCompraUI.actualizarProductoSeleccionado(${producto.id_det_pedido}, this)">
+                   onchange="OrdenesCompraUI.actualizarProductoSeleccionado(${primerId}, this)">
           </td>
-          <td>${escapeHtml(producto.descripcion)}</td>
+          <td>
+            ${escapeHtml(producto.descripcion)}
+            ${indicadorAgrupado}
+          </td>
           <td class="text-center">${escapeHtml(producto.unidad || '')}</td>
           <td class="text-center">${cantPedida.toFixed(2)}</td>
           <td class="text-center">${cantOC.toFixed(2)}</td>
@@ -398,12 +410,13 @@ const OrdenesCompraUI = (() => {
                      step="any"
                      max="${cantComprar}" 
                      value="${cantComprar}"
-                     data-id="${producto.id_det_pedido}"
+                     data-id="${primerId}"
+                     data-ids-originales="${JSON.stringify(idsOriginales)}"
                      data-cant-pedida="${cantPedida}"
                      onchange="OrdenesCompraUI.actualizarCantidadComprar(this)">
               <button class="btn btn-outline-primary btn-sm" type="button"
                       title="Usar cantidad pedida"
-                      onclick="OrdenesCompraUI.autofillCantidadPedida(${producto.id_det_pedido})">
+                      onclick="OrdenesCompraUI.autofillCantidadPedida(${primerId})">
                 <i class="bi bi-arrow-repeat"></i>
               </button>
             </div>
@@ -945,52 +958,64 @@ const OrdenesCompraUI = (() => {
                 </tr>
               </thead>
               <tbody>
-                ${orden.productos.map(producto => {
-                  const solicitada = parseFloat(producto.cantidad_solicitada || 0);
-                  const comprada = parseFloat(producto.cantidad_comprada || 0);
-                  const recibida = parseFloat(producto.cantidad_recibida || 0);
-                  const precio = parseFloat(producto.precio_unitario || 0);
-                  const subtotal = parseFloat(producto.subtotal || 0);
+                ${(() => {
+                  // Agrupar productos por descripción antes de mostrarlos
+                  const productosAgrupados = agruparProductosPorDescripcion(orden.productos);
                   
-                  // Determinar estado según si es orden original o complementaria
-                  const esOrdenOriginal = !orden.es_complementaria;
-                  let estadoBadge;
-                  
-                  if (esOrdenOriginal) {
-                    // Orden original: estados más definitivos
-                    estadoBadge = '<span class="badge bg-danger">No recibido</span>';
-                    if (recibida >= solicitada) {
-                      estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
-                    } else if (recibida > 0) {
-                      estadoBadge = '<span class="badge bg-warning text-dark">Recibido parcial</span>';
-                    } else if (comprada > 0) {
-                      estadoBadge = '<span class="badge bg-warning">Comprado, no recibido</span>';
+                  return productosAgrupados.map(producto => {
+                    const solicitada = parseFloat(producto.cantidad_solicitada || 0);
+                    const comprada = parseFloat(producto.cantidad_comprada || 0);
+                    const recibida = parseFloat(producto.cantidad_recibida || 0);
+                    const precio = parseFloat(producto.precio_unitario || 0);
+                    const subtotal = parseFloat(producto.subtotal || 0);
+                    
+                    // Determinar estado según si es orden original o complementaria
+                    const esOrdenOriginal = !orden.es_complementaria;
+                    let estadoBadge;
+                    
+                    if (esOrdenOriginal) {
+                      // Orden original: estados más definitivos
+                      estadoBadge = '<span class="badge bg-danger">No recibido</span>';
+                      if (recibida >= solicitada) {
+                        estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
+                      } else if (recibida > 0) {
+                        estadoBadge = '<span class="badge bg-warning text-dark">Recibido parcial</span>';
+                      } else if (comprada > 0) {
+                        estadoBadge = '<span class="badge bg-warning">Comprado, no recibido</span>';
+                      }
+                    } else {
+                      // Orden complementaria: estados más temporales
+                      estadoBadge = '<span class="badge bg-secondary">Pendiente</span>';
+                      if (recibida >= solicitada) {
+                        estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
+                      } else if (recibida > 0) {
+                        estadoBadge = '<span class="badge bg-warning text-dark">Recibido parcial</span>';
+                      } else if (comprada > 0) {
+                        estadoBadge = '<span class="badge bg-info">Comprado, pendiente recepción</span>';
+                      }
                     }
-                  } else {
-                    // Orden complementaria: estados más temporales
-                    estadoBadge = '<span class="badge bg-secondary">Pendiente</span>';
-                    if (recibida >= solicitada) {
-                      estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
-                    } else if (recibida > 0) {
-                      estadoBadge = '<span class="badge bg-warning text-dark">Recibido parcial</span>';
-                    } else if (comprada > 0) {
-                      estadoBadge = '<span class="badge bg-info">Comprado, pendiente recepción</span>';
-                    }
-                  }
-                  
-                  return `
-                    <tr>
-                      <td>${producto.descripcion}</td>
-                      <td class="text-center">${producto.unidad}</td>
-                      <td class="text-end">${solicitada.toFixed(2)}</td>
-                      <td class="text-end">${comprada.toFixed(2)}</td>
-                      <td class="text-end">${recibida.toFixed(2)}</td>
-                      <td class="text-end">$${precio.toFixed(2)}</td>
-                      <td class="text-end">$${subtotal.toFixed(2)}</td>
-                      <td class="text-center">${estadoBadge}</td>
-                    </tr>
-                  `;
-                }).join('')}
+                    
+                    // Si hay múltiples IDs originales, mostrar un indicador
+                    const indicadorAgrupado = producto.ids_originales.length > 1 ? 
+                      '<span class="badge bg-info ms-1" title="Productos agrupados"><i class="bi bi-layers"></i></span>' : '';
+                    
+                    return `
+                      <tr>
+                        <td>
+                          ${producto.descripcion}
+                          ${indicadorAgrupado}
+                        </td>
+                        <td class="text-center">${producto.unidad}</td>
+                        <td class="text-end">${solicitada.toFixed(2)}</td>
+                        <td class="text-end">${comprada.toFixed(2)}</td>
+                        <td class="text-end">${recibida.toFixed(2)}</td>
+                        <td class="text-end">$${precio.toFixed(2)}</td>
+                        <td class="text-end">$${subtotal.toFixed(2)}</td>
+                        <td class="text-center">${estadoBadge}</td>
+                      </tr>
+                    `;
+                  }).join('');
+                })()}
               </tbody>
             </table>
           </div>
@@ -1148,6 +1173,15 @@ const OrdenesCompraUI = (() => {
       .replace(/'/g, '&#039;');
   }
 
+  function agruparProductosPorDescripcion(productos) {
+    // Los productos ya vienen agrupados desde el backend, solo necesitamos
+    // asegurar que los datos estén correctos para el frontend
+    return productos.map(producto => ({
+      ...producto,
+      ids_originales: Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido : [producto.id_det_pedido]
+    }));
+  }
+
   function llenarSelect(id, data, valueField, labelField) {
     const select = document.getElementById(id);
     if (!select) return;
@@ -1181,15 +1215,35 @@ const OrdenesCompraUI = (() => {
   // Actualización de selección y cantidades desde handlers inline
   function actualizarProductoSeleccionado(idDetPedido, checkboxEl) {
     const cantidadInput = document.querySelector(`.cantidad-comprar[data-id="${idDetPedido}"]`);
-    const producto = (state.productos || []).find(p => String(p.id_det_pedido) === String(idDetPedido));
-    if (!producto) return;
+    
+    // Obtener todos los IDs originales del checkbox
+    const idsOriginalesStr = checkboxEl.dataset.idsOriginales;
+    const idsOriginales = idsOriginalesStr ? JSON.parse(idsOriginalesStr) : [idDetPedido];
+    
+    // Buscar el producto en el estado usando cualquiera de los IDs originales
+    let producto = null;
+    for (const id of idsOriginales) {
+      producto = (state.productos || []).find(p => {
+        const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+        return pIds.includes(parseInt(id));
+      });
+      if (producto) break;
+    }
+    
+    if (!producto) {
+      console.error('No se encontró el producto con IDs:', idsOriginales);
+      return;
+    }
 
     if (checkboxEl.checked) {
       if (cantidadInput) cantidadInput.disabled = false;
       const cantidad = cantidadInput ? parseFloat(cantidadInput.value) || 0 : 0;
+      
+      // Guardar el producto con todos sus IDs originales
       state.productosSeleccionados.set(String(idDetPedido), {
         ...producto,
-        cantidad_comprar: cantidad
+        cantidad_comprar: cantidad,
+        ids_originales: idsOriginales
       });
     } else {
       if (cantidadInput) cantidadInput.disabled = true;

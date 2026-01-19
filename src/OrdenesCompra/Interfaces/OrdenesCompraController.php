@@ -206,11 +206,42 @@ function getDetalleOrden($connection) {
                 ocd.subtotal,
                 ocd.fecha_recepcion
             FROM ordenes_compra_detalle ocd
-            WHERE ocd.id_orden_compra = ?";
+            WHERE ocd.id_orden_compra = ?
+            ORDER BY ocd.descripcion";
     
     $stmt = $connection->prepare($sql);
     $stmt->execute([$idOrden]);
-    $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $productosOriginales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Agrupar productos por descripción
+    $productosAgrupados = [];
+    foreach ($productosOriginales as $producto) {
+        $clave = trim(strtolower($producto['descripcion']));
+        
+        if (!isset($productosAgrupados[$clave])) {
+            $productosAgrupados[$clave] = [
+                'id_det_pedido' => [], // Guardar IDs originales
+                'descripcion' => $producto['descripcion'],
+                'unidad' => $producto['unidad'],
+                'cantidad_solicitada' => 0,
+                'cantidad_comprada' => 0,
+                'cantidad_recibida' => 0,
+                'precio_unitario' => $producto['precio_unitario'],
+                'subtotal' => 0,
+                'fecha_recepcion' => $producto['fecha_recepcion']
+            ];
+        }
+        
+        // Sumar cantidades y subtotales
+        $productosAgrupados[$clave]['cantidad_solicitada'] += floatval($producto['cantidad_solicitada']);
+        $productosAgrupados[$clave]['cantidad_comprada'] += floatval($producto['cantidad_comprada']);
+        $productosAgrupados[$clave]['cantidad_recibida'] += floatval($producto['cantidad_recibida']);
+        $productosAgrupados[$clave]['subtotal'] += floatval($producto['subtotal']);
+        $productosAgrupados[$clave]['id_det_pedido'][] = $producto['id_det_pedido'];
+    }
+
+    // Convertir a array indexado
+    $productos = array_values($productosAgrupados);
 
     $orden['productos'] = $productos;
 
@@ -639,11 +670,48 @@ function getProductosPedido($connection) {
                 COALESCE(ic.descripcion, CAST(m.nombremat AS CHAR)),
                 COALESCE(ic.unidad, u.unidesc, 'unidad')
             HAVING cantidad_disponible > 0
-            ORDER BY pd.es_excedente ASC, COALESCE(ic.descripcion, m.nombremat) ASC";
+            ORDER BY COALESCE(ic.descripcion, m.nombremat) ASC";
 
     $stmt = $connection->prepare($sql);
     $stmt->execute([$idPedido]);
-    $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $productosOriginales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Agrupar productos por descripción
+    $productosAgrupados = [];
+    foreach ($productosOriginales as $producto) {
+        $clave = trim(strtolower($producto['descripcion']));
+        
+        if (!isset($productosAgrupados[$clave])) {
+            $productosAgrupados[$clave] = [
+                'id_det_pedido' => [], // Guardar IDs originales
+                'descripcion' => $producto['descripcion'],
+                'unidad' => $producto['unidad'],
+                'cantidad' => 0,
+                'precio_unitario' => $producto['precio_unitario'],
+                'subtotal' => 0,
+                'cantidad_comprada' => 0,
+                'cantidad_disponible' => 0,
+                'estado_producto' => 'disponible',
+                'cantidad_maxima_seleccionable' => 0
+            ];
+        }
+        
+        // Sumar cantidades y subtotales
+        $productosAgrupados[$clave]['cantidad'] += floatval($producto['cantidad']);
+        $productosAgrupados[$clave]['subtotal'] += floatval($producto['subtotal']);
+        $productosAgrupados[$clave]['cantidad_comprada'] += floatval($producto['cantidad_comprada']);
+        $productosAgrupados[$clave]['cantidad_disponible'] += floatval($producto['cantidad_disponible']);
+        $productosAgrupados[$clave]['cantidad_maxima_seleccionable'] += floatval($producto['cantidad_maxima_seleccionable']);
+        $productosAgrupados[$clave]['id_det_pedido'][] = $producto['id_det_pedido'];
+        
+        // El estado será 'disponible' si hay alguna cantidad disponible
+        if ($producto['cantidad_disponible'] > 0) {
+            $productosAgrupados[$clave]['estado_producto'] = 'disponible';
+        }
+    }
+
+    // Convertir a array indexado
+    $productos = array_values($productosAgrupados);
 
     echo json_encode([
         'success' => true,
