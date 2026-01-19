@@ -54,30 +54,24 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                     <input type="hidden" name="id_capitulo" id="id_capitulo">
 
                     <div class="row">
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-12 mb-3">
                             <label for="nombre_capitulo" class="form-label fw-bold">Nombre:</label>
                             <input type="text" name="nombre_cap" id="nombre_capitulo" class="form-control" required placeholder="Nombre del capítulo">
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="codigo_capitulo" class="form-label fw-bold">Código:</label>
-                            <input type="text" name="codigo" id="codigo_capitulo" class="form-control" placeholder="Código del capítulo">
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="presupuesto_capitulo" class="form-label fw-bold">Presupuesto:</label>
-                            <select name="id_presupuesto" id="presupuesto_capitulo" class="form-select">
-                                <option value="">Seleccionar presupuesto (opcional)</option>
+                            <label for="proyecto_capitulo" class="form-label fw-bold">Proyecto:</label>
+                            <select name="id_proyecto" id="proyecto_capitulo" class="form-select" onchange="cargarPresupuestosPorProyecto()">
+                                <option value="">Seleccionar proyecto primero</option>
                             </select>
                         </div>
 
                         <div class="col-md-6 mb-3">
-                            <label for="estado_capitulo" class="form-label fw-bold">Estado:</label>
-                            <select name="estado" id="estado_capitulo" class="form-select">
-                                <option value="1">Activo</option>
-                                <option value="0">Inactivo</option>
+                            <label for="presupuesto_capitulo" class="form-label fw-bold">Presupuesto:</label>
+                            <select name="id_presupuesto" id="presupuesto_capitulo" class="form-select" disabled>
+                                <option value="">Selecciona un proyecto primero</option>
                             </select>
                         </div>
                     </div>
