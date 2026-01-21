@@ -4,6 +4,25 @@
  * Controlador para gestión de órdenes de compra
  */
 
+// Configurar manejo de errores para evitar salida HTML
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
+// Capturar errores fatales y convertirlos a JSON
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Error fatal del servidor: ' . $error['message'] . ' en ' . $error['file'] . ':' . $error['line']
+        ]);
+        exit;
+    }
+});
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -14,9 +33,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require __DIR__ . '/../../../vendor/autoload.php';
-require __DIR__ . '/../../../config/database.php';
-require __DIR__ . '/../../../src/Shared/Utils/CalculosComerciales.php';
+try {
+    require __DIR__ . '/../../../vendor/autoload.php';
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Error al cargar autoload: ' . $e->getMessage()
+    ]);
+    exit;
+}
+
+try {
+    require __DIR__ . '/../../../config/database.php';
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Error al cargar configuración de base de datos: ' . $e->getMessage()
+    ]);
+    exit;
+}
+
+try {
+    require __DIR__ . '/../../../src/Shared/Utils/CalculosComerciales.php';
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Error al cargar CalculosComerciales: ' . $e->getMessage()
+    ]);
+    exit;
+}
 
 try {
     $db = new Database();
@@ -267,6 +315,8 @@ function getDetalleOrden($connection) {
     // Para cada recepción, obtener los detalles de items recibidos
     foreach ($historialRecepciones as &$recepcion) {
         // Obtener los detalles desde log_recepciones
+        // Filtrar por id_compra Y por id_orden_compra para asegurar que solo se muestren
+        // items que realmente pertenecen a esta orden específica
         $sqlLog = "SELECT 
                     lr.id_det_pedido,
                     lr.descripcion,
@@ -275,12 +325,36 @@ function getDetalleOrden($connection) {
                     lr.precio_unitario,
                     (lr.cantidad_recibida * lr.precio_unitario) as subtotal_item
                   FROM log_recepciones lr
-                  WHERE lr.id_compra = ?
-                  ORDER BY lr.id_det_pedido";
+                  WHERE lr.id_compra = ? 
+                    AND lr.id_orden_compra = ?
+                  ORDER BY lr.descripcion";
         
         $stmtLog = $connection->prepare($sqlLog);
-        $stmtLog->execute([$recepcion['id_compra']]);
-        $itemsRecibidos = $stmtLog->fetchAll(PDO::FETCH_ASSOC);
+        $stmtLog->execute([$recepcion['id_compra'], $idOrden]);
+        $itemsRecibidosOriginales = $stmtLog->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Agrupar items por descripción para evitar duplicados
+        $itemsAgrupados = [];
+        foreach ($itemsRecibidosOriginales as $item) {
+            $clave = trim(strtolower($item['descripcion']));
+            
+            if (!isset($itemsAgrupados[$clave])) {
+                $itemsAgrupados[$clave] = [
+                    'descripcion' => $item['descripcion'],
+                    'unidad' => $item['unidad'],
+                    'cantidad_recibida' => 0,
+                    'precio_unitario' => $item['precio_unitario'],
+                    'subtotal_item' => 0
+                ];
+            }
+            
+            // Sumar cantidades y subtotales
+            $itemsAgrupados[$clave]['cantidad_recibida'] += floatval($item['cantidad_recibida']);
+            $itemsAgrupados[$clave]['subtotal_item'] += floatval($item['subtotal_item']);
+        }
+        
+        // Convertir a array indexado
+        $itemsRecibidos = array_values($itemsAgrupados);
         
         // Si no hay detalles en el log, mostrar mensaje informativo
         if (empty($itemsRecibidos)) {
@@ -407,22 +481,66 @@ function guardarOrdenCompra($connection, $data) {
 
         // Insertar productos de la orden
         foreach ($data['productos'] as $producto) {
+            // Verificar si el producto tiene múltiples IDs originales (producto agrupado)
+            $idsOriginales = [];
+            
+            if (isset($producto['ids_originales']) && is_array($producto['ids_originales'])) {
+                $idsOriginales = $producto['ids_originales'];
+            } elseif (isset($producto['id_det_pedido'])) {
+                // Si id_det_pedido es un array, usarlo directamente
+                if (is_array($producto['id_det_pedido'])) {
+                    $idsOriginales = $producto['id_det_pedido'];
+                } else {
+                    $idsOriginales = [$producto['id_det_pedido']];
+                }
+            } else {
+                throw new Exception('Producto sin ID válido: ' . json_encode($producto));
+            }
+
+            // Cantidad total a comprar
+            $cantidadTotalComprar = floatval($producto['cantidad_comprar'] ?? 0);
+            $cantidadTotalSolicitada = floatval($producto['cantidad'] ?? 0);
+            
+            // Si hay múltiples IDs, distribuir proporcionalmente
+            $numIds = count($idsOriginales);
+            
+            if ($numIds === 0) {
+                throw new Exception('Producto sin IDs originales');
+            }
+
+            // Insertar un registro por cada ID original
             $sql = "INSERT INTO ordenes_compra_detalle 
                         (id_orden_compra, id_det_pedido, descripcion, unidad, 
                          cantidad_solicitada, cantidad_comprada, precio_unitario, subtotal) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $connection->prepare($sql);
-            $stmt->execute([
-                $idOrden,
-                $producto['id_det_pedido'],
-                $producto['descripcion'],
-                $producto['unidad'],
-                $producto['cantidad'],
-                $producto['cantidad_comprar'],
-                $producto['precio_unitario'],
-                $producto['cantidad_comprar'] * $producto['precio_unitario']
-            ]);
+            
+            foreach ($idsOriginales as $index => $idDetPedido) {
+                // Distribuir la cantidad proporcionalmente entre todos los IDs
+                // Para evitar problemas de redondeo, el último ID recibe el resto
+                if ($index === $numIds - 1) {
+                    // Último ID: calcular lo que falta para llegar al total
+                    $cantidadComprarEsteId = $cantidadTotalComprar - ($cantidadTotalComprar / $numIds * $index);
+                    $cantidadSolicitadaEsteId = $cantidadTotalSolicitada - ($cantidadTotalSolicitada / $numIds * $index);
+                } else {
+                    $cantidadComprarEsteId = $cantidadTotalComprar / $numIds;
+                    $cantidadSolicitadaEsteId = $cantidadTotalSolicitada / $numIds;
+                }
+                
+                $subtotalEsteId = $cantidadComprarEsteId * floatval($producto['precio_unitario']);
+                
+                $stmt->execute([
+                    $idOrden,
+                    $idDetPedido,
+                    $producto['descripcion'] ?? '',
+                    $producto['unidad'] ?? '',
+                    $cantidadSolicitadaEsteId,
+                    $cantidadComprarEsteId,
+                    $producto['precio_unitario'] ?? 0,
+                    $subtotalEsteId
+                ]);
+            }
         }
 
         $connection->commit();

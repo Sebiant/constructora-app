@@ -128,7 +128,7 @@ function renderTablaCompras() {
 async function verDetalleCompra(idCompra) {
   try {
     console.log('Iniciando verDetalleCompra. ID Compra:', idCompra);
-    
+
     qs('detalleCompraId').textContent = String(idCompra);
     qs('detalleCompraContenido').innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border" role="status"></div><div class="mt-2">Cargando...</div></div>';
 
@@ -222,7 +222,7 @@ async function verDetalleCompra(idCompra) {
     console.log('Buscando elemento del modal...');
     const modalEl = qs('modalDetalleCompra');
     console.log('Elemento modal encontrado:', modalEl);
-    
+
     if (modalEl) {
       console.log('Creando instancia del modal...');
       const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -352,7 +352,14 @@ async function onGuardarCompra(e) {
     items_recibidos: itemsRecibidos
   };
 
-  console.log('Payload a enviar:', payload);
+  console.log('=== ENVIANDO RECEPCIÓN ===');
+  console.log('Orden ID:', payload.id_orden_compra);
+  console.log('Factura:', payload.numero_factura);
+  console.log('Items a enviar:', payload.items_recibidos.length);
+  payload.items_recibidos.forEach((item, idx) => {
+    console.log(`  Item ${idx}: id_det_pedido=${item.id_det_pedido}, cantidad=${item.cantidad_recibida}`);
+  });
+  console.log('Payload completo:', payload);
 
   const btnGuardar = qs('btnGuardarCompra');
   const originalText = btnGuardar.innerHTML;

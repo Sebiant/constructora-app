@@ -400,6 +400,15 @@ try {
                 $observaciones = $data['observaciones'] ?? null;
                 $itemsRecibidos = $data['items_recibidos'] ?? [];
 
+                // LOG DE DEPURACIÓN: Registrar qué datos llegaron
+                error_log("=== REGISTRO DE RECEPCIÓN ===");
+                error_log("Orden ID: " . $idOrden);
+                error_log("Factura: " . $numeroFactura);
+                error_log("Items recibidos: " . count($itemsRecibidos));
+                foreach ($itemsRecibidos as $idx => $item) {
+                    error_log("  Item {$idx}: id_det_pedido={$item['id_det_pedido']}, cantidad={$item['cantidad_recibida']}");
+                }
+
                 if (!$idOrden) throw new Exception('ID de orden requerido');
                 if (!$numeroFactura) throw new Exception('Número de factura requerido');
                 if (empty($itemsRecibidos)) throw new Exception('Debe especificar los items recibidos');
@@ -478,6 +487,26 @@ try {
                 $stmtCompra->execute([$orden['id_pedido'], $idOrden, $numeroFactura, $totalCalculado, $observaciones, $orden['id_provedor'], $idUsuario]);
                 $idCompra = $connection->lastInsertId();
 
+                // LOG DE DEPURACIÓN: Ver qué items llegaron
+                error_log("Items recibidos antes de procesar: " . count($itemsRecibidos));
+                foreach ($itemsRecibidos as $idx => $it) {
+                    error_log("  [{$idx}] id_det_pedido={$it['id_det_pedido']}, cantidad={$it['cantidad_recibida']}");
+                }
+                
+                // DEDUPLICAR items por id_det_pedido (prevenir duplicados del frontend)
+                $itemsUnicos = [];
+                foreach ($itemsRecibidos as $item) {
+                    $key = $item['id_det_pedido'];
+                    if (!isset($itemsUnicos[$key])) {
+                        $itemsUnicos[$key] = $item;
+                    } else {
+                        error_log("ADVERTENCIA: Item duplicado detectado - id_det_pedido={$key}. Se ignorará el duplicado.");
+                    }
+                }
+                $itemsRecibidos = array_values($itemsUnicos);
+                
+                error_log("Items únicos después de deduplicar: " . count($itemsRecibidos));
+
                 // Guardar detalle de cada item recibido en el log
                 foreach ($itemsRecibidos as $item) {
                     $idDetPedido = $item['id_det_pedido'];
@@ -485,7 +514,19 @@ try {
                     $precioUnitario = (float)$item['precio_unitario'];
                     
                     if ($cantidadRecibida > 0) {
-                        // Obtener información del item
+                        // VALIDACIÓN CRÍTICA: Verificar que el id_det_pedido pertenece a esta orden
+                        // Esto previene que se guarden items de otras órdenes por error
+                        $stmtValidar = $connection->prepare("SELECT COUNT(*) as existe FROM ordenes_compra_detalle WHERE id_orden_compra = ? AND id_det_pedido = ?");
+                        $stmtValidar->execute([$idOrden, $idDetPedido]);
+                        $validacion = $stmtValidar->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($validacion['existe'] == 0) {
+                            // El id_det_pedido NO pertenece a esta orden - SALTAR y registrar advertencia
+                            error_log("ADVERTENCIA: Intento de registrar id_det_pedido={$idDetPedido} que no pertenece a la orden {$idOrden}. Compra ID: {$idCompra}");
+                            continue; // Saltar este item
+                        }
+                        
+                        // Obtener información del item (solo si pasó la validación)
                         $stmtItem = $connection->prepare("SELECT descripcion, unidad FROM ordenes_compra_detalle WHERE id_orden_compra = ? AND id_det_pedido = ?");
                         $stmtItem->execute([$idOrden, $idDetPedido]);
                         $itemInfo = $stmtItem->fetch(PDO::FETCH_ASSOC);
@@ -496,6 +537,8 @@ try {
                             // Insertar en el log de recepciones
                             $stmtLog = $connection->prepare("INSERT INTO log_recepciones (id_compra, id_orden_compra, id_det_pedido, descripcion, unidad, cantidad_recibida, precio_unitario, subtotal_item) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
                             $stmtLog->execute([$idCompra, $idOrden, $idDetPedido, $itemInfo['descripcion'], $itemInfo['unidad'], $cantidadRecibida, $precioUnitario, $subtotalItem]);
+                            
+                            error_log("✓ Guardado en log_recepciones: id_det_pedido={$idDetPedido}, cantidad={$cantidadRecibida}");
                         }
                     }
                 }

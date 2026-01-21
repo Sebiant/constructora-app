@@ -85,13 +85,16 @@ try {
                 exit;
             }
 
-            $sql = "SELECT id_presupuesto, fecha_creacion 
+            $sql = "SELECT id_presupuesto, codigo, nombre, fecha_creacion 
                      FROM presupuestos 
                      WHERE id_proyecto = :id_proyecto
                      ORDER BY fecha_creacion DESC";
             $stmt = $connection->prepare($sql);
             $stmt->execute(['id_proyecto' => (int)$idProyecto]);
             $presupuestos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            // Debug: Ver qué datos se están obteniendo
+            error_log("DEBUG getPresupuestosPorProyecto: " . json_encode($presupuestos));
 
             ob_clean();
             echo json_encode($presupuestos);

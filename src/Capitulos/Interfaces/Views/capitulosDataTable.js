@@ -122,11 +122,16 @@ function cargarPresupuestosPorProyecto() {
     dataType: "json",
     success: function (res) {
       console.log("Respuesta presupuestos por proyecto:", res);
+      console.log("Datos de presupuestos:", JSON.stringify(res, null, 2));
       selectPresupuesto.prop('disabled', false);
       
       if (res && Array.isArray(res)) {
         res.forEach(function(presupuesto) {
-          const option = `<option value="${presupuesto.id_presupuesto}">Presupuesto ${presupuesto.id_presupuesto} - ${presupuesto.fecha_creacion || 'Sin fecha'}</option>`;
+          console.log("Presupuesto individual:", presupuesto);
+          const nombrePresupuesto = presupuesto.nombre || presupuesto.codigo || `Presupuesto ${presupuesto.id_presupuesto}`;
+          const fechaFormateada = presupuesto.fecha_creacion ? new Date(presupuesto.fecha_creacion).toLocaleDateString('es-ES') : 'Sin fecha';
+          const option = `<option value="${presupuesto.id_presupuesto}">${nombrePresupuesto} - ${fechaFormateada}</option>`;
+          console.log("Option generada:", option);
           selectPresupuesto.append(option);
         });
       }
@@ -145,12 +150,17 @@ function cargarPresupuestos() {
     dataType: "json",
     success: function (res) {
       console.log("Respuesta presupuestos:", res);
+      console.log("Datos de presupuestos (todos):", JSON.stringify(res, null, 2));
       const select = $("#presupuesto_capitulo");
       select.empty().append('<option value="">Seleccionar presupuesto (opcional)</option>');
       
       if (res && Array.isArray(res)) {
         res.forEach(function(presupuesto) {
-          const option = `<option value="${presupuesto.id_presupuesto}">Presupuesto ${presupuesto.id_presupuesto} - ${presupuesto.fecha_creacion || 'Sin fecha'}</option>`;
+          console.log("Presupuesto individual (todos):", presupuesto);
+          const nombrePresupuesto = presupuesto.nombre || presupuesto.codigo || `Presupuesto ${presupuesto.id_presupuesto}`;
+          const fechaFormateada = presupuesto.fecha_creacion ? new Date(presupuesto.fecha_creacion).toLocaleDateString('es-ES') : 'Sin fecha';
+          const option = `<option value="${presupuesto.id_presupuesto}">${nombrePresupuesto} - ${fechaFormateada}</option>`;
+          console.log("Option generada (todos):", option);
           select.append(option);
         });
       }

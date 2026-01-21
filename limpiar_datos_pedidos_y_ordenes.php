@@ -8,6 +8,7 @@
  * - ordenes_compra_detalle
  * - compras
  * - compras_finales (si existe)
+ * - log_recepciones (historial de recepciones)
  *
  * Uso:
  *  - Abrir en el navegador: http://localhost/sgigescomnew/limpiar_datos_pedidos_y_ordenes.php
@@ -51,6 +52,7 @@ $allTables = [
     'ordenes_compra',
     'compras',            // tabla principal de compras
     'compras_finales',     // opcional si existe
+    'log_recepciones',     // historial detallado de recepciones
     'pedidos_detalle',
     'pedidos',
 ];
@@ -168,7 +170,7 @@ if ($method === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clean
           </div>
           <div class="card-body">
             <div class="alert alert-warning" role="alert">
-              Esta acción eliminará datos de negocio (pedidos, detalles, órdenes, detalles, compras y compras finales si existen).
+              Esta acción eliminará datos de negocio (pedidos, detalles, órdenes, detalles, compras, log de recepciones y compras finales si existen).
               No elimina catálogos como materiales, items, proyectos, presupuestos, proveedores. Úsalo con cuidado.
             </div>
 

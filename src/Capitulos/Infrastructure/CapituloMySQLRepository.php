@@ -18,7 +18,7 @@ class CapituloMySQLRepository implements CapituloRepository {
             $stmt = $this->conn->query("
                 SELECT 
                     c.*,
-                    CONCAT('Presupuesto ', c.id_presupuesto, ' - ', IFNULL(pr.nombre, 'Sin proyecto')) AS presupuesto_proyecto
+                    CONCAT(IFNULL(p.nombre, IFNULL(p.codigo, CONCAT('Presupuesto ', c.id_presupuesto))), ' - ', IFNULL(pr.nombre, 'Sin proyecto')) AS presupuesto_proyecto
                 FROM capitulos c
                 LEFT JOIN presupuestos p ON c.id_presupuesto = p.id_presupuesto
                 LEFT JOIN proyectos pr ON p.id_proyecto = pr.id_proyecto
