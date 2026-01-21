@@ -59,7 +59,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                   </div>
                   <div class="col-md-4">
                     <label class="form-label fw-bold">Buscar</label>
-                    <input type="text" class="form-control" id="searchCompras" placeholder="# compra, # pedido, provedor, factura..." />
+                    <input type="text" class="form-control" id="searchCompras" placeholder="# compra, orden, provedor, factura..." />
                   </div>
                   <div class="col-md-4">
                     <label class="form-label fw-bold">Fecha (desde / hasta)</label>
@@ -75,7 +75,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                     <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
                       <tr>
                         <th>#</th>
-                        <th>Pedido</th>
+                        <th>Orden</th>
                         <th>Proveedor</th>
                         <th>Fecha</th>
                         <th class="text-end">Total</th>

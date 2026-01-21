@@ -67,7 +67,7 @@ async function cargarCompras() {
       return `
         <tr>
           <td>${compra.id_compra}</td>
-          <td>${compra.id_pedido || '-'}</td>
+          <td>${compra.numero_orden || '-'}</td>
           <td>${compra.nombre_provedor || '-'}</td>
           <td>${fechaFormateada}</td>
           <td>${formatMoney(compra.total)}</td>
@@ -147,12 +147,15 @@ async function verDetalleCompra(idCompra) {
     const filas = detalles
       .map((d) => {
         const solicitada = Number(d.cantidad_solicitada || 0);
-        const recibida = Number(d.cantidad_recibida || 0);
+        const recibidaEstaCompra = Number(d.cantidad_recibida || 0);
+        const acumuladoTotal = Number(d.cantidad_acumulada_total || recibidaEstaCompra);
         const faltante = Number(d.cantidad_faltante || 0);
-        const estadoRecibido = recibida >= solicitada ?
+
+        // El estado se basa en el ACUMULADO, no solo en esta compra
+        const estadoRecibido = acumuladoTotal >= solicitada ?
           '<span class="badge bg-success">Completo</span>' :
-          recibida === 0 ?
-            '<span class="badge bg-danger">No llegó</span>' :
+          acumuladoTotal === 0 ?
+            '<span class="badge bg-danger">Pendiente</span>' :
             '<span class="badge bg-warning">Parcial</span>';
 
         return `
@@ -161,7 +164,8 @@ async function verDetalleCompra(idCompra) {
               <div class="fw-semibold">${escapeHtml(d.descripcion)}</div>
             </td>
             <td class="text-end">${escapeHtml(solicitada.toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
-            <td class="text-end">${escapeHtml(recibida.toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
+            <td class="text-end fw-bold text-primary">${escapeHtml(recibidaEstaCompra.toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
+            <td class="text-end ${acumuladoTotal > recibidaEstaCompra ? 'text-info' : ''}">${escapeHtml(acumuladoTotal.toFixed(4))} ${escapeHtml(d.unidad || '')}</td>
             <td class="text-end">
               ${faltante > 0 ?
             `<span class="text-danger">${escapeHtml(faltante.toFixed(4))} ${escapeHtml(d.unidad || '')}</span>` :
@@ -180,7 +184,7 @@ async function verDetalleCompra(idCompra) {
     qs('detalleCompraContenido').innerHTML = `
       <div class="row g-2 mb-2">
         <div class="col-md-3"><div class="text-muted small">Compra</div><div class="fw-bold">#${escapeHtml(data.id_compra)}</div></div>
-        <div class="col-md-3"><div class="text-muted small">Pedido</div><div class="fw-bold">#${escapeHtml(data.id_pedido)}</div></div>
+        <div class="col-md-3"><div class="text-muted small">Orden de Compra</div><div class="fw-bold">${escapeHtml(data.numero_orden || 'N/A')}</div></div>
         <div class="col-md-3"><div class="text-muted small">Fecha</div><div class="fw-bold">${escapeHtml(fecha)}</div></div>
         <div class="col-md-3"><div class="text-muted small">Total</div><div class="fw-bold">${formatMoney(data.total)}</div></div>
       </div>
@@ -205,7 +209,8 @@ async function verDetalleCompra(idCompra) {
             <tr>
               <th>Ítem / Proveedor</th>
               <th class="text-end">Cant. Solicitada</th>
-              <th class="text-end">Cant. Recibida</th>
+              <th class="text-end">Recibida (Esta Compra)</th>
+              <th class="text-end">Acumulado Total</th>
               <th class="text-end">Cant. Faltante</th>
               <th class="text-center">Estado</th>
               <th class="text-end">Vr. Unit.</th>
@@ -213,7 +218,7 @@ async function verDetalleCompra(idCompra) {
             </tr>
           </thead>
           <tbody>
-            ${filas || '<tr><td colspan="7" class="text-muted">Sin detalle.</td></tr>'}
+            ${filas || '<tr><td colspan="8" class="text-muted">Sin detalle.</td></tr>'}
           </tbody>
         </table>
       </div>

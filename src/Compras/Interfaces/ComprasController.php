@@ -42,17 +42,20 @@ try {
                 $sql = "SELECT
                                 c.id_compra,
                                 c.id_pedido,
+                                c.id_orden_compra,
                                 c.fecha_compra,
                                 c.numero_factura,
                                 c.total,
                                 c.estado,
                                 c.observaciones,
+                                oc.numero_orden,
                                 pr.nombre AS nombre_proyecto,
                                 pr.id_proyecto,
                                 pv.id_provedor,
                                 pv.nombre AS nombre_provedor,
                                 u.u_nombre AS nombre_usuario
                               FROM compras c
+                              LEFT JOIN ordenes_compra oc ON c.id_orden_compra = oc.id_orden_compra
                               INNER JOIN pedidos p ON c.id_pedido = p.id_pedido
                               INNER JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
                               INNER JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
@@ -78,7 +81,7 @@ try {
                 }
 
                 if (!empty($busqueda)) {
-                    $sql .= " AND (c.id_compra LIKE ? OR c.id_pedido LIKE ? OR c.numero_factura LIKE ? OR pv.nombre LIKE ? OR pr.nombre LIKE ?)";
+                    $sql .= " AND (c.id_compra LIKE ? OR oc.numero_orden LIKE ? OR c.numero_factura LIKE ? OR pv.nombre LIKE ? OR pr.nombre LIKE ?)";
                     $like = '%' . $busqueda . '%';
                     $params[] = $like;
                     $params[] = $like;
@@ -116,6 +119,9 @@ try {
                                 c.total,
                                 c.estado,
                                 c.observaciones,
+                                oc.numero_orden,
+                                oc.estado as estado_orden,
+                                oc.fecha_orden,
                                 pr.nombre AS nombre_proyecto,
                                 pr.id_proyecto,
                                 pv.id_provedor,
@@ -126,6 +132,7 @@ try {
                                 pv.contacto,
                                 u.u_nombre AS nombre_usuario
                               FROM compras c
+                              LEFT JOIN ordenes_compra oc ON c.id_orden_compra = oc.id_orden_compra
                               INNER JOIN pedidos p ON c.id_pedido = p.id_pedido
                               INNER JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
                               INNER JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
@@ -147,7 +154,8 @@ try {
                                 lr.unidad,
                                 ocd.cantidad_solicitada,
                                 lr.cantidad_recibida,
-                                (ocd.cantidad_solicitada - lr.cantidad_recibida) AS cantidad_faltante,
+                                ocd.cantidad_recibida as cantidad_acumulada_total,
+                                (ocd.cantidad_solicitada - ocd.cantidad_recibida) AS cantidad_faltante,
                                 lr.precio_unitario,
                                 lr.subtotal_item AS subtotal
                            FROM log_recepciones lr
