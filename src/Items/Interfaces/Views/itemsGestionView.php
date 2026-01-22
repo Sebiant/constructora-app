@@ -141,6 +141,25 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                 </tbody>
                             </table>
                         </div>
+                        <div class="card-footer bg-white border-top">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="text-muted small">
+                                    Mostrando <span id="materialesShowingStart">0</span> - <span id="materialesShowingEnd">0</span> de <span id="materialesTotalCount">0</span> recursos
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <select class="form-select form-select-sm" id="materialesPerPage" style="width: auto;" onchange="ItemsUI.changeMaterilesPerPage()">
+                                        <option value="10">10 por página</option>
+                                        <option value="25" selected>25 por página</option>
+                                        <option value="50">50 por página</option>
+                                        <option value="100">100 por página</option>
+                                    </select>
+                                    <nav>
+                                        <ul class="pagination pagination-sm mb-0" id="materialesPagination">
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -180,6 +199,25 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                        <div class="card-footer bg-white border-top">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="text-muted small">
+                                    Mostrando <span id="itemsShowingStart">0</span> - <span id="itemsShowingEnd">0</span> de <span id="itemsTotalCount">0</span> ítems
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <select class="form-select form-select-sm" id="itemsPerPage" style="width: auto;" onchange="ItemsUI.changeItemsPerPage()">
+                                        <option value="10">10 por página</option>
+                                        <option value="25" selected>25 por página</option>
+                                        <option value="50">50 por página</option>
+                                        <option value="100">100 por página</option>
+                                    </select>
+                                    <nav>
+                                        <ul class="pagination pagination-sm mb-0" id="itemsPagination">
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -21,6 +21,19 @@ const ItemsUI = (() => {
     childItemBreakdownLoading: new Set(),
     loadingChildItems: false,
     childItemsError: null,
+    // Estado de paginación
+    pagination: {
+      materiales: {
+        currentPage: 1,
+        perPage: 25,
+        totalPages: 1,
+      },
+      items: {
+        currentPage: 1,
+        perPage: 25,
+        totalPages: 1,
+      },
+    },
   };
 
   const COMPONENT_TYPE_LABELS = {
@@ -158,17 +171,25 @@ const ItemsUI = (() => {
     try {
       const response = await fetch(`${API_ITEMS}?action=getMateriales`);
       const result = await response.json();
-      
+
       // Depuración: Imprimir respuesta completa del endpoint
       console.log("=== RESPUESTA DEL ENDPOINT getAllMateriales ===");
       console.log("Success:", result.success);
       console.log("Data length:", result.data?.length);
       console.log("Data completa:", result.data);
-      
+
       if (!result.success) throw new Error(result.error || "No se pudieron cargar los materiales");
-      
+
       state.materiales = result.data || [];
-      renderMateriales(state.materiales);
+      state.materialesFiltrados = [];
+
+      // Resetear paginación y renderizar con paginación
+      if (typeof paginationState !== 'undefined') {
+        paginationState.materiales.currentPage = 1;
+        renderMaterialesPaginated(state.materiales);
+      } else {
+        renderMateriales(state.materiales);
+      }
     } catch (error) {
       setError(selectors.tablaMateriales, error.message, 7);
     }
@@ -177,7 +198,12 @@ const ItemsUI = (() => {
   async function fetchItems(force = false) {
     try {
       if (!force && state.items.length > 0) {
-        renderItems(state.itemsFiltrados.length ? state.itemsFiltrados : state.items);
+        const dataToRender = state.itemsFiltrados.length ? state.itemsFiltrados : state.items;
+        if (typeof paginationState !== 'undefined') {
+          renderItemsPaginated(dataToRender);
+        } else {
+          renderItems(dataToRender);
+        }
         return;
       }
 
@@ -190,7 +216,14 @@ const ItemsUI = (() => {
 
       state.items = result.data;
       state.itemsFiltrados = [];
-      renderItems(state.items);
+
+      // Resetear paginación y renderizar con paginación
+      if (typeof paginationState !== 'undefined') {
+        paginationState.items.currentPage = 1;
+        renderItemsPaginated(state.items);
+      } else {
+        renderItems(state.items);
+      }
     } catch (error) {
       console.error(error);
       setError(selectors.tablaItems, error.message || "No se pudieron cargar los ítems");
@@ -221,9 +254,9 @@ const ItemsUI = (() => {
           const botonTexto = material.idestado ? 'Desactivar' : 'Activar';
           const botonIcono = material.idestado ? 'toggle-off' : 'toggle-on';
           const botonTitle = material.idestado ? 'Desactivar' : 'Activar';
-          
+
           console.log(`Botón para ${material.cod_material}: color=${botonColor}, texto=${botonTexto}, icono=${botonIcono}`);
-          
+
           return `
         <tr>
           <td class="fw-semibold">${material.cod_material}</td>
@@ -304,7 +337,12 @@ const ItemsUI = (() => {
     const term = document.querySelector(selectors.searchMateriales)?.value.trim().toLowerCase() ?? "";
     if (!term) {
       state.materialesFiltrados = [];
-      renderMateriales(state.materiales);
+      if (typeof paginationState !== 'undefined') {
+        paginationState.materiales.currentPage = 1;
+        renderMaterialesPaginated(state.materiales);
+      } else {
+        renderMateriales(state.materiales);
+      }
       return;
     }
     state.materialesFiltrados = state.materiales.filter(
@@ -313,14 +351,24 @@ const ItemsUI = (() => {
         mat.nombre_material.toLowerCase().includes(term) ||
         (mat.desc_tipo || "").toLowerCase().includes(term)
     );
-    renderMateriales(state.materialesFiltrados);
+    if (typeof paginationState !== 'undefined') {
+      paginationState.materiales.currentPage = 1;
+      renderMaterialesPaginated(state.materialesFiltrados);
+    } else {
+      renderMateriales(state.materialesFiltrados);
+    }
   }
 
   function filterItems() {
     const term = document.querySelector(selectors.searchItems)?.value.trim().toLowerCase() ?? "";
     if (!term) {
       state.itemsFiltrados = [];
-      renderItems(state.items);
+      if (typeof paginationState !== 'undefined') {
+        paginationState.items.currentPage = 1;
+        renderItemsPaginated(state.items);
+      } else {
+        renderItems(state.items);
+      }
       return;
     }
     state.itemsFiltrados = state.items.filter(
@@ -329,7 +377,12 @@ const ItemsUI = (() => {
         item.nombre_item.toLowerCase().includes(term) ||
         (item.descripcion || "").toLowerCase().includes(term)
     );
-    renderItems(state.itemsFiltrados);
+    if (typeof paginationState !== 'undefined') {
+      paginationState.items.currentPage = 1;
+      renderItemsPaginated(state.itemsFiltrados);
+    } else {
+      renderItems(state.itemsFiltrados);
+    }
   }
 
   function prepareMaterialModal(material = null) {
@@ -945,8 +998,8 @@ const ItemsUI = (() => {
           <td class="text-end">$${formatCurrency(comp.precio_unitario)}</td>
           <td class="text-end">${Number(comp.porcentaje_desperdicio).toFixed(2)}%</td>
           <td class="text-end">$${formatCurrency(calculateComponentSubtotal(comp, (value) => {
-            total += value;
-          }))}</td>
+          total += value;
+        }))}</td>
           <td class="text-center">
             <button class="btn btn-outline-primary btn-sm" onclick='ItemsUI.editComponent(${JSON.stringify(comp)})'>
               <i class="bi bi-pencil-square"></i>
@@ -1428,6 +1481,165 @@ const ItemsUI = (() => {
     manageComponents(item);
   }
 
+  // ========== FUNCIONES DE PAGINACIÓN ==========
+
+  function renderMaterialesPaginated(data) {
+    const perPage = state.pagination.materiales.perPage;
+    const currentPage = state.pagination.materiales.currentPage;
+    const totalItems = data.length;
+    const totalPages = Math.ceil(totalItems / perPage) || 1;
+
+    state.pagination.materiales.totalPages = totalPages;
+
+    const startIndex = (currentPage - 1) * perPage;
+    const endIndex = Math.min(startIndex + perPage, totalItems);
+    const pageData = data.slice(startIndex, endIndex);
+
+    renderMateriales(pageData);
+
+    document.getElementById('materialesShowingStart').textContent = totalItems > 0 ? startIndex + 1 : 0;
+    document.getElementById('materialesShowingEnd').textContent = endIndex;
+    document.getElementById('materialesTotalCount').textContent = totalItems;
+
+    renderMaterialesPaginationControls(currentPage, totalPages);
+  }
+
+  function renderMaterialesPaginationControls(currentPage, totalPages) {
+    const paginationContainer = document.getElementById('materialesPagination');
+    if (!paginationContainer) return;
+
+    let html = '';
+    html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+      <a class="page-link" href="#" onclick="ItemsUI.goToMaterilesPage(${currentPage - 1}); return false;">Anterior</a>
+    </li>`;
+
+    const maxButtons = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+    if (endPage - startPage < maxButtons - 1) {
+      startPage = Math.max(1, endPage - maxButtons + 1);
+    }
+
+    if (startPage > 1) {
+      html += `<li class="page-item"><a class="page-link" href="#" onclick="ItemsUI.goToMaterilesPage(1); return false;">1</a></li>`;
+      if (startPage > 2) html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+        <a class="page-link" href="#" onclick="ItemsUI.goToMaterilesPage(${i}); return false;">${i}</a>
+      </li>`;
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+      html += `<li class="page-item"><a class="page-link" href="#" onclick="ItemsUI.goToMaterilesPage(${totalPages}); return false;">${totalPages}</a></li>`;
+    }
+
+    html += `<li class="page-item ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}">
+      <a class="page-link" href="#" onclick="ItemsUI.goToMaterilesPage(${currentPage + 1}); return false;">Siguiente</a>
+    </li>`;
+
+    paginationContainer.innerHTML = html;
+  }
+
+  function goToMaterilesPage(page) {
+    const totalPages = state.pagination.materiales.totalPages;
+    if (page < 1 || page > totalPages) return;
+
+    state.pagination.materiales.currentPage = page;
+    const dataToRender = state.materialesFiltrados.length > 0 ? state.materialesFiltrados : state.materiales;
+    renderMaterialesPaginated(dataToRender);
+  }
+
+  function changeMaterilesPerPage() {
+    const select = document.getElementById('materialesPerPage');
+    state.pagination.materiales.perPage = parseInt(select.value);
+    state.pagination.materiales.currentPage = 1;
+    const dataToRender = state.materialesFiltrados.length > 0 ? state.materialesFiltrados : state.materiales;
+    renderMaterialesPaginated(dataToRender);
+  }
+
+  function renderItemsPaginated(data) {
+    const perPage = state.pagination.items.perPage;
+    const currentPage = state.pagination.items.currentPage;
+    const totalItems = data.length;
+    const totalPages = Math.ceil(totalItems / perPage) || 1;
+
+    state.pagination.items.totalPages = totalPages;
+
+    const startIndex = (currentPage - 1) * perPage;
+    const endIndex = Math.min(startIndex + perPage, totalItems);
+    const pageData = data.slice(startIndex, endIndex);
+
+    renderItems(pageData);
+
+    document.getElementById('itemsShowingStart').textContent = totalItems > 0 ? startIndex + 1 : 0;
+    document.getElementById('itemsShowingEnd').textContent = endIndex;
+    document.getElementById('itemsTotalCount').textContent = totalItems;
+
+    renderItemsPaginationControls(currentPage, totalPages);
+  }
+
+  function renderItemsPaginationControls(currentPage, totalPages) {
+    const paginationContainer = document.getElementById('itemsPagination');
+    if (!paginationContainer) return;
+
+    let html = '';
+    html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+      <a class="page-link" href="#" onclick="ItemsUI.goToItemsPage(${currentPage - 1}); return false;">Anterior</a>
+    </li>`;
+
+    const maxButtons = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+    if (endPage - startPage < maxButtons - 1) {
+      startPage = Math.max(1, endPage - maxButtons + 1);
+    }
+
+    if (startPage > 1) {
+      html += `<li class="page-item"><a class="page-link" href="#" onclick="ItemsUI.goToItemsPage(1); return false;">1</a></li>`;
+      if (startPage > 2) html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+        <a class="page-link" href="#" onclick="ItemsUI.goToItemsPage(${i}); return false;">${i}</a>
+      </li>`;
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+      html += `<li class="page-item"><a class="page-link" href="#" onclick="ItemsUI.goToItemsPage(${totalPages}); return false;">${totalPages}</a></li>`;
+    }
+
+    html += `<li class="page-item ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}">
+      <a class="page-link" href="#" onclick="ItemsUI.goToItemsPage(${currentPage + 1}); return false;">Siguiente</a>
+    </li>`;
+
+    paginationContainer.innerHTML = html;
+  }
+
+  function goToItemsPage(page) {
+    const totalPages = state.pagination.items.totalPages;
+    if (page < 1 || page > totalPages) return;
+
+    state.pagination.items.currentPage = page;
+    const dataToRender = state.itemsFiltrados.length > 0 ? state.itemsFiltrados : state.items;
+    renderItemsPaginated(dataToRender);
+  }
+
+  function changeItemsPerPage() {
+    const select = document.getElementById('itemsPerPage');
+    state.pagination.items.perPage = parseInt(select.value);
+    state.pagination.items.currentPage = 1;
+    const dataToRender = state.itemsFiltrados.length > 0 ? state.itemsFiltrados : state.items;
+    renderItemsPaginated(dataToRender);
+  }
+
+
   return {
     fetchMateriales,
     fetchItems,
@@ -1451,5 +1663,10 @@ const ItemsUI = (() => {
     submitItemPrice,
     removeDraftComponent,
     openComponentsFromEdit,
+    // Funciones de paginación
+    goToMaterilesPage,
+    changeMaterilesPerPage,
+    goToItemsPage,
+    changeItemsPerPage,
   };
 })();

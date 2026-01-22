@@ -51,7 +51,7 @@ try {
                         ) latest ON mp1.id_mat_precio = latest.last_id
                     ) mp ON mp.id_material = m.id_material
                     WHERE m.idestado IN (0, 1)
-                    ORDER BY m.cod_material ASC";
+                    ORDER BY m.idestado DESC, m.cod_material ASC";
 
             $stmt = $connection->prepare($sql);
             $stmt->execute();
@@ -311,7 +311,7 @@ try {
                         i.fecha_creacion,
                         i.idestado
                     FROM items i
-                    ORDER BY i.fecha_creacion DESC";
+                    ORDER BY i.idestado DESC, i.fecha_creacion DESC";
 
             $stmt = $connection->prepare($sql);
             $stmt->execute();
