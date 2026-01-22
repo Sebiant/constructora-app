@@ -184,12 +184,8 @@ const ItemsUI = (() => {
       state.materialesFiltrados = [];
 
       // Resetear paginación y renderizar con paginación
-      if (typeof paginationState !== 'undefined') {
-        paginationState.materiales.currentPage = 1;
-        renderMaterialesPaginated(state.materiales);
-      } else {
-        renderMateriales(state.materiales);
-      }
+      state.pagination.materiales.currentPage = 1;
+      renderMaterialesPaginated(state.materiales);
     } catch (error) {
       setError(selectors.tablaMateriales, error.message, 7);
     }
@@ -199,11 +195,7 @@ const ItemsUI = (() => {
     try {
       if (!force && state.items.length > 0) {
         const dataToRender = state.itemsFiltrados.length ? state.itemsFiltrados : state.items;
-        if (typeof paginationState !== 'undefined') {
-          renderItemsPaginated(dataToRender);
-        } else {
-          renderItems(dataToRender);
-        }
+        renderItemsPaginated(dataToRender);
         return;
       }
 
@@ -218,12 +210,8 @@ const ItemsUI = (() => {
       state.itemsFiltrados = [];
 
       // Resetear paginación y renderizar con paginación
-      if (typeof paginationState !== 'undefined') {
-        paginationState.items.currentPage = 1;
-        renderItemsPaginated(state.items);
-      } else {
-        renderItems(state.items);
-      }
+      state.pagination.items.currentPage = 1;
+      renderItemsPaginated(state.items);
     } catch (error) {
       console.error(error);
       setError(selectors.tablaItems, error.message || "No se pudieron cargar los ítems");
@@ -337,12 +325,8 @@ const ItemsUI = (() => {
     const term = document.querySelector(selectors.searchMateriales)?.value.trim().toLowerCase() ?? "";
     if (!term) {
       state.materialesFiltrados = [];
-      if (typeof paginationState !== 'undefined') {
-        paginationState.materiales.currentPage = 1;
-        renderMaterialesPaginated(state.materiales);
-      } else {
-        renderMateriales(state.materiales);
-      }
+      state.pagination.materiales.currentPage = 1;
+      renderMaterialesPaginated(state.materiales);
       return;
     }
     state.materialesFiltrados = state.materiales.filter(
@@ -351,24 +335,16 @@ const ItemsUI = (() => {
         mat.nombre_material.toLowerCase().includes(term) ||
         (mat.desc_tipo || "").toLowerCase().includes(term)
     );
-    if (typeof paginationState !== 'undefined') {
-      paginationState.materiales.currentPage = 1;
-      renderMaterialesPaginated(state.materialesFiltrados);
-    } else {
-      renderMateriales(state.materialesFiltrados);
-    }
+    state.pagination.materiales.currentPage = 1;
+    renderMaterialesPaginated(state.materialesFiltrados);
   }
 
   function filterItems() {
     const term = document.querySelector(selectors.searchItems)?.value.trim().toLowerCase() ?? "";
     if (!term) {
       state.itemsFiltrados = [];
-      if (typeof paginationState !== 'undefined') {
-        paginationState.items.currentPage = 1;
-        renderItemsPaginated(state.items);
-      } else {
-        renderItems(state.items);
-      }
+      state.pagination.items.currentPage = 1;
+      renderItemsPaginated(state.items);
       return;
     }
     state.itemsFiltrados = state.items.filter(
@@ -377,12 +353,8 @@ const ItemsUI = (() => {
         item.nombre_item.toLowerCase().includes(term) ||
         (item.descripcion || "").toLowerCase().includes(term)
     );
-    if (typeof paginationState !== 'undefined') {
-      paginationState.items.currentPage = 1;
-      renderItemsPaginated(state.itemsFiltrados);
-    } else {
-      renderItems(state.itemsFiltrados);
-    }
+    state.pagination.items.currentPage = 1;
+    renderItemsPaginated(state.itemsFiltrados);
   }
 
   function prepareMaterialModal(material = null) {
