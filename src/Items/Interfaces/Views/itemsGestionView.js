@@ -60,9 +60,16 @@ const ItemsUI = (() => {
     state.itemModal = bootstrap.Modal.getOrCreateInstance(
       document.querySelector(selectors.modalItem)
     );
-    document.getElementById("addMaterialFromSelectBtn")?.addEventListener("click", addMaterialFromSelect);
+
+    // Event listeners para agregar recursos por tipo
+    document.getElementById("addMaterialFromSelectBtn")?.addEventListener("click", () => addResourceFromSelect('material'));
+    document.getElementById("addManoObraFromSelectBtn")?.addEventListener("click", () => addResourceFromSelect('mano_obra'));
+    document.getElementById("addMaquinariaFromSelectBtn")?.addEventListener("click", () => addResourceFromSelect('equipo'));
 
     await Promise.all([fetchAuxData(), fetchMateriales(), fetchItems()]);
+
+    // Cargar selectores filtrados por tipo
+    loadResourceSelectsByType();
   }
 
   async function loadItemPriceHistory(idItem) {
@@ -1453,6 +1460,312 @@ const ItemsUI = (() => {
     manageComponents(item);
   }
 
+  // ========== FUNCIONES PARA SELECTORES POR TIPO DE RECURSO ==========
+
+  function loadResourceSelectsByType() {
+    if (!state.materiales || state.materiales.length === 0) {
+      console.warn("No hay materiales cargados para filtrar por tipo");
+      return;
+    }
+
+    // Mapeo de tipos de material a tipos de componente
+    const tipoMaterialMap = {
+      1: 'mano_obra',     // Mano de obra
+      2: 'material',      // Material
+      3: 'equipo',        // Equipo/Maquinaria
+      4: 'transporte',    // Transporte
+      5: 'otro'           // Otro
+    };
+
+    // Filtrar materiales por tipo y solo activos (idestado = 1)
+    const materialesPorTipo = {
+      material: state.materiales.filter(m => tipoMaterialMap[m.id_tipo_material] === 'material' && m.idestado == 1),
+      mano_obra: state.materiales.filter(m => tipoMaterialMap[m.id_tipo_material] === 'mano_obra' && m.idestado == 1),
+      equipo: state.materiales.filter(m => tipoMaterialMap[m.id_tipo_material] === 'equipo' && m.idestado == 1)
+    };
+
+    // Llenar selector de materiales
+    const selectMaterial = document.getElementById('draftMaterialSelect');
+    if (selectMaterial) {
+      selectMaterial.innerHTML = '<option value="">Seleccionar material...</option>';
+      materialesPorTipo.material.forEach(mat => {
+        const option = document.createElement('option');
+        option.value = mat.id_material;
+        option.textContent = `${mat.cod_material} - ${mat.nombre_material} ($${formatCurrency(mat.precio_actual)})`;
+        option.dataset.material = JSON.stringify(mat);
+        selectMaterial.appendChild(option);
+      });
+    }
+
+    // Llenar selector de mano de obra
+    const selectManoObra = document.getElementById('draftManoObraSelect');
+    if (selectManoObra) {
+      selectManoObra.innerHTML = '<option value="">Seleccionar mano de obra...</option>';
+      materialesPorTipo.mano_obra.forEach(mat => {
+        const option = document.createElement('option');
+        option.value = mat.id_material;
+        option.textContent = `${mat.cod_material} - ${mat.nombre_material} ($${formatCurrency(mat.precio_actual)})`;
+        option.dataset.material = JSON.stringify(mat);
+        selectManoObra.appendChild(option);
+      });
+    }
+
+    // Llenar selector de maquinaria
+    const selectMaquinaria = document.getElementById('draftMaquinariaSelect');
+    if (selectMaquinaria) {
+      selectMaquinaria.innerHTML = '<option value="">Seleccionar equipo...</option>';
+      materialesPorTipo.equipo.forEach(mat => {
+        const option = document.createElement('option');
+        option.value = mat.id_material;
+        option.textContent = `${mat.cod_material} - ${mat.nombre_material} ($${formatCurrency(mat.precio_actual)})`;
+        option.dataset.material = JSON.stringify(mat);
+        selectMaquinaria.appendChild(option);
+      });
+    }
+
+    console.log('Selectores cargados:', {
+      materiales: materialesPorTipo.material.length,
+      manoObra: materialesPorTipo.mano_obra.length,
+      equipos: materialesPorTipo.equipo.length
+    });
+  }
+
+  function addResourceFromSelect(tipoComponente) {
+    let selectId;
+    switch (tipoComponente) {
+      case 'material':
+        selectId = 'draftMaterialSelect';
+        break;
+      case 'mano_obra':
+        selectId = 'draftManoObraSelect';
+        break;
+      case 'equipo':
+        selectId = 'draftMaquinariaSelect';
+        break;
+      default:
+        console.error('Tipo de componente no válido:', tipoComponente);
+        return;
+    }
+
+    const select = document.getElementById(selectId);
+    if (!select || !select.value) {
+      alert('Por favor selecciona un recurso primero');
+      return;
+    }
+
+    const selectedOption = select.options[select.selectedIndex];
+    const material = JSON.parse(selectedOption.dataset.material || '{}');
+
+    if (!material.id_material) {
+      alert('Error al obtener información del recurso');
+      return;
+    }
+
+    // Crear componente borrador
+    const newComponent = {
+      id_componente: null,
+      tipo_componente: tipoComponente,
+      id_material: material.id_material,
+      descripcion: material.nombre_material,
+      unidad: material.unidesc || 'UND',
+      cantidad: 1,
+      precio_unitario: parseFloat(material.precio_actual || 0),
+      porcentaje_desperdicio: tipoComponente === 'material' ? 5 : 0,
+      cod_material: material.cod_material
+    };
+
+    state.draftComponents.push(newComponent);
+    renderDraftComponents();
+
+    // Resetear selector
+    select.selectedIndex = 0;
+
+    console.log('Recurso agregado:', newComponent);
+  }
+
+  function renderDraftComponents() {
+    // Separar componentes por tipo
+    const componentesPorTipo = {
+      material: state.draftComponents.filter(c => c.tipo_componente === 'material'),
+      mano_obra: state.draftComponents.filter(c => c.tipo_componente === 'mano_obra'),
+      equipo: state.draftComponents.filter(c => c.tipo_componente === 'equipo')
+    };
+
+    // Renderizar Materiales
+    const containerMateriales = document.getElementById('componentesMaterialesContainer');
+    if (containerMateriales) {
+      if (componentesPorTipo.material.length === 0) {
+        containerMateriales.innerHTML = '<div class="text-muted small text-center py-3">No hay materiales agregados</div>';
+      } else {
+        containerMateriales.innerHTML = componentesPorTipo.material.map((comp) => {
+          const idx = state.draftComponents.indexOf(comp);
+          const subtotal = comp.cantidad * comp.precio_unitario * (1 + comp.porcentaje_desperdicio / 100);
+          return `
+            <div class="card mb-2 shadow-sm">
+              <div class="card-body p-2">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                  <small class="fw-bold text-primary">${comp.cod_material || ''}</small>
+                  <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="ItemsUI.removeDraftComponent(${idx})" title="Eliminar">
+                    <i class="bi bi-x"></i>
+                  </button>
+                </div>
+                <div class="small mb-1">${comp.descripcion}</div>
+                <div class="row g-1 small mb-2">
+                  <div class="col-6">
+                    <label class="form-label mb-0" style="font-size: 0.7rem;">Unidad</label>
+                    <input type="text" class="form-control form-control-sm bg-light text-muted" value="${comp.unidad}" readonly style="cursor: not-allowed;">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label mb-0" style="font-size: 0.7rem;">P. Unit</label>
+                    <input type="number" class="form-control form-control-sm bg-light text-muted" value="${comp.precio_unitario}" readonly style="cursor: not-allowed;">
+                  </div>
+                </div>
+                <div class="row g-1 small">
+                  <div class="col-6">
+                    <label class="form-label mb-0 fw-bold" style="font-size: 0.7rem;">Cantidad</label>
+                    <input type="number" class="form-control form-control-sm border-success" value="${comp.cantidad}" 
+                           onchange="ItemsUI.updateDraftComponent(${idx}, 'cantidad', this.value)" step="0.01" min="0.01" style="border-width: 2px;">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label mb-0 fw-bold" style="font-size: 0.7rem;">% Desp.</label>
+                    <input type="number" class="form-control form-control-sm border-success" value="${comp.porcentaje_desperdicio}" 
+                           onchange="ItemsUI.updateDraftComponent(${idx}, 'porcentaje_desperdicio', this.value)" step="0.1" min="0" style="border-width: 2px;">
+                  </div>
+                </div>
+                <div class="mt-1 text-end">
+                  <small class="text-muted">Subtotal:</small>
+                  <strong class="text-primary">$${formatCurrency(subtotal)}</strong>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // Renderizar Mano de Obra
+    const containerManoObra = document.getElementById('componentesManoObraContainer');
+    if (containerManoObra) {
+      if (componentesPorTipo.mano_obra.length === 0) {
+        containerManoObra.innerHTML = '<div class="text-muted small text-center py-3">No hay mano de obra agregada</div>';
+      } else {
+        containerManoObra.innerHTML = componentesPorTipo.mano_obra.map((comp) => {
+          const idx = state.draftComponents.indexOf(comp);
+          const subtotal = comp.cantidad * comp.precio_unitario;
+          return `
+            <div class="card mb-2 shadow-sm">
+              <div class="card-body p-2">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                  <small class="fw-bold text-success">${comp.cod_material || ''}</small>
+                  <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="ItemsUI.removeDraftComponent(${idx})" title="Eliminar">
+                    <i class="bi bi-x"></i>
+                  </button>
+                </div>
+                <div class="small mb-1">${comp.descripcion}</div>
+                <div class="row g-1 small mb-2">
+                  <div class="col-6">
+                    <label class="form-label mb-0" style="font-size: 0.7rem;">Unidad</label>
+                    <input type="text" class="form-control form-control-sm bg-light text-muted" value="${comp.unidad}" readonly style="cursor: not-allowed;">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label mb-0" style="font-size: 0.7rem;">P. Unit</label>
+                    <input type="number" class="form-control form-control-sm bg-light text-muted" value="${comp.precio_unitario}" readonly style="cursor: not-allowed;">
+                  </div>
+                </div>
+                <div class="row g-1 small">
+                  <div class="col-12">
+                    <label class="form-label mb-0 fw-bold" style="font-size: 0.7rem;">Cantidad</label>
+                    <input type="number" class="form-control form-control-sm border-success" value="${comp.cantidad}" 
+                           onchange="ItemsUI.updateDraftComponent(${idx}, 'cantidad', this.value)" step="0.01" min="0.01" style="border-width: 2px;">
+                  </div>
+                </div>
+                <div class="mt-1 text-end">
+                  <small class="text-muted">Subtotal:</small>
+                  <strong class="text-success">$${formatCurrency(subtotal)}</strong>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // Renderizar Maquinaria/Equipos
+    const containerMaquinaria = document.getElementById('componentesMaquinariaContainer');
+    if (containerMaquinaria) {
+      if (componentesPorTipo.equipo.length === 0) {
+        containerMaquinaria.innerHTML = '<div class="text-muted small text-center py-3">No hay equipos agregados</div>';
+      } else {
+        containerMaquinaria.innerHTML = componentesPorTipo.equipo.map((comp) => {
+          const idx = state.draftComponents.indexOf(comp);
+          const subtotal = comp.cantidad * comp.precio_unitario;
+          return `
+            <div class="card mb-2 shadow-sm">
+              <div class="card-body p-2">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                  <small class="fw-bold text-warning">${comp.cod_material || ''}</small>
+                  <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="ItemsUI.removeDraftComponent(${idx})" title="Eliminar">
+                    <i class="bi bi-x"></i>
+                  </button>
+                </div>
+                <div class="small mb-1">${comp.descripcion}</div>
+                <div class="row g-1 small mb-2">
+                  <div class="col-6">
+                    <label class="form-label mb-0" style="font-size: 0.7rem;">Unidad</label>
+                    <input type="text" class="form-control form-control-sm bg-light text-muted" value="${comp.unidad}" readonly style="cursor: not-allowed;">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label mb-0" style="font-size: 0.7rem;">P. Unit</label>
+                    <input type="number" class="form-control form-control-sm bg-light text-muted" value="${comp.precio_unitario}" readonly style="cursor: not-allowed;">
+                  </div>
+                </div>
+                <div class="row g-1 small">
+                  <div class="col-12">
+                    <label class="form-label mb-0 fw-bold" style="font-size: 0.7rem;">Cantidad</label>
+                    <input type="number" class="form-control form-control-sm border-success" value="${comp.cantidad}" 
+                           onchange="ItemsUI.updateDraftComponent(${idx}, 'cantidad', this.value)" step="0.01" min="0.01" style="border-width: 2px;">
+                  </div>
+                </div>
+                <div class="mt-1 text-end">
+                  <small class="text-muted">Subtotal:</small>
+                  <strong class="text-warning">$${formatCurrency(subtotal)}</strong>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // Actualizar badge de total de componentes
+    const totalComponentes = state.draftComponents.length;
+    const badge = document.getElementById('itemComponentsDraftBadge');
+    if (badge) {
+      badge.textContent = `${totalComponentes} componente${totalComponentes !== 1 ? 's' : ''}`;
+    }
+  }
+
+  function updateDraftComponent(index, field, value) {
+    if (index >= 0 && index < state.draftComponents.length) {
+      state.draftComponents[index][field] = parseFloat(value) || 0;
+      renderDraftComponents();
+    }
+  }
+
+  function removeDraftComponent(index) {
+    if (index >= 0 && index < state.draftComponents.length) {
+      if (confirm('¿Eliminar este componente?')) {
+        state.draftComponents.splice(index, 1);
+        renderDraftComponents();
+      }
+    }
+  }
+
+  function resetDraftComponents() {
+    state.draftComponents = [];
+    renderDraftComponents();
+  }
+
   // ========== FUNCIONES DE PAGINACIÓN ==========
 
   function renderMaterialesPaginated(data) {
@@ -1634,6 +1947,7 @@ const ItemsUI = (() => {
     submitMaterialPrice,
     submitItemPrice,
     removeDraftComponent,
+    updateDraftComponent,
     openComponentsFromEdit,
     // Funciones de paginación
     goToMaterilesPage,

@@ -401,21 +401,54 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                         <div class="mt-3" id="itemComponentsBuilder">
                             <div class="card shadow-sm border-0">
                                 <div class="card-header bg-light">
-                                    <h6 class="mb-0">Selecciona un material del catálogo</h6>
-                                    <small class="text-muted">El precio y la unidad se precargan automáticamente.</small>
+                                    <h6 class="mb-0">Selecciona recursos del catálogo</h6>
+                                    <small class="text-muted">El precio y la unidad se precargan automáticamente según el tipo de recurso.</small>
                                 </div>
                                 <div class="card-body">
-                                    <div class="row g-3 align-items-end">
-                                        <div class="col-md-8">
-                                            <label class="form-label">Material</label>
-                                            <select class="form-select" id="draftMaterialSelect">
-                                                <option value="">Catálogo de materiales</option>
-                                            </select>
+                                    <div class="row g-3">
+                                        <!-- Columna 1: Materiales -->
+                                        <div class="col-md-4">
+                                            <div class="border rounded p-3 h-100 bg-light">
+                                                <h6 class="text-primary mb-2">
+                                                    <i class="bi bi-box-seam"></i> Materiales
+                                                </h6>
+                                                <select class="form-select form-select-sm mb-2" id="draftMaterialSelect">
+                                                    <option value="">Seleccionar material...</option>
+                                                </select>
+                                                <button type="button" class="btn btn-primary btn-sm w-100" id="addMaterialFromSelectBtn">
+                                                    <i class="bi bi-plus-circle"></i> Agregar
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div class="col-md-4 text-md-end">
-                                            <button type="button" class="btn btn-dark w-100" id="addMaterialFromSelectBtn">
-                                                <i class="bi bi-arrow-down-square"></i> Agregar material
-                                            </button>
+                                        
+                                        <!-- Columna 2: Mano de Obra -->
+                                        <div class="col-md-4">
+                                            <div class="border rounded p-3 h-100 bg-light">
+                                                <h6 class="text-success mb-2">
+                                                    <i class="bi bi-people-fill"></i> Mano de Obra
+                                                </h6>
+                                                <select class="form-select form-select-sm mb-2" id="draftManoObraSelect">
+                                                    <option value="">Seleccionar mano de obra...</option>
+                                                </select>
+                                                <button type="button" class="btn btn-success btn-sm w-100" id="addManoObraFromSelectBtn">
+                                                    <i class="bi bi-plus-circle"></i> Agregar
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Columna 3: Maquinaria/Equipos -->
+                                        <div class="col-md-4">
+                                            <div class="border rounded p-3 h-100 bg-light">
+                                                <h6 class="text-warning mb-2">
+                                                    <i class="bi bi-gear-fill"></i> Maquinaria/Equipos
+                                                </h6>
+                                                <select class="form-select form-select-sm mb-2" id="draftMaquinariaSelect">
+                                                    <option value="">Seleccionar equipo...</option>
+                                                </select>
+                                                <button type="button" class="btn btn-warning btn-sm w-100" id="addMaquinariaFromSelectBtn">
+                                                    <i class="bi bi-plus-circle"></i> Agregar
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -432,58 +465,48 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                     </button>
                                 </div>
                                 <div class="card-body">
-                                    <div id="itemNewComponentsWrapper" class="mb-4 d-none">
-                                        <div class="alert alert-info py-2 mb-3">
-                                            <strong>Nuevos componentes agregados en esta sesión</strong>
-                                            <small class="d-block text-muted">Estos se guardarán cuando confirmes el ítem.</small>
+                                    <h6 class="mb-3">Componentes agregados al ítem</h6>
+                                    <div class="row g-3">
+                                        <!-- Columna 1: Materiales -->
+                                        <div class="col-md-4">
+                                            <div class="border rounded p-2 bg-light">
+                                                <h6 class="text-primary mb-2 small">
+                                                    <i class="bi bi-box-seam"></i> Materiales
+                                                </h6>
+                                                <div id="componentesMaterialesContainer" style="max-height: 400px; overflow-y: auto;">
+                                                    <div class="text-muted small text-center py-3">
+                                                        No hay materiales agregados
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="table-responsive" style="max-height: 240px; overflow-y: auto;">
-                                            <table class="table table-sm table-striped align-middle mb-0">
-                                                <thead class="table-info">
-                                                    <tr>
-                                                        <th style="min-width: 140px;">Tipo</th>
-                                                        <th>Recurso / descripción</th>
-                                                        <th class="text-end" style="width: 100px;">Unidad</th>
-                                                        <th class="text-end" style="width: 120px;">Cantidad</th>
-                                                        <th class="text-end" style="width: 120px;">P. Unit</th>
-                                                        <th class="text-end" style="width: 120px;">% Desp.</th>
-                                                        <th class="text-end" style="width: 140px;">Subtotal</th>
-                                                        <th class="text-center" style="width: 80px;">Acciones</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="itemNewComponentsBody">
-                                                    <tr>
-                                                        <td colspan="8" class="text-center text-muted py-3">
-                                                            Aún no has agregado componentes manuales.
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
+                                        
+                                        <!-- Columna 2: Mano de Obra -->
+                                        <div class="col-md-4">
+                                            <div class="border rounded p-2 bg-light">
+                                                <h6 class="text-success mb-2 small">
+                                                    <i class="bi bi-people-fill"></i> Mano de Obra
+                                                </h6>
+                                                <div id="componentesManoObraContainer" style="max-height: 400px; overflow-y: auto;">
+                                                    <div class="text-muted small text-center py-3">
+                                                        No hay mano de obra agregada
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div id="itemExistingComponentsWrapper">
-                                        <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
-                                            <table class="table table-sm table-striped align-middle mb-0">
-                                                <thead class="table-secondary">
-                                                    <tr>
-                                                        <th style="min-width: 140px;">Tipo</th>
-                                                        <th>Recurso / descripción</th>
-                                                        <th class="text-end" style="width: 100px;">Unidad</th>
-                                                        <th class="text-end" style="width: 120px;">Cantidad</th>
-                                                        <th class="text-end" style="width: 120px;">P. Unit</th>
-                                                        <th class="text-end" style="width: 120px;">% Desp.</th>
-                                                        <th class="text-end" style="width: 140px;">Subtotal</th>
-                                                        <th class="text-center" style="width: 80px;">Acciones</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="itemExistingComponentsBody">
-                                                    <tr>
-                                                        <td colspan="8" class="text-center text-muted py-3">
-                                                            Selecciona un ítem para ver sus componentes existentes.
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
+                                        
+                                        <!-- Columna 3: Maquinaria/Equipos -->
+                                        <div class="col-md-4">
+                                            <div class="border rounded p-2 bg-light">
+                                                <h6 class="text-warning mb-2 small">
+                                                    <i class="bi bi-gear-fill"></i> Maquinaria/Equipos
+                                                </h6>
+                                                <div id="componentesMaquinariaContainer" style="max-height: 400px; overflow-y: auto;">
+                                                    <div class="text-muted small text-center py-3">
+                                                        No hay equipos agregados
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
