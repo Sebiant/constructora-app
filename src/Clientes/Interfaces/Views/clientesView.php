@@ -5,7 +5,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 <div class="container mt-4">
     <div class="card shadow border-0">
         <!-- Header turquesa como el del Registro de Capítulos -->
-        <div class="card-header bg-info text-white rounded-top">
+        <div class="card-header bg-primary text-white rounded-top">
             <h3 class="text-center mb-0">Gestión de Clientes</h3>
         </div>
         <div class="card-body bg-light">
@@ -45,7 +45,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 <div class="modal fade" id="modalClientes" tabindex="-1" aria-labelledby="modalClientesLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-info text-white">
+            <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="modalClientesLabel">Crear Cliente</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

@@ -287,7 +287,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 <div class="modal fade" id="modalDetalleOrden" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header bg-info text-white">
+      <div class="modal-header bg-primary text-white">
         <h5 class="modal-title">
           <i class="bi bi-eye"></i> Detalles de Orden de Compra
         </h5>
@@ -309,7 +309,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 <div class="modal fade" id="modalAgregarProveedor" tabindex="-1" aria-labelledby="modalAgregarProveedorLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl" style="max-width: 95vw;">
         <div class="modal-content border-0 shadow" style="height: 85vh; display: flex; flex-direction: column;">
-            <div class="modal-header bg-info text-white flex-shrink-0">
+            <div class="modal-header bg-primary text-white flex-shrink-0">
                 <h5 class="modal-title" id="modalAgregarProveedorLabel">Gestión de Proveedores</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

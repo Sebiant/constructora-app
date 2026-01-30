@@ -10,7 +10,7 @@ class GetAllCapitulos {
         $this->repository = $repository;
     }
 
-    public function execute(): array {
-        return $this->repository->getAll();
+    public function execute(?int $idPresupuesto = null): array {
+        return $this->repository->getAll($idPresupuesto);
     }
 }

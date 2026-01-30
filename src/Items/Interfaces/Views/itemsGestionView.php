@@ -513,6 +513,56 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                             </div>
                         </div>
                     </div>
+
+                    <!-- Sección de Ítems Anidados -->
+                    <div class="mt-4 border-top pt-4" id="itemCompositionBuilderSection">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <h6 class="mb-1"><i class="bi bi-diagram-2"></i> Ítems anidados (Composición)</h6>
+                                <small class="text-muted">Agrega otros ítems como componentes de este ítem para crear jerarquías.</small>
+                            </div>
+                            <span class="badge bg-success" id="itemCompositionDraftBadge">0 ítems anidados</span>
+                        </div>
+                        <div class="mt-3">
+                            <div class="card shadow-sm border-0">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Selecciona ítems existentes</h6>
+                                    <small class="text-muted">Los ítems seleccionados se agregarán como componentes de este ítem.</small>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3 align-items-end">
+                                        <div class="col-md-10">
+                                            <label class="form-label">Ítem</label>
+                                            <select class="form-select" id="draftItemSelect">
+                                                <option value="">Seleccionar ítem...</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-success w-100" onclick="ItemsUI.addItemFromSelect()">
+                                                <i class="bi bi-plus-circle"></i> Agregar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card shadow-sm border-0 mt-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Ítems anidados agregados</h6>
+                                    <small class="text-muted">Configura las cantidades y el orden de los ítems componentes.</small>
+                                </div>
+                                <div class="card-body">
+                                    <div id="itemCompositionDraftContainer">
+                                        <div class="text-center text-muted py-3">
+                                            <i class="bi bi-inbox"></i>
+                                            <p class="mb-0">No hay ítems anidados agregados.</p>
+                                            <small>Los ítems anidados son otros ítems que forman parte de este ítem.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div id="itemInsightsSectionFooter" class="flex-grow-1 me-3 d-none">

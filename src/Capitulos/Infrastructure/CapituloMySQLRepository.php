@@ -13,20 +13,32 @@ class CapituloMySQLRepository implements CapituloRepository {
         $this->conn = $conn;
     }
 
-    public function getAll(): array {
+    public function getAll(?int $idPresupuesto = null): array {
         try {
-            $stmt = $this->conn->query("
+            $sql = "
                 SELECT 
                     c.*,
                     CONCAT(IFNULL(p.nombre, IFNULL(p.codigo, CONCAT('Presupuesto ', c.id_presupuesto))), ' - ', IFNULL(pr.nombre, 'Sin proyecto')) AS presupuesto_proyecto
                 FROM capitulos c
                 LEFT JOIN presupuestos p ON c.id_presupuesto = p.id_presupuesto
-                LEFT JOIN proyectos pr ON p.id_proyecto = pr.id_proyecto
-                ORDER BY c.estado DESC, c.nombre_cap ASC
-            ");
-            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                LEFT JOIN proyectos pr ON p.id_proyecto = pr.id_proyecto";
             
-            // Depuración: Loggear los datos obtenidos
+            if ($idPresupuesto !== null) {
+                $sql .= " WHERE c.id_presupuesto = :id_presupuesto";
+            }
+            
+            $sql .= " ORDER BY c.estado DESC, c.nombre_cap ASC";
+            
+            $stmt = $this->conn->prepare($sql);
+            
+            if ($idPresupuesto !== null) {
+                $stmt->execute(['id_presupuesto' => $idPresupuesto]);
+            } else {
+                $stmt->execute();
+            }
+            
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
             error_log("Datos obtenidos de capitulos: " . json_encode($result));
             
             return $result ?: [];

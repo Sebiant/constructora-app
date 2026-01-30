@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administración de Pedidos</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom Theme CSS - Color Primary #00384A -->
+    <link rel="stylesheet" href="/sgigescomnew/public/css/custom-theme.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 </head>
 <body class="bg-light">
@@ -147,7 +149,7 @@
 
         <!-- Tabla de Pedidos -->
         <div class="card shadow-sm">
-            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="bi bi-list-ul"></i> Lista de Pedidos</h5>
                 <span class="badge bg-light text-dark" id="contadorPedidos">0 pedidos</span>
             </div>

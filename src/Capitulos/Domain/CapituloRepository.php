@@ -2,7 +2,7 @@
 namespace Src\Capitulos\Domain;
 
 interface CapituloRepository {
-    public function getAll(): array;
+    public function getAll(?int $idPresupuesto = null): array;
     public function getActivos(): array;
     public function find(int $id): ?Capitulo;
     public function save(Capitulo $capitulo): Capitulo;

@@ -11,6 +11,17 @@ $(document).ready(function () {
     ajax: {
       url: API_CAPITULOS + "?action=getAll",
       type: "GET",
+      data: function(d) {
+        // Usar el ID de filtro global si está definido, sino buscar en URL
+        const idPresupuesto = typeof ID_PRESUPUESTO_FILTRO !== 'undefined' ? 
+          ID_PRESUPUESTO_FILTRO : 
+          (new URLSearchParams(window.location.search)).get('id_presupuesto');
+        
+        if (idPresupuesto) {
+          return { id_presupuesto: idPresupuesto };
+        }
+        return {};
+      },
       dataSrc: "",
       error: function(xhr, error, thrown) {
         console.error("Error en DataTable:", {
@@ -364,4 +375,18 @@ function eliminarCapitulo(id) {
       alert("Error en la petición: " + xhr.responseText);
     },
   });
+}
+
+// Función para recargar la tabla con filtro de presupuesto
+function recargarCapitulosPorPresupuesto(idPresupuesto) {
+  const url = idPresupuesto ? 
+    API_CAPITULOS + "?action=getAll&id_presupuesto=" + idPresupuesto : 
+    API_CAPITULOS + "?action=getAll";
+  
+  $("#datos_capitulos").DataTable().ajax.url(url).load();
+}
+
+// Función para limpiar filtro (mostrar todos)
+function mostrarTodosLosCapitulos() {
+  recargarCapitulosPorPresupuesto(null);
 }

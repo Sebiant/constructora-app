@@ -4,7 +4,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 
 <div class="container mt-4">
     <div class="card shadow border-0">
-        <div class="card-header bg-info text-white">
+        <div class="card-header bg-primary text-white">
             <h3 class="text-center mb-0">Gestión de Proyectos</h3>
         </div>
 
@@ -50,7 +50,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 <div class="modal fade" id="modalProyectos" tabindex="-1" aria-labelledby="modalProyectosLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-info text-white">
+            <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="modalProyectosLabel">Crear Proyecto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

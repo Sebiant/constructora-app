@@ -34,8 +34,9 @@ header('Content-Type: application/json');
 try {
     switch ($action) {
         case 'getAll':
+            $idPresupuesto = $_GET['id_presupuesto'] ?? null;
             $useCase = new GetAllCapitulos($repo);
-            $data = $useCase->execute();
+            $data = $useCase->execute($idPresupuesto ? (int)$idPresupuesto : null);
 
             ob_clean();
             // Formatear datos para DataTables

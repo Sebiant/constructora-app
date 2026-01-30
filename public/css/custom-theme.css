@@ -1,0 +1,118 @@
+/* 
+ * Custom Bootstrap Theme Override
+ * Sistema de Gestión Integral
+ */
+
+:root {
+  /* Color Primary - Azul oscuro petróleo #00384A */
+  --bs-primary: #00384A;
+  --bs-primary-rgb: 0, 56, 74;
+
+  /* Variaciones del color primary para diferentes estados */
+  --bs-primary-hover: #002838;
+  --bs-primary-active: #002838;
+  --bs-primary-border: #00384A;
+
+  /* Text color on primary background */
+  --bs-primary-text-emphasis: #001a25;
+  --bs-primary-bg-subtle: #cce5ed;
+  --bs-primary-border-subtle: #99cbd9;
+}
+
+/* Sobrescribir clases de Bootstrap con el nuevo color primary */
+.bg-primary {
+  background-color: #00384A !important;
+}
+
+.btn-primary {
+  background-color: #00384A;
+  border-color: #00384A;
+}
+
+.btn-primary:hover {
+  background-color: #002838;
+  border-color: #002838;
+}
+
+.btn-primary:active,
+.btn-primary:focus {
+  background-color: #002838;
+  border-color: #002838;
+}
+
+.text-primary {
+  color: #00384A !important;
+}
+
+.border-primary {
+  border-color: #00384A !important;
+}
+
+.badge.bg-primary {
+  background-color: #00384A !important;
+}
+
+.alert-primary {
+  background-color: #cce5ed;
+  border-color: #99cbd9;
+  color: #001a25;
+}
+
+/* Card headers con bg-primary */
+.card-header.bg-primary {
+  background-color: #00384A !important;
+}
+
+/* Modal headers con bg-primary */
+.modal-header.bg-primary {
+  background-color: #00384A !important;
+}
+
+/* Table headers */
+.table-primary {
+  --bs-table-bg: #cce5ed;
+  --bs-table-striped-bg: #c0dce6;
+  --bs-table-striped-color: #000;
+  --bs-table-active-bg: #b3d3df;
+  --bs-table-active-color: #000;
+  --bs-table-hover-bg: #b9d8e2;
+  --bs-table-hover-color: #000;
+  color: #000;
+  border-color: #b3d3df;
+}
+
+/* Links */
+.link-primary {
+  color: #00384A !important;
+}
+
+.link-primary:hover,
+.link-primary:focus {
+  color: #002838 !important;
+}
+
+/* Progress bars */
+.progress-bar {
+  background-color: #00384A;
+}
+
+/* Form controls focus */
+.form-control:focus,
+.form-select:focus {
+  border-color: #00384A;
+  box-shadow: 0 0 0 0.25rem rgba(0, 56, 74, 0.25);
+}
+
+/* Pagination */
+.pagination .page-link {
+  color: #00384A;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: #00384A;
+  border-color: #00384A;
+}
+
+.pagination .page-link:hover {
+  color: #002838;
+}

@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Proyectos y Materiales</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom Theme CSS - Color Primary #00384A -->
+    <link rel="stylesheet" href="/sgigescomnew/public/css/custom-theme.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 </head>
 <body class="bg-light">
     <div class="container-fluid py-4">
         <!-- Card Principal Única -->
         <div class="card shadow-lg">
-            <div class="card-header bg-info text-white">
+            <div class="card-header bg-primary text-white">
                 <h4 class="mb-0">Sistema de Gestión de Materiales y Pedidos</h4>
             </div>
             <div class="card-body">
@@ -94,7 +96,7 @@
                             <!-- Sidebar con Filtros y Estadísticas -->
                             <div class="col-md-3">
                                 <div class="card shadow-sm">
-                                    <div class="card-header bg-info text-white">
+                                    <div class="card-header bg-primary text-white">
                                         <h6 class="mb-0">Filtros</h6>
                                     </div>
                                     <div class="card-body">
@@ -165,7 +167,7 @@
                             <div class="col-md-9">
                                 <!-- TABLA 1: Materiales del Presupuesto -->
                                 <div class="card shadow-sm mb-4">
-                                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                                         <h6 class="mb-0">
                                             <i class="bi bi-box-seam"></i> Materiales del Presupuesto
                                         </h6>
@@ -267,7 +269,7 @@
     <div class="modal fade" id="modalNuevoItem" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-info text-white">
+                <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">Agregar Material Extra</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>

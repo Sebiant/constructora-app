@@ -90,7 +90,3 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 <?php
 include_once __DIR__ . '/../../../Shared/Components/footer.php';
 ?>
-
-<script>
-    const API_CAPITULOS = '/sgigescomnew/src/Capitulos/Interfaces/CapituloController.php';
-</script>

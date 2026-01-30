@@ -383,6 +383,8 @@ try {
             $idTipoItem = isset($data['id_tipo_item']) && $data['id_tipo_item'] !== '' ? (int)$data['id_tipo_item'] : null;
             $componentes = $data['componentes'] ?? [];
             $removedComponents = $data['removed_component_ids'] ?? [];
+            $composicion = $data['composicion'] ?? [];
+            $removedComposition = $data['removed_composition_ids'] ?? [];
 
             if ($codigo === '' || $nombre === '' || $unidad === '') {
                 throw new Exception('Datos insuficientes para actualizar el ítem.');
@@ -415,6 +417,7 @@ try {
                 $itemId
             ]);
 
+            // Manejar componentes básicos (materiales, mano de obra, equipo)
             if (!empty($removedComponents) && is_array($removedComponents)) {
                 $placeholders = implode(',', array_fill(0, count($removedComponents), '?'));
                 $params = array_map('intval', $removedComponents);
@@ -469,6 +472,53 @@ try {
                         $cantidad,
                         $precioUnit,
                         $desperdicio
+                    ]);
+                }
+            }
+
+            // Manejar composición de items (items anidados)
+            if (!empty($removedComposition) && is_array($removedComposition)) {
+                $placeholders = implode(',', array_fill(0, count($removedComposition), '?'));
+                $params = array_map('intval', $removedComposition);
+                $params[] = $itemId;
+                $connection->prepare(
+                    "UPDATE item_composicion SET idestado = 0
+                     WHERE id_composicion IN ($placeholders) AND id_item_compuesto = ?"
+                )->execute($params);
+            }
+
+            if (!empty($composicion) && is_array($composicion)) {
+                $stmtComposicion = $connection->prepare(
+                    "INSERT INTO item_composicion
+                        (id_composicion, id_item_compuesto, id_item_componente, cantidad, nivel, observaciones, idusuario, fechareg, fechaupdate, idestado, orden, porcentaje_desperdicio, es_referencia)
+                     VALUES (?, ?, ?, ?, 1, NULL, 1, NOW(), NOW(), 1, ?, 0, ?)
+                     ON DUPLICATE KEY UPDATE
+                        id_item_componente = VALUES(id_item_componente),
+                        cantidad = VALUES(cantidad),
+                        orden = VALUES(orden),
+                        es_referencia = VALUES(es_referencia),
+                        fechaupdate = NOW(),
+                        idestado = 1"
+                );
+
+                foreach ($composicion as $comp) {
+                    $composicionId = isset($comp['id_composicion']) && $comp['id_composicion'] !== '' ? (int)$comp['id_composicion'] : null;
+                    $idItemComponente = (int)($comp['id_item_componente'] ?? 0);
+                    $cantidad = isset($comp['cantidad']) ? (float)$comp['cantidad'] : 1;
+                    $orden = isset($comp['orden']) ? (int)$comp['orden'] : 1;
+                    $esReferencia = isset($comp['es_referencia']) ? (int)$comp['es_referencia'] : 1;
+
+                    if (!$idItemComponente || $cantidad <= 0 || $idItemComponente === $itemId) {
+                        continue;
+                    }
+
+                    $stmtComposicion->execute([
+                        $composicionId,
+                        $itemId,
+                        $idItemComponente,
+                        $cantidad,
+                        $orden,
+                        $esReferencia
                     ]);
                 }
             }

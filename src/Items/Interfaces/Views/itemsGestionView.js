@@ -13,8 +13,11 @@ const ItemsUI = (() => {
     lastMaterialImpact: { materialId: null, delta: 0, items: [] },
     currentItemTotal: 0,
     draftComponents: [],
+    draftComposition: [], // Items anidados (items dentro de items)
     removedComponentIds: new Set(),
+    removedCompositionIds: new Set(), // IDs de composiciones eliminadas
     loadingDraftComponents: false,
+    loadingDraftComposition: false,
     currentItemId: null,
     itemChildItems: [],
     childItemBreakdowns: {},
@@ -541,13 +544,23 @@ const ItemsUI = (() => {
       }
     }
     state.currentItemId = item?.id_item ?? null;
+
+    // Resetear componentes básicos
     resetDraftComponents();
     state.removedComponentIds = new Set();
+
+    // Resetear items anidados (composición)
+    resetDraftComposition();
+    state.removedCompositionIds = new Set();
+
     if (item) {
       loadItemComponentsForModal(item.id_item);
+      loadItemCompositionForModal(item.id_item);
     } else {
       renderDraftComponents();
+      renderDraftComposition();
     }
+
     const deleteBtn = document.getElementById("itemDeleteButton");
     const manageCompBtn = document.getElementById("manageComponentsFromEditBtn");
     deleteBtn?.classList.add("d-none");
@@ -559,6 +572,9 @@ const ItemsUI = (() => {
       manageCompBtn?.classList.add("d-none");
       manageCompBtn?.removeAttribute("data-item");
     }
+
+    // Poblar selector de items para composición
+    populateItemsSelectForComposition();
   }
 
   function editItemById(idItem) {
@@ -588,20 +604,23 @@ const ItemsUI = (() => {
     let endpoint = isEdit ? "updateItem" : "createItem";
     let requestBody = payload;
 
-    if (!isEdit && state.draftComponents.length) {
+    if (!isEdit && (state.draftComponents.length || state.draftComposition.length)) {
       endpoint = "createItemWithRelations";
       const serializedComponents = serializeDraftComponents().map(({ id_componente, ...rest }) => rest);
+      const serializedComposition = serializeDraftComposition().map(({ id_composicion, ...rest }) => rest);
       requestBody = {
         item: payload,
         componentes: serializedComponents,
-        composicion: [],
+        composicion: serializedComposition,
         precio: null,
       };
     } else if (isEdit) {
       requestBody = {
         ...payload,
         componentes: serializeDraftComponents(),
+        composicion: serializeDraftComposition(),
         removed_component_ids: Array.from(state.removedComponentIds),
+        removed_composition_ids: Array.from(state.removedCompositionIds),
       };
     }
 
@@ -617,7 +636,9 @@ const ItemsUI = (() => {
 
       state.itemModal.hide();
       resetDraftComponents();
+      resetDraftComposition();
       state.removedComponentIds = new Set();
+      state.removedCompositionIds = new Set();
       await fetchItems(true);
     } catch (error) {
       alert(error.message);
@@ -1924,6 +1945,222 @@ const ItemsUI = (() => {
     renderItemsPaginated(dataToRender);
   }
 
+  // ========== FUNCIONES PARA ITEMS ANIDADOS (COMPOSICIÓN) ==========
+
+  function resetDraftComposition() {
+    state.loadingDraftComposition = false;
+    state.draftComposition = [];
+    renderDraftComposition();
+  }
+
+  function populateItemsSelectForComposition() {
+    const select = document.getElementById("draftItemSelect");
+    if (!select) return;
+
+    const currentItemId = state.currentItemId;
+    const availableItems = state.items.filter(item =>
+      item.idestado === 1 && item.id_item !== currentItemId
+    );
+
+    select.innerHTML = '<option value="">Seleccionar ítem...</option>';
+    availableItems.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.id_item;
+      option.textContent = `${item.codigo_item} - ${item.nombre_item} (${item.unidad})`;
+      option.dataset.item = JSON.stringify(item);
+      select.appendChild(option);
+    });
+  }
+
+  function addItemFromSelect() {
+    const select = document.getElementById("draftItemSelect");
+    const idItem = Number(select?.value ?? 0);
+    if (!idItem) {
+      alert("Selecciona un ítem del listado.");
+      return;
+    }
+
+    const selectedOption = select.options[select.selectedIndex];
+    const item = JSON.parse(selectedOption.dataset.item || '{}');
+
+    if (!item.id_item) {
+      alert("Error al obtener información del ítem.");
+      return;
+    }
+
+    // Verificar si ya existe
+    const exists = state.draftComposition.some(
+      comp => Number(comp.id_item_componente) === idItem
+    );
+    if (exists) {
+      alert("Este ítem ya fue agregado. Ajusta la cantidad directamente en la tabla.");
+      return;
+    }
+
+    state.draftComposition.push({
+      id_composicion: null,
+      id_item_componente: item.id_item,
+      codigo_item: item.codigo_item,
+      nombre_item: item.nombre_item,
+      unidad: item.unidad,
+      cantidad: 1,
+      orden: state.draftComposition.length + 1,
+      es_referencia: 1,
+      persisted: false,
+      created_at: Date.now(),
+    });
+
+    renderDraftComposition();
+    select.value = "";
+  }
+
+  function renderDraftComposition() {
+    const badge = document.getElementById("itemCompositionDraftBadge");
+    const container = document.getElementById("itemCompositionDraftContainer");
+
+    if (!badge || !container) return;
+
+    if (state.loadingDraftComposition) {
+      badge.textContent = "Cargando...";
+      container.innerHTML = `
+        <div class="text-center text-muted py-3">
+          <div class="spinner-border spinner-border-sm" role="status"></div>
+          <p class="mb-0 mt-2">Cargando items anidados...</p>
+        </div>`;
+      return;
+    }
+
+    const total = state.draftComposition.length;
+    badge.textContent = `${total} ítem${total === 1 ? "" : "s"} anidado${total === 1 ? "" : "s"}`;
+
+    if (!total) {
+      container.innerHTML = `
+        <div class="text-center text-muted py-3">
+          <i class="bi bi-inbox"></i>
+          <p class="mb-0">No hay ítems anidados agregados.</p>
+          <small>Los ítems anidados son otros ítems que forman parte de este ítem.</small>
+        </div>`;
+      return;
+    }
+
+    const rows = state.draftComposition
+      .sort((a, b) => a.orden - b.orden)
+      .map((comp, index) => `
+        <tr>
+          <td>
+            <span class="badge bg-info">${comp.orden}</span>
+          </td>
+          <td>
+            <div class="fw-semibold">${comp.codigo_item}</div>
+            <small class="text-muted">${comp.nombre_item}</small>
+          </td>
+          <td class="text-end">${comp.unidad}</td>
+          <td class="text-end" style="width: 120px;">
+            <input type="number" class="form-control form-control-sm text-end" 
+              min="0.0001" step="0.0001" value="${comp.cantidad}"
+              onchange="ItemsUI.updateDraftCompositionField(${index}, 'cantidad', this.value)">
+          </td>
+          <td class="text-center">
+            <span class="badge ${comp.es_referencia ? 'bg-success' : 'bg-secondary'}">
+              ${comp.es_referencia ? 'Sí' : 'No'}
+            </span>
+          </td>
+          <td class="text-center">
+            <button class="btn btn-outline-danger btn-sm" 
+              onclick="ItemsUI.removeDraftCompositionItem(${index})">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>
+      `).join("");
+
+    container.innerHTML = `
+      <div class="table-responsive">
+        <table class="table table-sm table-hover">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 60px;">Orden</th>
+              <th>Ítem</th>
+              <th class="text-end">Unidad</th>
+              <th class="text-end" style="width: 120px;">Cantidad</th>
+              <th class="text-center">Referencia</th>
+              <th class="text-center" style="width: 80px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function updateDraftCompositionField(index, field, value) {
+    if (!state.draftComposition[index]) return;
+    const numericFields = ["cantidad", "orden", "es_referencia"];
+    state.draftComposition[index][field] = numericFields.includes(field) ? Number(value) : value;
+    renderDraftComposition();
+  }
+
+  function removeDraftCompositionItem(index) {
+    const composition = state.draftComposition[index];
+    if (!composition) return;
+
+    if (composition.persisted && composition.id_composicion) {
+      state.removedCompositionIds.add(Number(composition.id_composicion));
+    }
+
+    state.draftComposition.splice(index, 1);
+
+    // Reordenar
+    state.draftComposition.forEach((comp, idx) => {
+      comp.orden = idx + 1;
+    });
+
+    renderDraftComposition();
+  }
+
+  async function loadItemCompositionForModal(itemId) {
+    if (!itemId) return;
+
+    state.loadingDraftComposition = true;
+    renderDraftComposition();
+
+    try {
+      const response = await fetch(`${API_ITEMS}?action=getItemComposition&id_item=${itemId}`);
+      const result = await response.json();
+
+      if (!result.success) throw new Error(result.error || "No se pudo obtener la composición del ítem.");
+
+      state.draftComposition = (result.data || []).map(comp => ({
+        id_composicion: comp.id_composicion,
+        id_item_componente: comp.id_item_componente,
+        codigo_item: comp.codigo_item,
+        nombre_item: comp.nombre_item,
+        unidad: comp.unidad,
+        cantidad: Number(comp.cantidad ?? 1),
+        orden: Number(comp.orden ?? 1),
+        es_referencia: Number(comp.es_referencia ?? 1),
+        persisted: true,
+      }));
+    } catch (error) {
+      console.error(error);
+      state.draftComposition = [];
+    } finally {
+      state.loadingDraftComposition = false;
+      renderDraftComposition();
+    }
+  }
+
+  function serializeDraftComposition() {
+    return state.draftComposition.map(comp => ({
+      id_composicion: comp.id_composicion ?? null,
+      id_item_componente: comp.id_item_componente,
+      cantidad: Number(comp.cantidad ?? 1),
+      orden: Number(comp.orden ?? 1),
+      es_referencia: Number(comp.es_referencia ?? 1),
+    }));
+  }
+
 
   return {
     fetchMateriales,
@@ -1949,6 +2186,10 @@ const ItemsUI = (() => {
     removeDraftComponent,
     updateDraftComponent,
     openComponentsFromEdit,
+    // Funciones de items anidados
+    addItemFromSelect,
+    updateDraftCompositionField,
+    removeDraftCompositionItem,
     // Funciones de paginación
     goToMaterilesPage,
     changeMaterilesPerPage,
