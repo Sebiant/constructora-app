@@ -15,62 +15,62 @@ $(document).ready(function () {
 });
 
 function mostrarModalCrearPresupuesto() {
-  console.log("🔍 Abriendo modal de crear presupuesto...");
-  
+  console.log("Abriendo modal de crear presupuesto...");
+
   // Esperar a que el DOM esté completamente cargado
   setTimeout(() => {
-    console.log("🔍 Verificando elementos en el DOM...");
-    
+    console.log("Verificando elementos en el DOM...");
+
     // Verificar que el formulario exista
     const formulario = $("#formCrearPresupuesto");
-    console.log("📝 Formulario encontrado:", formulario.length > 0, formulario);
-    
+    console.log("Formulario encontrado:", formulario.length > 0, formulario);
+
     if (formulario.length === 0) {
-      console.error("❌ Formulario no encontrado en el DOM");
-      console.log("🔍 Buscando todos los formularios:", $("form").length);
-      console.log("🔍 IDs de formularios:", $("form").map((i, el) => $(el).attr('id')).get());
+      console.error("Formulario no encontrado en el DOM");
+      console.log("Buscando todos los formularios:", $("form").length);
+      console.log("IDs de formularios:", $("form").map((i, el) => $(el).attr('id')).get());
       alert("Error: No se encontró el formulario. Recargue la página.");
       return;
     }
-    
+
     // Limpiar formulario
     formulario[0].reset();
-    console.log("✅ Formulario reseteado");
-    
+    console.log("Formulario reseteado");
+
     // Establecer fecha actual por defecto
     const hoy = new Date().toISOString().split('T')[0];
     $("#fecha_creacion").val(hoy);
-    console.log("📅 Fecha establecida:", hoy);
-    
+    console.log("Fecha establecida:", hoy);
+
     // Generar código sugerido
     const proyectoId = $("#id_proyecto").val();
     if (proyectoId) {
       const año = new Date().getFullYear();
       const codigoSugerido = `PRES-${año}-${proyectoId}`;
       $("#codigo_presupuesto").val(codigoSugerido);
-      console.log("📝 Código sugerido:", codigoSugerido);
+      console.log("Código sugerido:", codigoSugerido);
     }
-    
+
     // Verificar que el modal exista
     const modal = $("#modalCrearPresupuesto");
-    console.log("🎭 Modal encontrado:", modal.length > 0, modal);
-    
+    console.log("Modal encontrado:", modal.length > 0, modal);
+
     if (modal.length === 0) {
-      console.error("❌ Modal no encontrado en el DOM");
-      console.log("🔍 Buscando todos los modales:", $(".modal").length);
-      console.log("🔍 IDs de modales:", $(".modal").map((i, el) => $(el).attr('id')).get());
+      console.error("Modal no encontrado en el DOM");
+      console.log("Buscando todos los modales:", $(".modal").length);
+      console.log("IDs de modales:", $(".modal").map((i, el) => $(el).attr('id')).get());
       alert("Error: No se encontró el modal. Recargue la página.");
       return;
     }
-    
-    console.log("✅ Modal encontrado, abriendo...");
-    
+
+    console.log("Modal encontrado, abriendo...");
+
     // Mostrar modal
     try {
       modal.modal("show");
-      console.log("✅ Modal abierto correctamente");
+      console.log("Modal abierto correctamente");
     } catch (error) {
-      console.error("❌ Error al abrir modal:", error);
+      console.error("Error al abrir modal:", error);
       alert("Error al abrir el modal: " + error.message);
     }
   }, 100); // Pequeño retraso para asegurar que el DOM esté listo
@@ -124,7 +124,7 @@ function crearNuevoPresupuesto() {
   const textoOriginal = btn.html();
   btn.prop("disabled", true).html('<span class="spinner-border spinner-border-sm" role="status"></span> Creando...');
 
-  console.log("📡 Enviando datos para crear presupuesto:", datos);
+  console.log("Enviando datos para crear presupuesto:", datos);
 
   $.ajax({
     url: API_PRESUPUESTOS + "?action=create",
@@ -133,16 +133,16 @@ function crearNuevoPresupuesto() {
     contentType: "application/json",
     dataType: "json",
     success: function (res) {
-      console.log("✅ Respuesta crear presupuesto:", res);
+      console.log("Respuesta crear presupuesto:", res);
       if (res.success) {
-        alert("✅ Presupuesto creado correctamente");
-        
+        alert("Presupuesto creado correctamente");
+
         // Cerrar modal
         $("#modalCrearPresupuesto").modal("hide");
-        
+
         // Recargar presupuestos del proyecto
         cargarPresupuestosPorProyecto(proyectoId);
-        
+
         // Seleccionar automáticamente el nuevo presupuesto
         setTimeout(() => {
           if (res.presupuesto && res.presupuesto.id_presupuesto) {
@@ -150,21 +150,21 @@ function crearNuevoPresupuesto() {
             cargarCapitulosDelPresupuesto(res.presupuesto.id_presupuesto);
           }
         }, 500);
-        
+
       } else {
         const errorMsg = res.error || "Error desconocido";
         const details = res.details ? "\n\nDetalles: " + res.details : "";
-        alert("❌ Error al crear presupuesto: " + errorMsg + details);
+        alert("Error al crear presupuesto: " + errorMsg + details);
         console.error("Error del servidor:", res);
       }
     },
     error: function (xhr, status, error) {
-      console.error("❌ Error al crear presupuesto:", error);
-      console.error("❌ Status:", status);
-      console.error("❌ Response:", xhr.responseText);
-      
+      console.error("Error al crear presupuesto:", error);
+      console.error("Status:", status);
+      console.error("Response:", xhr.responseText);
+
       let errorMessage = "Error al crear presupuesto";
-      
+
       try {
         // Intentar parsear la respuesta JSON del servidor
         const response = JSON.parse(xhr.responseText);
@@ -178,8 +178,8 @@ function crearNuevoPresupuesto() {
         // Si no es JSON, usar el texto de respuesta o el error
         errorMessage = xhr.responseText || error || "Error desconocido";
       }
-      
-      alert("❌ " + errorMessage);
+
+      alert("ERROR: " + errorMessage);
     },
     complete: function () {
       // Restaurar botón

@@ -57,7 +57,7 @@ try {
                 if ($result) {
                     $id_presupuesto = $connection->lastInsertId();
                     
-                    error_log("✅ Presupuesto creado con ID: " . $id_presupuesto);
+                    error_log("Presupuesto creado con ID: " . $id_presupuesto);
                     
                     // Obtener el presupuesto creado para devolverlo
                     $sql_get = "SELECT id_presupuesto, id_proyecto, codigo, nombre, fecha_creacion, monto_total, observaciones 
@@ -74,7 +74,7 @@ try {
                     ]);
                 } else {
                     $errorInfo = $stmt->errorInfo();
-                    error_log("❌ Error SQL: " . json_encode($errorInfo));
+                    error_log("Error SQL: " . json_encode($errorInfo));
                     echo json_encode([
                         'success' => false,
                         'error' => 'Error al crear presupuesto en la base de datos',
@@ -82,13 +82,13 @@ try {
                     ]);
                 }
             } catch (\PDOException $e) {
-                error_log("❌ PDOException en create: " . $e->getMessage());
+                error_log("PDOException en create: " . $e->getMessage());
                 echo json_encode([
                     'success' => false,
                     'error' => 'Error de base de datos: ' . $e->getMessage()
                 ]);
             } catch (\Exception $e) {
-                error_log("❌ Exception en create: " . $e->getMessage());
+                error_log("Exception en create: " . $e->getMessage());
                 echo json_encode([
                     'success' => false,
                     'error' => 'Error al crear presupuesto: ' . $e->getMessage()
