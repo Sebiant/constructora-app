@@ -152,13 +152,34 @@ function crearNuevoPresupuesto() {
         }, 500);
         
       } else {
-        alert("❌ Error al crear presupuesto: " + (res.error || "Error desconocido"));
+        const errorMsg = res.error || "Error desconocido";
+        const details = res.details ? "\n\nDetalles: " + res.details : "";
+        alert("❌ Error al crear presupuesto: " + errorMsg + details);
+        console.error("Error del servidor:", res);
       }
     },
     error: function (xhr, status, error) {
       console.error("❌ Error al crear presupuesto:", error);
-      console.error("❌ Detalles:", xhr.responseText);
-      alert("❌ Error al crear presupuesto: " + error);
+      console.error("❌ Status:", status);
+      console.error("❌ Response:", xhr.responseText);
+      
+      let errorMessage = "Error al crear presupuesto";
+      
+      try {
+        // Intentar parsear la respuesta JSON del servidor
+        const response = JSON.parse(xhr.responseText);
+        if (response.error) {
+          errorMessage = response.error;
+        }
+        if (response.details) {
+          errorMessage += "\n\nDetalles: " + response.details;
+        }
+      } catch (e) {
+        // Si no es JSON, usar el texto de respuesta o el error
+        errorMessage = xhr.responseText || error || "Error desconocido";
+      }
+      
+      alert("❌ " + errorMessage);
     },
     complete: function () {
       // Restaurar botón

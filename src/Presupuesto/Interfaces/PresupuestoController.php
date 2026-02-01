@@ -21,54 +21,77 @@ try {
     switch ($action) {
 
         case 'create':
-            $data = json_decode(file_get_contents('php://input'), true);
-
-            if (empty($data['id_proyecto']) || empty($data['fecha_creacion'])) {
-                echo json_encode(['success' => false, 'error' => 'id_proyecto y fecha_creacion son requeridos']);
-                exit;
-            }
-
-            if (empty($data['codigo']) || empty($data['nombre'])) {
-                echo json_encode(['success' => false, 'error' => 'codigo y nombre son requeridos']);
-                exit;
-            }
-
-            $monto_total = isset($data['monto_total']) ? (float)$data['monto_total'] : 0;
-            $observaciones = $data['observaciones'] ?? '';
-
-            // Crear presupuesto directamente con SQL
-            $sql = "INSERT INTO presupuestos (id_proyecto, codigo, nombre, fecha_creacion, monto_total, observaciones, idestado, fechareg, idusuario) 
-                    VALUES (:id_proyecto, :codigo, :nombre, :fecha_creacion, :monto_total, :observaciones, 1, NOW(), 1)";
-            $stmt = $connection->prepare($sql);
-            $result = $stmt->execute([
-                'id_proyecto' => (int)$data['id_proyecto'],
-                'codigo' => $data['codigo'],
-                'nombre' => $data['nombre'],
-                'fecha_creacion' => $data['fecha_creacion'],
-                'monto_total' => $monto_total,
-                'observaciones' => $observaciones
-            ]);
-
-            if ($result) {
-                $id_presupuesto = $connection->lastInsertId();
+            try {
+                $data = json_decode(file_get_contents('php://input'), true);
                 
-                // Obtener el presupuesto creado para devolverlo
-                $sql_get = "SELECT id_presupuesto, id_proyecto, codigo, nombre, fecha_creacion, monto_total, observaciones 
-                             FROM presupuestos 
-                             WHERE id_presupuesto = :id_presupuesto";
-                $stmt_get = $connection->prepare($sql_get);
-                $stmt_get->execute(['id_presupuesto' => $id_presupuesto]);
-                $presupuesto = $stmt_get->fetch(\PDO::FETCH_ASSOC);
+                // Log para debugging
+                error_log("=== DEBUG CREATE PRESUPUESTO ===");
+                error_log("Datos recibidos: " . json_encode($data));
 
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Presupuesto creado correctamente',
-                    'presupuesto' => $presupuesto
+                if (empty($data['id_proyecto']) || empty($data['fecha_creacion'])) {
+                    echo json_encode(['success' => false, 'error' => 'id_proyecto y fecha_creacion son requeridos']);
+                    exit;
+                }
+
+                if (empty($data['codigo']) || empty($data['nombre'])) {
+                    echo json_encode(['success' => false, 'error' => 'codigo y nombre son requeridos']);
+                    exit;
+                }
+
+                $monto_total = isset($data['monto_total']) ? (float)$data['monto_total'] : 0;
+                $observaciones = $data['observaciones'] ?? '';
+
+                // Crear presupuesto directamente con SQL
+                $sql = "INSERT INTO presupuestos (id_proyecto, codigo, nombre, fecha_creacion, monto_total, observaciones, idestado, fchreg, fupdate, idusuario) 
+                        VALUES (:id_proyecto, :codigo, :nombre, :fecha_creacion, :monto_total, :observaciones, 1, NOW(), NOW(), 1)";
+                $stmt = $connection->prepare($sql);
+                $result = $stmt->execute([
+                    'id_proyecto' => (int)$data['id_proyecto'],
+                    'codigo' => $data['codigo'],
+                    'nombre' => $data['nombre'],
+                    'fecha_creacion' => $data['fecha_creacion'],
+                    'monto_total' => $monto_total,
+                    'observaciones' => $observaciones
                 ]);
-            } else {
+
+                if ($result) {
+                    $id_presupuesto = $connection->lastInsertId();
+                    
+                    error_log("✅ Presupuesto creado con ID: " . $id_presupuesto);
+                    
+                    // Obtener el presupuesto creado para devolverlo
+                    $sql_get = "SELECT id_presupuesto, id_proyecto, codigo, nombre, fecha_creacion, monto_total, observaciones 
+                                 FROM presupuestos 
+                                 WHERE id_presupuesto = :id_presupuesto";
+                    $stmt_get = $connection->prepare($sql_get);
+                    $stmt_get->execute(['id_presupuesto' => $id_presupuesto]);
+                    $presupuesto = $stmt_get->fetch(\PDO::FETCH_ASSOC);
+
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Presupuesto creado correctamente',
+                        'presupuesto' => $presupuesto
+                    ]);
+                } else {
+                    $errorInfo = $stmt->errorInfo();
+                    error_log("❌ Error SQL: " . json_encode($errorInfo));
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Error al crear presupuesto en la base de datos',
+                        'details' => $errorInfo[2] ?? 'Error desconocido'
+                    ]);
+                }
+            } catch (\PDOException $e) {
+                error_log("❌ PDOException en create: " . $e->getMessage());
                 echo json_encode([
                     'success' => false,
-                    'error' => 'Error al crear presupuesto'
+                    'error' => 'Error de base de datos: ' . $e->getMessage()
+                ]);
+            } catch (\Exception $e) {
+                error_log("❌ Exception en create: " . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Error al crear presupuesto: ' . $e->getMessage()
                 ]);
             }
             break;
