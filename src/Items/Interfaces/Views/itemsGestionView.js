@@ -503,6 +503,14 @@ const ItemsUI = (() => {
 
       state.materialModal.hide();
       await fetchMateriales(true);
+
+      // Recargar los selects filtrados por tipo para que aparezcan los nuevos materiales
+      loadResourceSelectsByType();
+
+      // También recargar el select general de materiales si existe
+      if (typeof populateMaterialSelect === 'function') {
+        populateMaterialSelect();
+      }
     } catch (error) {
       alert(error.message);
     }
@@ -516,6 +524,13 @@ const ItemsUI = (() => {
       if (!result.success) throw new Error(result.error || "No se pudo cambiar el estado");
 
       await fetchMateriales(true);
+
+      // Recargar los selects para reflejar el cambio de estado
+      loadResourceSelectsByType();
+
+      if (typeof populateMaterialSelect === 'function') {
+        populateMaterialSelect();
+      }
     } catch (error) {
       console.error("Error al cambiar estado del material:", error);
       alert("Error: " + error.message);
@@ -1484,6 +1499,9 @@ const ItemsUI = (() => {
   // ========== FUNCIONES PARA SELECTORES POR TIPO DE RECURSO ==========
 
   function loadResourceSelectsByType() {
+    console.log('=== loadResourceSelectsByType INICIADO ===');
+    console.log('Total materiales en state:', state.materiales.length);
+
     if (!state.materiales || state.materiales.length === 0) {
       console.warn("No hay materiales cargados para filtrar por tipo");
       return;
@@ -1498,12 +1516,35 @@ const ItemsUI = (() => {
       5: 'otro'           // Otro
     };
 
+    // Log de todos los materiales con su tipo y estado
+    console.log('=== ANÁLISIS DE MATERIALES ===');
+    state.materiales.forEach(m => {
+      const tipoComponente = tipoMaterialMap[m.id_tipo_material];
+      console.log(`Material: ${m.cod_material}, Tipo ID: ${m.id_tipo_material}, Tipo: ${tipoComponente}, Estado: ${m.idestado}, Activo: ${m.idestado == 1}`);
+    });
+
     // Filtrar materiales por tipo y solo activos (idestado = 1)
     const materialesPorTipo = {
       material: state.materiales.filter(m => tipoMaterialMap[m.id_tipo_material] === 'material' && m.idestado == 1),
       mano_obra: state.materiales.filter(m => tipoMaterialMap[m.id_tipo_material] === 'mano_obra' && m.idestado == 1),
       equipo: state.materiales.filter(m => tipoMaterialMap[m.id_tipo_material] === 'equipo' && m.idestado == 1)
     };
+
+    console.log('=== MATERIALES FILTRADOS ===');
+    console.log('Materiales (tipo 2):', materialesPorTipo.material.map(m => `${m.cod_material} - ${m.nombre_material}`));
+    console.log('Mano de obra (tipo 1):', materialesPorTipo.mano_obra.map(m => `${m.cod_material} - ${m.nombre_material}`));
+    console.log('Equipos (tipo 3):', materialesPorTipo.equipo.map(m => `${m.cod_material} - ${m.nombre_material}`));
+
+    // Destruir instancias anteriores de Select2 si existen
+    if ($('#draftMaterialSelect').data('select2')) {
+      $('#draftMaterialSelect').select2('destroy');
+    }
+    if ($('#draftManoObraSelect').data('select2')) {
+      $('#draftManoObraSelect').select2('destroy');
+    }
+    if ($('#draftMaquinariaSelect').data('select2')) {
+      $('#draftMaquinariaSelect').select2('destroy');
+    }
 
     // Llenar selector de materiales
     const selectMaterial = document.getElementById('draftMaterialSelect');
@@ -1516,6 +1557,26 @@ const ItemsUI = (() => {
         option.dataset.material = JSON.stringify(mat);
         selectMaterial.appendChild(option);
       });
+
+      // Inicializar Select2
+      $('#draftMaterialSelect').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Buscar material...',
+        allowClear: true,
+        width: '100%',
+        language: {
+          noResults: function () {
+            return "No se encontraron materiales";
+          },
+          searching: function () {
+            return "Buscando...";
+          }
+        }
+      });
+
+      console.log(`✅ Select de materiales llenado con ${materialesPorTipo.material.length} opciones + Select2`);
+    } else {
+      console.error('❌ No se encontró el select #draftMaterialSelect');
     }
 
     // Llenar selector de mano de obra
@@ -1529,6 +1590,26 @@ const ItemsUI = (() => {
         option.dataset.material = JSON.stringify(mat);
         selectManoObra.appendChild(option);
       });
+
+      // Inicializar Select2
+      $('#draftManoObraSelect').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Buscar mano de obra...',
+        allowClear: true,
+        width: '100%',
+        language: {
+          noResults: function () {
+            return "No se encontró mano de obra";
+          },
+          searching: function () {
+            return "Buscando...";
+          }
+        }
+      });
+
+      console.log(`✅ Select de mano de obra llenado con ${materialesPorTipo.mano_obra.length} opciones + Select2`);
+    } else {
+      console.error('❌ No se encontró el select #draftManoObraSelect');
     }
 
     // Llenar selector de maquinaria
@@ -1542,8 +1623,29 @@ const ItemsUI = (() => {
         option.dataset.material = JSON.stringify(mat);
         selectMaquinaria.appendChild(option);
       });
+
+      // Inicializar Select2
+      $('#draftMaquinariaSelect').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Buscar equipo/maquinaria...',
+        allowClear: true,
+        width: '100%',
+        language: {
+          noResults: function () {
+            return "No se encontraron equipos";
+          },
+          searching: function () {
+            return "Buscando...";
+          }
+        }
+      });
+
+      console.log(`✅ Select de equipos llenado con ${materialesPorTipo.equipo.length} opciones + Select2`);
+    } else {
+      console.error('❌ No se encontró el select #draftMaquinariaSelect');
     }
 
+    console.log('=== RESUMEN FINAL ===');
     console.log('Selectores cargados:', {
       materiales: materialesPorTipo.material.length,
       manoObra: materialesPorTipo.mano_obra.length,

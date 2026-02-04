@@ -951,6 +951,7 @@ try {
                                         i.unidad as unidad_item,
                                         ic.descripcion as descripcion_componente,
                                         ic.unidad as unidad_componente,
+                                        ic.precio_unitario as precio_unitario_presupuestado,
                                         c.id_capitulo,
                                         c.nombre_cap AS nombre_capitulo,
                                         m.cod_material AS codigo_material_extra,

@@ -3922,7 +3922,9 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
     { key: 'tipo', width: 15 },
     { key: 'unidad', width: 10 },
     { key: 'cantidad', width: 12 },
-    { key: 'precio_unit', width: 14 },
+    { key: 'precio_unit_presupuestado', width: 16 },
+    { key: 'precio_unit_pedido', width: 16 },
+    { key: 'variacion_porcentual', width: 18 },
     { key: 'subtotal', width: 16 },
     { key: 'justificacion_detalle', width: 35 },
     { key: 'motivo_estado', width: 40 }
@@ -3930,7 +3932,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
 
   let filaActual = 1;
 
-  worksheet.mergeCells(`A${filaActual}:Q${filaActual}`);
+  worksheet.mergeCells(`A${filaActual}:S${filaActual}`);
 
   const titulo = worksheet.getCell(`A${filaActual}`);
   titulo.value = 'Historial de Pedidos del Presupuesto';
@@ -3945,7 +3947,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
   encabezados.values = [
     'ID Pedido', 'Fecha', 'Estado', 'Responsable', 'Proveedor', 'Factura',
     'Capítulo', 'Código Item', 'Nombre Item', 'Componente', 'Tipo', 'Unidad',
-    'Cantidad', 'Precio Unit.', 'Subtotal', 'Justificación Detalle',
+    'Cantidad', 'Precio Presupuestado', 'Precio Pedido', 'Variación %', 'Subtotal', 'Justificación Detalle',
     'Motivo aprobación/rechazo'
   ];
 
@@ -3960,7 +3962,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
 
   if (!Array.isArray(pedidosHistorial) || pedidosHistorial.length === 0) {
     worksheet.getRow(filaActual).values = ['Sin pedidos registrados'];
-    worksheet.mergeCells(`A${filaActual}:Q${filaActual}`);
+    worksheet.mergeCells(`A${filaActual}:S${filaActual}`);
 
     const celda = worksheet.getCell(`A${filaActual}`);
     celda.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -3992,6 +3994,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
         '',
         0,
         0,
+        0,
+        '',
         0,
         '',
         pedido.observaciones || ''
@@ -4034,6 +4038,24 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
         ? 'MATERIAL EXTRA'
         : obtenerNombreTipoComponente(detalle.tipo_componente || 'material');
 
+      // Calcular variación porcentual
+      const precioPresupuestado = parseFloat(detalle.precio_unitario_presupuestado) || 0;
+      const precioPedido = parseFloat(detalle.precio_unitario) || 0;
+      let variacionTexto = 'N/A';
+
+      if (precioPresupuestado > 0) {
+        const variacion = ((precioPedido - precioPresupuestado) / precioPresupuestado) * 100;
+        const variacionRedondeada = variacion.toFixed(2);
+
+        if (variacion > 0) {
+          variacionTexto = `+${variacionRedondeada}% (sobrecosto)`;
+        } else if (variacion < 0) {
+          variacionTexto = `${variacionRedondeada}% (ahorro)`;
+        } else {
+          variacionTexto = '0% (sin cambio)';
+        }
+      }
+
       fila.values = [
         pedido.id_pedido,
         fechaTexto,
@@ -4048,7 +4070,9 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
         tipoComponente,
         detalle.unidad_componente || detalle.unidad_item || 'UND',
         detalle.cantidad || 0,
+        detalle.precio_unitario_presupuestado || 0,
         detalle.precio_unitario || 0,
+        variacionTexto,
         detalle.subtotal || 0,
         detalle.justificacion || '',
         pedido.observaciones || ''
@@ -4064,22 +4088,37 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
   });
 
   const totalFila = worksheet.getRow(filaActual + 1);
-  totalFila.values = ['', '', '', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', calcularTotalHistorial(pedidosHistorial), '', ''];
+  totalFila.values = ['', '', '', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', '', '', calcularTotalHistorial(pedidosHistorial), '', ''];
 
   totalFila.font = { bold: true };
   totalFila.alignment = { horizontal: 'right', vertical: 'middle' };
   totalFila.eachCell((cell) => {
     cell.border = borderCompleto();
   });
-  totalFila.getCell(15).numFmt = '#,##0.00';
+  totalFila.getCell(17).numFmt = '#,##0.00';
 }
 
 function aplicarEstiloFilaHistorial(fila, estadoColor, esExcedente) {
   fila.alignment = { vertical: 'middle' };
   fila.eachCell((cell, col) => {
     cell.border = borderLigero();
-    if (col >= 13 && col <= 15) {
-      cell.numFmt = col === 13 ? '#,##0.0000' : '#,##0.00';
+    // Columna 13: Cantidad
+    if (col === 13) {
+      cell.numFmt = '#,##0.0000';
+      cell.alignment = { horizontal: 'right', vertical: 'middle' };
+    }
+    // Columnas 14-15: Precios
+    if (col === 14 || col === 15) {
+      cell.numFmt = '#,##0.00';
+      cell.alignment = { horizontal: 'right', vertical: 'middle' };
+    }
+    // Columna 16: Variación (texto centrado)
+    if (col === 16) {
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    // Columna 17: Subtotal
+    if (col === 17) {
+      cell.numFmt = '#,##0.00';
       cell.alignment = { horizontal: 'right', vertical: 'middle' };
     }
     if (col === 3 && estadoColor) {

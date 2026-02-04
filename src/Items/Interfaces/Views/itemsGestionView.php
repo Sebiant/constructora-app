@@ -2,6 +2,10 @@
 include_once __DIR__ . '/../../../Shared/Components/header.php';
 ?>
 
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
 <div class="container-fluid py-4">
     <div class="card shadow border-0">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -877,6 +881,9 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 <?php
 include_once __DIR__ . '/../../../Shared/Components/footer.php';
 ?>
+
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
     const API_ITEMS = '/sgigescomnew/src/Items/Interfaces/ItemsController.php';
