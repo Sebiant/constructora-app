@@ -329,11 +329,15 @@ try {
             $nombre = trim($data['nombre_item'] ?? '');
             $unidad = trim($data['unidad'] ?? '');
             $descripcion = trim($data['descripcion'] ?? '');
-            $esCompuesto = !empty($data['es_compuesto']) ? 1 : 0;
             $idPadre = isset($data['id_item_padre']) && $data['id_item_padre'] !== '' ? (int)$data['id_item_padre'] : null;
             $usuarioId = (int)($data['idusuario'] ?? 1);
-            $esAPU = isset($data['es_apu']) ? (int)$data['es_apu'] : 1;
             $idTipoItem = isset($data['id_tipo_item']) && $data['id_tipo_item'] !== '' ? (int)$data['id_tipo_item'] : null;
+            
+            // Automatically determine es_compuesto and es_apu
+            // Items are always created as APU initially (es_compuesto=0, es_apu=1)
+            // They will be updated to compuesto when composition is added
+            $esCompuesto = 0;
+            $esAPU = 1;
 
             if ($codigo === '' || $nombre === '' || $unidad === '') {
                 throw new Exception('Datos insuficientes para crear el ítem.');
@@ -376,10 +380,8 @@ try {
             $nombre = trim($data['nombre_item'] ?? '');
             $unidad = trim($data['unidad'] ?? '');
             $descripcion = trim($data['descripcion'] ?? '');
-            $esCompuesto = !empty($data['es_compuesto']) ? 1 : 0;
             $idPadre = isset($data['id_item_padre']) && $data['id_item_padre'] !== '' ? (int)$data['id_item_padre'] : null;
             $estado = (int)($data['idestado'] ?? 1);
-            $esAPU = isset($data['es_apu']) ? (int)$data['es_apu'] : 1;
             $idTipoItem = isset($data['id_tipo_item']) && $data['id_tipo_item'] !== '' ? (int)$data['id_tipo_item'] : null;
             $componentes = $data['componentes'] ?? [];
             $removedComponents = $data['removed_component_ids'] ?? [];
@@ -391,31 +393,6 @@ try {
             }
 
             $connection->beginTransaction();
-
-            $sql = "UPDATE items
-                    SET codigo_item = ?,
-                        nombre_item = ?,
-                        unidad = ?,
-                        descripcion = ?,
-                        es_compuesto = ?,
-                        id_item_padre = ?,
-                        idestado = ?,
-                        es_apu = ?,
-                        id_tipo_item = ?
-                    WHERE id_item = ?";
-            $stmt = $connection->prepare($sql);
-            $stmt->execute([
-                $codigo,
-                $nombre,
-                $unidad,
-                $descripcion,
-                $esCompuesto,
-                $idPadre,
-                $estado,
-                $esAPU,
-                $idTipoItem,
-                $itemId
-            ]);
 
             // Manejar componentes básicos (materiales, mano de obra, equipo)
             if (!empty($removedComponents) && is_array($removedComponents)) {
@@ -522,6 +499,45 @@ try {
                     ]);
                 }
             }
+
+            // Automatically determine es_compuesto and es_apu based on composition
+            // Check if item has any active composition (nested items)
+            $stmtCheckComposition = $connection->prepare(
+                "SELECT COUNT(*) FROM item_composicion WHERE id_item_compuesto = ? AND idestado = 1"
+            );
+            $stmtCheckComposition->execute([$itemId]);
+            $hasComposition = (int)$stmtCheckComposition->fetchColumn() > 0;
+            
+            // If item has composition, it's compuesto (es_compuesto=1, es_apu=0)
+            // Otherwise, it's an APU (es_compuesto=0, es_apu=1)
+            $esCompuesto = $hasComposition ? 1 : 0;
+            $esAPU = $hasComposition ? 0 : 1;
+
+            // Update the item with calculated values
+            $sql = "UPDATE items
+                    SET codigo_item = ?,
+                        nombre_item = ?,
+                        unidad = ?,
+                        descripcion = ?,
+                        es_compuesto = ?,
+                        id_item_padre = ?,
+                        idestado = ?,
+                        es_apu = ?,
+                        id_tipo_item = ?
+                    WHERE id_item = ?";
+            $stmt = $connection->prepare($sql);
+            $stmt->execute([
+                $codigo,
+                $nombre,
+                $unidad,
+                $descripcion,
+                $esCompuesto,
+                $idPadre,
+                $estado,
+                $esAPU,
+                $idTipoItem,
+                $itemId
+            ]);
 
             $connection->commit();
 
@@ -789,10 +805,8 @@ try {
             $nombre = trim($itemData['nombre_item'] ?? '');
             $unidad = trim($itemData['unidad'] ?? '');
             $descripcion = trim($itemData['descripcion'] ?? '');
-            $esCompuesto = !empty($itemData['es_compuesto']) ? 1 : 0;
             $idPadre = isset($itemData['id_item_padre']) && $itemData['id_item_padre'] !== '' ? (int)$itemData['id_item_padre'] : null;
             $usuarioId = (int)($itemData['idusuario'] ?? 1);
-            $esAPU = isset($itemData['es_apu']) ? (int)$itemData['es_apu'] : 1;
             $idTipoItem = isset($itemData['id_tipo_item']) && $itemData['id_tipo_item'] !== '' ? (int)$itemData['id_tipo_item'] : null;
 
             if ($codigo === '' || $nombre === '' || $unidad === '') {
@@ -802,6 +816,13 @@ try {
             $componentes = $payload['componentes'] ?? [];
             $composicion = $payload['composicion'] ?? [];
             $precio = $payload['precio'] ?? null;
+            
+            // Automatically determine es_compuesto and es_apu based on composition
+            // If item has composition (nested items), it's compuesto (es_compuesto=1, es_apu=0)
+            // Otherwise, it's an APU (es_compuesto=0, es_apu=1)
+            $hasComposition = !empty($composicion) && is_array($composicion);
+            $esCompuesto = $hasComposition ? 1 : 0;
+            $esAPU = $hasComposition ? 0 : 1;
 
             $connection->beginTransaction();
 

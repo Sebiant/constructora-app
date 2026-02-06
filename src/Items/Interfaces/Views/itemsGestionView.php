@@ -373,24 +373,10 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                             <textarea class="form-control" name="descripcion" id="itemDescripcion" rows="2"></textarea>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">¿Es compuesto?</label>
-                            <select class="form-select" name="es_compuesto" id="itemCompuesto">
-                                <option value="0">No</option>
-                                <option value="1">Sí</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
                             <label class="form-label">Estado</label>
                             <select class="form-select" name="idestado" id="itemEstado">
                                 <option value="1">Activo</option>
                                 <option value="0">Inactivo</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">¿Es APU?</label>
-                            <select class="form-select" name="es_apu" id="itemEsAPU">
-                                <option value="1">Sí</option>
-                                <option value="0">No</option>
                             </select>
                         </div>
                     </div>
