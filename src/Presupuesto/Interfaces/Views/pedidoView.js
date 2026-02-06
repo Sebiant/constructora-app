@@ -3905,50 +3905,76 @@ async function generarHojaDetallePorItemsExcel(workbook, datosResumen) {
   }
 }
 
+
 async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = []) {
+  // === LOGS DE DEPURACIÓN ===
+  console.log('=== DEPURACIÓN: Datos recibidos en generarHojaHistorialPedidosExcel ===');
+  console.log('Total de pedidos:', pedidosHistorial.length);
+
+  if (pedidosHistorial.length > 0) {
+    const primerPedido = pedidosHistorial[0];
+    console.log('Primer pedido:', primerPedido);
+    console.log('¿Tiene ordenes_compra?', !!primerPedido.ordenes_compra);
+    console.log('Número de órdenes:', primerPedido.ordenes_compra?.length || 0);
+
+    if (primerPedido.ordenes_compra && primerPedido.ordenes_compra.length > 0) {
+      const primeraOrden = primerPedido.ordenes_compra[0];
+      console.log('Primera orden:', primeraOrden);
+      console.log('¿Tiene recepciones?', !!primeraOrden.recepciones);
+      console.log('Número de recepciones:', primeraOrden.recepciones?.length || 0);
+
+      if (primeraOrden.recepciones && primeraOrden.recepciones.length > 0) {
+        const primeraRecepcion = primeraOrden.recepciones[0];
+        console.log('Primera recepción:', primeraRecepcion);
+        console.log('¿Tiene items_recibidos?', !!primeraRecepcion.items_recibidos);
+        console.log('Número de items recibidos:', primeraRecepcion.items_recibidos?.length || 0);
+
+        if (primeraRecepcion.items_recibidos && primeraRecepcion.items_recibidos.length > 0) {
+          console.log('Primer item recibido:', primeraRecepcion.items_recibidos[0]);
+        }
+      }
+    }
+  }
+  console.log('=== FIN DEPURACIÓN ===');
+
   const worksheet = workbook.addWorksheet('Historial de Pedidos');
 
+
   worksheet.columns = [
-    { key: 'id_pedido', width: 12 },
+    { key: 'nivel', width: 20 },
+    { key: 'id_referencia', width: 15 },
     { key: 'fecha', width: 18 },
-    { key: 'estado', width: 20 },
-    { key: 'usuario', width: 28 },
+    { key: 'estado', width: 18 },
     { key: 'proveedor', width: 28 },
     { key: 'factura', width: 18 },
-    { key: 'capitulo', width: 22 },
-    { key: 'codigo_item', width: 15 },
-    { key: 'nombre_item', width: 30 },
-    { key: 'componente', width: 40 },
-    { key: 'tipo', width: 15 },
+    { key: 'descripcion', width: 45 },
     { key: 'unidad', width: 10 },
     { key: 'cantidad', width: 12 },
-    { key: 'precio_unit_presupuestado', width: 16 },
-    { key: 'precio_unit_pedido', width: 16 },
-    { key: 'variacion_porcentual', width: 18 },
+    { key: 'precio_unit', width: 14 },
     { key: 'subtotal', width: 16 },
-    { key: 'justificacion_detalle', width: 35 },
-    { key: 'motivo_estado', width: 40 }
+    { key: 'porcentaje', width: 14 },
+    { key: 'observaciones', width: 35 }
   ];
 
   let filaActual = 1;
 
-  worksheet.mergeCells(`A${filaActual}:S${filaActual}`);
-
+  // TÍTULO
+  worksheet.mergeCells(`A${filaActual}:M${filaActual}`);
   const titulo = worksheet.getCell(`A${filaActual}`);
-  titulo.value = 'Historial de Pedidos del Presupuesto';
+  titulo.value = 'Historial Completo de Pedidos, Órdenes de Compra y Recepciones';
   titulo.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
   titulo.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF38598B' } };
   titulo.alignment = { horizontal: 'center', vertical: 'middle' };
-
+  titulo.border = borderCompleto();
+  worksheet.getRow(filaActual).height = 25;
   filaActual += 2;
 
+  // ENCABEZADOS
   const encabezados = worksheet.getRow(filaActual);
   const encabezadoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
   encabezados.values = [
-    'ID Pedido', 'Fecha', 'Estado', 'Responsable', 'Proveedor', 'Factura',
-    'Capítulo', 'Código Item', 'Nombre Item', 'Componente', 'Tipo', 'Unidad',
-    'Cantidad', 'Precio Presupuestado', 'Precio Pedido', 'Variación %', 'Subtotal', 'Justificación Detalle',
-    'Motivo aprobación/rechazo'
+    'NIVEL', 'ID/REFERENCIA', 'FECHA', 'ESTADO', 'PROVEEDOR', 'FACTURA',
+    'DESCRIPCIÓN', 'UNIDAD', 'CANTIDAD', 'PRECIO UNIT.', 'SUBTOTAL', '% CUMPLIMIENTO', 'OBSERVACIONES'
   ];
 
   encabezados.font = { bold: true, size: 10 };
@@ -3962,141 +3988,274 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
 
   if (!Array.isArray(pedidosHistorial) || pedidosHistorial.length === 0) {
     worksheet.getRow(filaActual).values = ['Sin pedidos registrados'];
-    worksheet.mergeCells(`A${filaActual}:S${filaActual}`);
-
+    worksheet.mergeCells(`A${filaActual}:M${filaActual}`);
     const celda = worksheet.getCell(`A${filaActual}`);
     celda.alignment = { horizontal: 'center', vertical: 'middle' };
     celda.font = { italic: true, color: { argb: 'FF757575' } };
     return;
   }
 
-  pedidosHistorial.forEach((pedido, index) => {
+  let totalGeneral = 0;
+
+  pedidosHistorial.forEach((pedido, pedidoIdx) => {
     const estadoTexto = pedido.estado_descripcion || pedido.estado || 'N/A';
     const estadoColor = obtenerColorEstadoExcel(pedido.estado_color);
-    const fechaTexto = formatearFechaCorta(pedido.fecha_pedido);
-    const proveedorTexto = pedido.nombre_provedor || 'N/A';
-    const facturaTexto = pedido.numero_factura || '';
+    const fechaPedido = formatearFechaCorta(pedido.fecha_pedido);
+    const porcentajePedido = pedido.porcentaje_recibido_pedido || 0;
 
-    if (!pedido.detalles || pedido.detalles.length === 0) {
-      const fila = worksheet.getRow(filaActual);
-      fila.values = [
-        pedido.id_pedido,
-        fechaTexto,
-        estadoTexto,
-        pedido.nombre_usuario || 'N/A',
-        proveedorTexto,
-        facturaTexto,
-        'Sin detalles',
-        '',
-        '',
-        '',
-        '',
-        '',
-        0,
-        0,
-        0,
-        '',
-        0,
-        '',
-        pedido.observaciones || ''
-      ];
+    // === NIVEL 1: PEDIDO ===
+    const filaPedido = worksheet.getRow(filaActual);
+    const pedidoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
 
-      aplicarEstiloFilaHistorial(fila, estadoColor, false);
-      filaActual++;
-      return;
-    }
+    filaPedido.values = [
+      `PEDIDO #${pedido.id_pedido}`,
+      pedido.id_pedido,
+      fechaPedido,
+      estadoTexto,
+      pedido.nombre_usuario || 'N/A',
+      '',
+      `Pedido con ${pedido.total_items} item(s) - ${pedido.ordenes_compra?.length || 0} orden(es) de compra`,
+      '',
+      '',
+      '',
+      parseFloat(pedido.total || 0),
+      `${porcentajePedido}%`,
+      pedido.observaciones || ''
+    ];
 
-    pedido.detalles.forEach((detalle) => {
-      const esExcedente = parseInt(detalle.es_excedente, 10) === 1;
-      const sinItemAsociado = !detalle.codigo_item && !detalle.nombre_item;
-
-      const fila = worksheet.getRow(filaActual);
-
-      const tieneMaterialExtra = !!(detalle.codigo_material_extra && detalle.nombre_material_extra);
-
-      const capitulo = sinItemAsociado
-        ? 'MATERIAL EXTRA'
-        : (detalle.nombre_capitulo || 'N/A');
-
-      const codigoItem = sinItemAsociado
-        ? (tieneMaterialExtra ? detalle.codigo_material_extra : 'EXTRA')
-        : (detalle.codigo_item || '');
-
-      const nombreItem = sinItemAsociado
-        ? (tieneMaterialExtra
-          ? detalle.nombre_material_extra
-          : 'MATERIAL EXTRA FUERA DE PRESUPUESTO')
-        : (detalle.nombre_item || '');
-
-      const descripcionComponente = sinItemAsociado
-        ? (detalle.justificacion
-          ? `Material extra: ${detalle.justificacion}`
-          : 'Material extra sin descripción detallada')
-        : (detalle.descripcion_componente || 'Sin descripción');
-
-      const tipoComponente = sinItemAsociado
-        ? 'MATERIAL EXTRA'
-        : obtenerNombreTipoComponente(detalle.tipo_componente || 'material');
-
-      // Calcular variación porcentual
-      const precioPresupuestado = parseFloat(detalle.precio_unitario_presupuestado) || 0;
-      const precioPedido = parseFloat(detalle.precio_unitario) || 0;
-      let variacionTexto = 'N/A';
-
-      if (precioPresupuestado > 0) {
-        const variacion = ((precioPedido - precioPresupuestado) / precioPresupuestado) * 100;
-        const variacionRedondeada = variacion.toFixed(2);
-
-        if (variacion > 0) {
-          variacionTexto = `+${variacionRedondeada}% (sobrecosto)`;
-        } else if (variacion < 0) {
-          variacionTexto = `${variacionRedondeada}% (ahorro)`;
-        } else {
-          variacionTexto = '0% (sin cambio)';
-        }
+    filaPedido.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    filaPedido.alignment = { horizontal: 'left', vertical: 'middle' };
+    filaPedido.height = 25;
+    filaPedido.eachCell((cell, colNum) => {
+      cell.border = borderCompleto();
+      if (colNum === 4) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estadoColor } };
+      } else {
+        cell.fill = pedidoFill;
       }
-
-      fila.values = [
-        pedido.id_pedido,
-        fechaTexto,
-        estadoTexto,
-        pedido.nombre_usuario || 'N/A',
-        proveedorTexto,
-        facturaTexto,
-        capitulo,
-        codigoItem,
-        nombreItem,
-        descripcionComponente,
-        tipoComponente,
-        detalle.unidad_componente || detalle.unidad_item || 'UND',
-        detalle.cantidad || 0,
-        detalle.precio_unitario_presupuestado || 0,
-        detalle.precio_unitario || 0,
-        variacionTexto,
-        detalle.subtotal || 0,
-        detalle.justificacion || '',
-        pedido.observaciones || ''
-      ];
-
-      aplicarEstiloFilaHistorial(fila, estadoColor, esExcedente);
-      filaActual++;
+      if (colNum === 11) {
+        cell.numFmt = '#,##0.00';
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      }
     });
+    filaActual++;
 
-    if (index < pedidosHistorial.length - 1) {
+    totalGeneral += parseFloat(pedido.total || 0);
+
+    // === NIVEL 2: ÓRDENES DE COMPRA ===
+    console.log(`DEBUG PEDIDO #${pedido.id_pedido}: Tiene ${pedido.ordenes_compra?.length || 0} órdenes de compra`);
+    if (pedido._debug_ordenes) {
+      console.log('DEBUG BACKEND INFO:', JSON.stringify(pedido._debug_ordenes, null, 2));
+    }
+    if (pedido.ordenes_compra && pedido.ordenes_compra.length > 0) {
+      pedido.ordenes_compra.forEach((orden, ordenIdx) => {
+        console.log(`DEBUG ORDEN ${ordenIdx + 1}:`, JSON.stringify({
+          numero_orden: orden.numero_orden,
+          id_orden_compra: orden.id_orden_compra,
+          total: orden.total,
+          subtotal: orden.subtotal,
+          impuestos: orden.impuestos,
+          estado: orden.estado,
+          nombre_proveedor: orden.nombre_proveedor,
+          numero_factura: orden.numero_factura,
+          num_recepciones: orden.recepciones?.length || 0,
+          num_items: orden.items_orden?.length || 0
+        }, null, 2));
+
+        const filaOrden = worksheet.getRow(filaActual);
+        const ordenFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF8FAADC' } };
+        const porcentajeOrden = orden.porcentaje_recibido || 0;
+
+        filaOrden.values = [
+          `  ├─ ORDEN #${orden.numero_orden || orden.id_orden_compra}`,
+          orden.numero_orden || orden.id_orden_compra,
+          formatearFechaCorta(orden.fecha_orden),
+          orden.estado || 'N/A',
+          orden.nombre_proveedor || 'N/A',
+          orden.numero_factura || '',
+          `${orden.recepciones?.length || 0} recepción(es) - ${orden.items_orden?.length || 0} item(s)`,
+          '',
+          '',
+          '',
+          parseFloat(orden.total || 0),
+          `${porcentajeOrden}%`,
+          orden.observaciones || ''
+        ];
+
+        filaOrden.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+        filaOrden.alignment = { horizontal: 'left', vertical: 'middle' };
+        filaOrden.height = 22;
+        filaOrden.eachCell((cell, colNum) => {
+          cell.border = borderCompleto();
+          cell.fill = ordenFill;
+          if (colNum === 11) {
+            cell.numFmt = '#,##0.00';
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          }
+        });
+        filaActual++;
+
+        // === NIVEL 3: RECEPCIONES ===
+        console.log(`DEBUG: Orden ${orden.numero_orden} tiene ${orden.recepciones?.length || 0} recepciones`);
+        if (orden.recepciones && orden.recepciones.length > 0) {
+          orden.recepciones.forEach((recepcion, recepcionIdx) => {
+            console.log(`DEBUG RECEPCIÓN ${recepcionIdx + 1} de orden ${orden.numero_orden}:`, JSON.stringify({
+              id_compra: recepcion.id_compra,
+              fecha_compra: recepcion.fecha_compra,
+              total: recepcion.total,
+              numero_factura: recepcion.numero_factura,
+              num_items: recepcion.items_recibidos?.length || 0
+            }, null, 2));
+
+            const filaRecepcion = worksheet.getRow(filaActual);
+            const recepcionFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBDD7EE' } };
+
+            filaRecepcion.values = [
+              `    ├─ RECEPCIÓN #${recepcionIdx + 1}`,
+              `COMPRA-${recepcion.id_compra}`,
+              formatearFechaCorta(recepcion.fecha_compra),
+              recepcion.estado || 'N/A',
+              recepcion.nombre_proveedor || 'N/A',
+              recepcion.numero_factura || '',
+              `${recepcion.items_recibidos?.length || 0} item(s) recibido(s)`,
+              '',
+              '',
+              '',
+              parseFloat(recepcion.total || 0),
+              '',
+              recepcion.observaciones || ''
+            ];
+
+            filaRecepcion.font = { bold: true, size: 9 };
+            filaRecepcion.alignment = { horizontal: 'left', vertical: 'middle' };
+            filaRecepcion.height = 20;
+            filaRecepcion.eachCell((cell, colNum) => {
+              cell.border = borderLigero();
+              cell.fill = recepcionFill;
+              if (colNum === 11) {
+                cell.numFmt = '#,##0.00';
+                cell.alignment = { horizontal: 'right', vertical: 'middle' };
+              }
+            });
+            filaActual++;
+
+            // === NIVEL 4: ITEMS RECIBIDOS ===
+            console.log(`DEBUG: Procesando items de recepción #${recepcionIdx + 1}`);
+            console.log('DEBUG: recepcion.items_recibidos:', recepcion.items_recibidos);
+            console.log('DEBUG: ¿Es array?', Array.isArray(recepcion.items_recibidos));
+            console.log('DEBUG: Longitud:', recepcion.items_recibidos?.length);
+
+            if (recepcion.items_recibidos && recepcion.items_recibidos.length > 0) {
+              console.log(`DEBUG: Entrando a forEach de ${recepcion.items_recibidos.length} items`);
+              recepcion.items_recibidos.forEach((item, itemIdx) => {
+                console.log(`DEBUG: Procesando item ${itemIdx + 1}:`, item);
+                const filaItem = worksheet.getRow(filaActual);
+
+                filaItem.values = [
+                  `      └─ Item ${itemIdx + 1}`,
+                  '',
+                  '',
+                  '',
+                  '',
+                  '',
+                  item.descripcion || 'Sin descripción',
+                  item.unidad || 'UND',
+                  parseFloat(item.cantidad || 0),
+                  parseFloat(item.precio_unitario || 0),
+                  parseFloat(item.subtotal || 0),
+                  '',
+                  ''
+                ];
+
+                filaItem.alignment = { horizontal: 'left', vertical: 'middle' };
+                filaItem.eachCell((cell, colNum) => {
+                  cell.border = borderLigero();
+
+                  // Columnas 1-6: Fondo gris claro
+                  if (colNum <= 6) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+                    cell.font = { italic: true, size: 9, color: { argb: 'FF666666' } };
+                  }
+
+                  // Columna 9: Cantidad
+                  if (colNum === 9) {
+                    cell.numFmt = '#,##0.0000';
+                    cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                  }
+
+                  // Columna 10: Precio unitario
+                  if (colNum === 10) {
+                    cell.numFmt = '#,##0.00';
+                    cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                  }
+
+                  // Columna 11: Subtotal
+                  if (colNum === 11) {
+                    cell.numFmt = '#,##0.00';
+                    cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                  }
+                });
+                console.log(`DEBUG: Fila ${filaActual} creada para item ${itemIdx + 1}`);
+                filaActual++;
+              });
+            } else {
+              console.log('DEBUG: No hay items recibidos o el array está vacío');
+              // Sin items recibidos
+              const filaVacia = worksheet.getRow(filaActual);
+              worksheet.mergeCells(`A${filaActual}:M${filaActual}`);
+              filaVacia.getCell(1).value = '      └─ Sin items registrados en esta recepción';
+              filaVacia.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+              filaVacia.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF999999' } };
+              filaVacia.getCell(1).border = borderLigero();
+              filaActual++;
+            }
+          });
+        } else {
+          // Sin recepciones
+          const filaVacia = worksheet.getRow(filaActual);
+          worksheet.mergeCells(`A${filaActual}:M${filaActual}`);
+          filaVacia.getCell(1).value = '    └─ Sin recepciones registradas para esta orden';
+          filaVacia.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+          filaVacia.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF999999' } };
+          filaVacia.getCell(1).border = borderLigero();
+          filaActual++;
+        }
+      });
+    } else {
+      // Sin órdenes de compra
+      const filaVacia = worksheet.getRow(filaActual);
+      worksheet.mergeCells(`A${filaActual}:M${filaActual}`);
+      filaVacia.getCell(1).value = '  └─ Sin órdenes de compra para este pedido';
+      filaVacia.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+      filaVacia.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF999999' } };
+      filaVacia.getCell(1).border = borderLigero();
+      filaActual++;
+    }
+
+    // Separador entre pedidos
+    if (pedidoIdx < pedidosHistorial.length - 1) {
       filaActual++;
     }
   });
 
-  const totalFila = worksheet.getRow(filaActual + 1);
-  totalFila.values = ['', '', '', '', '', '', '', '', '', '', '', 'TOTAL:', '', '', '', '', calcularTotalHistorial(pedidosHistorial), '', ''];
+  // TOTAL FINAL
+  filaActual += 2;
+  const totalFila = worksheet.getRow(filaActual);
+  const totalFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
 
-  totalFila.font = { bold: true };
+  totalFila.values = ['', '', '', '', '', '', '', '', '', 'TOTAL GENERAL:', totalGeneral, '', ''];
+  totalFila.font = { bold: true, size: 11 };
   totalFila.alignment = { horizontal: 'right', vertical: 'middle' };
-  totalFila.eachCell((cell) => {
+  totalFila.height = 25;
+  totalFila.eachCell((cell, colNum) => {
     cell.border = borderCompleto();
+    cell.fill = totalFill;
+    if (colNum === 11) {
+      cell.numFmt = '#,##0.00';
+    }
   });
-  totalFila.getCell(17).numFmt = '#,##0.00';
 }
+
 
 function aplicarEstiloFilaHistorial(fila, estadoColor, esExcedente) {
   fila.alignment = { vertical: 'middle' };
@@ -4134,6 +4293,58 @@ function aplicarEstiloFilaHistorial(fila, estadoColor, esExcedente) {
     });
   }
 }
+
+function aplicarEstiloFilaHistorialDetalle(fila, esExcedente) {
+  fila.alignment = { vertical: 'middle' };
+  fila.eachCell((cell, col) => {
+    cell.border = borderLigero();
+
+    // Columna 1: ID/Número de item (indentado)
+    if (col === 1) {
+      cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+      cell.font = { italic: true, size: 9, color: { argb: 'FF666666' } };
+    }
+
+    // Columnas 2-6: Vacías (info del pedido ya mostrada en encabezado)
+    if (col >= 2 && col <= 6) {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+    }
+
+    // Columna 13: Cantidad
+    if (col === 13) {
+      cell.numFmt = '#,##0.0000';
+      cell.alignment = { horizontal: 'right', vertical: 'middle' };
+    }
+
+    // Columnas 14-15: Precios
+    if (col === 14 || col === 15) {
+      cell.numFmt = '#,##0.00';
+      cell.alignment = { horizontal: 'right', vertical: 'middle' };
+    }
+
+    // Columna 16: Variación (texto centrado)
+    if (col === 16) {
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+
+    // Columna 17: Subtotal
+    if (col === 17) {
+      cell.numFmt = '#,##0.00';
+      cell.alignment = { horizontal: 'right', vertical: 'middle' };
+    }
+  });
+
+  // Resaltar excedentes con color especial
+  if (esExcedente) {
+    fila.eachCell((cell, col) => {
+      // No sobrescribir el color de las columnas vacías
+      if (col < 2 || col > 6) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5B4' } };
+      }
+    });
+  }
+}
+
 
 function obtenerColorEstadoExcel(colorNombre = '') {
   const mapa = {

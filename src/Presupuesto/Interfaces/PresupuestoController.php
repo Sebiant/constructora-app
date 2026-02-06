@@ -970,6 +970,131 @@ try {
                     $stmtDet->execute([$presupuestoId, $pedido['id_pedido']]);
                     $pedido['detalles'] = $stmtDet->fetchAll(\PDO::FETCH_ASSOC);
 
+                    // Obtener órdenes de compra asociadas al pedido
+                    $sqlOrdenes = "SELECT DISTINCT
+                                        oc.id_orden_compra,
+                                        oc.numero_orden,
+                                        oc.fecha_orden,
+                                        oc.numero_factura,
+                                        oc.fecha_factura,
+                                        oc.subtotal,
+                                        oc.impuestos,
+                                        oc.total,
+                                        oc.estado,
+                                        oc.observaciones,
+                                        pv.id_provedor,
+                                        pv.nombre as nombre_proveedor
+                                    FROM ordenes_compra oc
+                                    LEFT JOIN provedores pv ON oc.id_provedor = pv.id_provedor
+                                    WHERE oc.id_pedido = ?
+                                    GROUP BY oc.id_orden_compra, oc.numero_orden, oc.fecha_orden, 
+                                             oc.numero_factura, oc.fecha_factura, oc.subtotal, 
+                                             oc.impuestos, oc.total, oc.estado, oc.observaciones,
+                                             pv.id_provedor, pv.nombre
+                                    ORDER BY oc.fecha_orden DESC";
+                    
+                    $stmtOrdenes = $connection->prepare($sqlOrdenes);
+                    $stmtOrdenes->execute([$pedido['id_pedido']]);
+                    $ordenes = $stmtOrdenes->fetchAll(\PDO::FETCH_ASSOC);
+                    
+                    // DEBUG: Log para ver qué órdenes se obtienen
+                    error_log("DEBUG BACKEND: Pedido #{$pedido['id_pedido']} tiene " . count($ordenes) . " órdenes");
+                    foreach ($ordenes as $idx => $ord) {
+                        error_log("DEBUG BACKEND: Orden " . ($idx + 1) . " - ID: {$ord['id_orden_compra']}, Número: {$ord['numero_orden']}, Total: {$ord['total']}");
+                    }
+
+
+                    // Para cada orden de compra, obtener sus recepciones (compras)
+                    foreach ($ordenes as $ordenKey => $orden) {
+                        // Obtener detalle de la orden (items solicitados)
+                        $sqlOrdenDetalle = "SELECT
+                                                ocd.id_orden_detalle,
+                                                ocd.id_det_pedido,
+                                                ocd.descripcion,
+                                                ocd.unidad,
+                                                ocd.cantidad_solicitada,
+                                                ocd.cantidad_comprada,
+                                                ocd.cantidad_recibida,
+                                                ocd.fecha_recepcion,
+                                                ocd.precio_unitario,
+                                                ocd.subtotal
+                                            FROM ordenes_compra_detalle ocd
+                                            WHERE ocd.id_orden_compra = ?
+                                            ORDER BY ocd.id_orden_detalle";
+                        
+                        $stmtOrdenDet = $connection->prepare($sqlOrdenDetalle);
+                        $stmtOrdenDet->execute([$orden['id_orden_compra']]);
+                        $ordenes[$ordenKey]['items_orden'] = $stmtOrdenDet->fetchAll(\PDO::FETCH_ASSOC);
+
+                        // Obtener todas las recepciones (compras) de esta orden
+                        $sqlRecepciones = "SELECT
+                                                c.id_compra,
+                                                c.fecha_compra,
+                                                c.numero_factura,
+                                                c.total,
+                                                c.estado,
+                                                c.observaciones,
+                                                pv.nombre as nombre_proveedor
+                                            FROM compras c
+                                            LEFT JOIN provedores pv ON c.id_provedor = pv.id_provedor
+                                            WHERE c.id_orden_compra = ?
+                                            ORDER BY c.fecha_compra ASC";
+                        
+                        $stmtRecepciones = $connection->prepare($sqlRecepciones);
+                        $stmtRecepciones->execute([$orden['id_orden_compra']]);
+                        $recepciones = $stmtRecepciones->fetchAll(\PDO::FETCH_ASSOC);
+
+
+                        // Para cada recepción, obtener el detalle de lo recibido
+                        foreach ($recepciones as $recKey => $recepcion) {
+                            // Usar log_recepciones que es donde realmente se guardan los items recibidos
+                            $sqlRecepcionDetalle = "SELECT
+                                                        lr.id_log as id_compra_detalle,
+                                                        lr.id_det_pedido,
+                                                        lr.descripcion,
+                                                        lr.unidad,
+                                                        lr.cantidad_recibida as cantidad,
+                                                        lr.precio_unitario,
+                                                        lr.subtotal_item as subtotal,
+                                                        lr.fecha_registro as fechareg
+                                                    FROM log_recepciones lr
+                                                    WHERE lr.id_compra = ?
+                                                    ORDER BY lr.id_log";
+                            
+                            $stmtRecepDet = $connection->prepare($sqlRecepcionDetalle);
+                            $stmtRecepDet->execute([$recepcion['id_compra']]);
+                            $recepciones[$recKey]['items_recibidos'] = $stmtRecepDet->fetchAll(\PDO::FETCH_ASSOC);
+                        }
+
+                        $ordenes[$ordenKey]['recepciones'] = $recepciones;
+                        
+                        // Calcular porcentajes de cumplimiento
+                        $ordenes[$ordenKey]['total_solicitado'] = array_sum(array_column($ordenes[$ordenKey]['items_orden'], 'cantidad_solicitada'));
+                        $ordenes[$ordenKey]['total_recibido'] = array_sum(array_column($ordenes[$ordenKey]['items_orden'], 'cantidad_recibida'));
+                        $ordenes[$ordenKey]['porcentaje_recibido'] = $ordenes[$ordenKey]['total_solicitado'] > 0 
+                            ? round(($ordenes[$ordenKey]['total_recibido'] / $ordenes[$ordenKey]['total_solicitado']) * 100, 2) 
+                            : 0;
+                    }
+
+                    $pedido['ordenes_compra'] = $ordenes;
+                    
+                    // DEBUG: Agregar información de debug
+                    $pedido['_debug_ordenes'] = [
+                        'total_ordenes' => count($ordenes),
+                        'ids_ordenes' => array_column($ordenes, 'id_orden_compra'),
+                        'numeros_ordenes' => array_column($ordenes, 'numero_orden')
+                    ];
+
+                    // Calcular porcentaje de cumplimiento del pedido
+                    $totalSolicitadoPedido = array_sum(array_column($pedido['detalles'], 'cantidad'));
+                    $totalRecibidoPedido = 0;
+                    foreach ($ordenes as $orden) {
+                        $totalRecibidoPedido += $orden['total_recibido'];
+                    }
+                    $pedido['porcentaje_recibido_pedido'] = $totalSolicitadoPedido > 0 
+                        ? round(($totalRecibidoPedido / $totalSolicitadoPedido) * 100, 2) 
+                        : 0;
+
                     // Determinar si tiene pedidos adicionales basado en observaciones
                     $pedido['tiene_adicionales'] = strpos($pedido['observaciones'] ?? '', 'fuera de presupuesto') !== false;
                 }
@@ -987,6 +1112,7 @@ try {
                 ]);
             }
             break;
+
 
         case 'actualizarEstadoPedido':
             try {
