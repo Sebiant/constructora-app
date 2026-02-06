@@ -1047,17 +1047,20 @@ try {
 
                         // Para cada recepción, obtener el detalle de lo recibido
                         foreach ($recepciones as $recKey => $recepcion) {
-                            // Usar log_recepciones que es donde realmente se guardan los items recibidos
+                            // Usar log_recepciones y hacer JOIN con pedidos_detalle e item_componentes para obtener precio presupuestado
                             $sqlRecepcionDetalle = "SELECT
                                                         lr.id_log as id_compra_detalle,
                                                         lr.id_det_pedido,
                                                         lr.descripcion,
                                                         lr.unidad,
                                                         lr.cantidad_recibida as cantidad,
-                                                        lr.precio_unitario,
+                                                        lr.precio_unitario as precio_recepcion,
                                                         lr.subtotal_item as subtotal,
-                                                        lr.fecha_registro as fechareg
+                                                        lr.fecha_registro as fechareg,
+                                                        ic.precio_unitario as precio_presupuestado
                                                     FROM log_recepciones lr
+                                                    LEFT JOIN pedidos_detalle pd ON lr.id_det_pedido = pd.id_det_pedido
+                                                    LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
                                                     WHERE lr.id_compra = ?
                                                     ORDER BY lr.id_log";
                             

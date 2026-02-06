@@ -3950,7 +3950,9 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
     { key: 'descripcion', width: 45 },
     { key: 'unidad', width: 10 },
     { key: 'cantidad', width: 12 },
-    { key: 'precio_unit', width: 14 },
+    { key: 'precio_presup', width: 14 },      // Nueva columna
+    { key: 'precio_recep', width: 14 },       // Renombrada
+    { key: 'variacion', width: 12 },          // Nueva columna
     { key: 'subtotal', width: 16 },
     { key: 'porcentaje', width: 14 },
     { key: 'observaciones', width: 35 }
@@ -3959,7 +3961,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
   let filaActual = 1;
 
   // TÍTULO
-  worksheet.mergeCells(`A${filaActual}:M${filaActual}`);
+  worksheet.mergeCells(`A${filaActual}:O${filaActual}`);  // Cambiado de M a O (2 columnas más)
   const titulo = worksheet.getCell(`A${filaActual}`);
   titulo.value = 'Historial Completo de Pedidos, Órdenes de Compra y Recepciones';
   titulo.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -3973,8 +3975,21 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
   const encabezados = worksheet.getRow(filaActual);
   const encabezadoFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
   encabezados.values = [
-    'NIVEL', 'ID/REFERENCIA', 'FECHA', 'ESTADO', 'PROVEEDOR', 'FACTURA',
-    'DESCRIPCIÓN', 'UNIDAD', 'CANTIDAD', 'PRECIO UNIT.', 'SUBTOTAL', '% CUMPLIMIENTO', 'OBSERVACIONES'
+    'NIVEL',
+    'ID/REFERENCIA',
+    'FECHA',
+    'ESTADO',
+    'PROVEEDOR',
+    'FACTURA',
+    'DESCRIPCIÓN',
+    'UNIDAD',
+    'CANTIDAD',
+    'PRECIO PRESUP.',    // Nueva columna
+    'PRECIO RECEP.',     // Renombrada
+    'VARIACIÓN %',       // Nueva columna
+    'SUBTOTAL',
+    '% CUMPLIMIENTO',
+    'OBSERVACIONES'
   ];
 
   encabezados.font = { bold: true, size: 10 };
@@ -4018,6 +4033,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
       '',
       '',
       '',
+      '',
+      '',
       parseFloat(pedido.total || 0),
       `${porcentajePedido}%`,
       pedido.observaciones || ''
@@ -4033,7 +4050,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
       } else {
         cell.fill = pedidoFill;
       }
-      if (colNum === 11) {
+      if (colNum === 13) {  // Cambiado de 11 a 13
         cell.numFmt = '#,##0.00';
         cell.alignment = { horizontal: 'right', vertical: 'middle' };
       }
@@ -4077,6 +4094,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
           '',
           '',
           '',
+          '',
+          '',
           parseFloat(orden.total || 0),
           `${porcentajeOrden}%`,
           orden.observaciones || ''
@@ -4088,7 +4107,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
         filaOrden.eachCell((cell, colNum) => {
           cell.border = borderCompleto();
           cell.fill = ordenFill;
-          if (colNum === 11) {
+          if (colNum === 13) {  // Cambiado de 11 a 13
             cell.numFmt = '#,##0.00';
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
           }
@@ -4121,6 +4140,8 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
               '',
               '',
               '',
+              '',
+              '',
               parseFloat(recepcion.total || 0),
               '',
               recepcion.observaciones || ''
@@ -4132,7 +4153,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
             filaRecepcion.eachCell((cell, colNum) => {
               cell.border = borderLigero();
               cell.fill = recepcionFill;
-              if (colNum === 11) {
+              if (colNum === 13) {  // Cambiado de 11 a 13
                 cell.numFmt = '#,##0.00';
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
               }
@@ -4151,6 +4172,24 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
                 console.log(`DEBUG: Procesando item ${itemIdx + 1}:`, item);
                 const filaItem = worksheet.getRow(filaActual);
 
+                // Calcular variación porcentual
+                const precioPresup = parseFloat(item.precio_presupuestado || 0);
+                const precioRecep = parseFloat(item.precio_recepcion || 0);
+                let variacionPorcentual = '';
+                let variacionColor = null;
+
+                if (precioPresup > 0 && precioRecep > 0) {
+                  const variacion = ((precioRecep - precioPresup) / precioPresup) * 100;
+                  variacionPorcentual = `${variacion > 0 ? '+' : ''}${variacion.toFixed(2)}%`;
+
+                  // Verde si es negativo (ahorro), rojo si es positivo (sobrecosto)
+                  if (variacion < 0) {
+                    variacionColor = 'FF00B050'; // Verde
+                  } else if (variacion > 0) {
+                    variacionColor = 'FFFF0000'; // Rojo
+                  }
+                }
+
                 filaItem.values = [
                   `      └─ Item ${itemIdx + 1}`,
                   '',
@@ -4161,7 +4200,9 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
                   item.descripcion || 'Sin descripción',
                   item.unidad || 'UND',
                   parseFloat(item.cantidad || 0),
-                  parseFloat(item.precio_unitario || 0),
+                  precioPresup,                    // Precio presupuestado
+                  precioRecep,                     // Precio de recepción
+                  variacionPorcentual,             // Variación %
                   parseFloat(item.subtotal || 0),
                   '',
                   ''
@@ -4183,14 +4224,23 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
                     cell.alignment = { horizontal: 'right', vertical: 'middle' };
                   }
 
-                  // Columna 10: Precio unitario
-                  if (colNum === 10) {
+                  // Columnas 10-11: Precios (presupuestado y recepción)
+                  if (colNum === 10 || colNum === 11) {
                     cell.numFmt = '#,##0.00';
                     cell.alignment = { horizontal: 'right', vertical: 'middle' };
                   }
 
-                  // Columna 11: Subtotal
-                  if (colNum === 11) {
+                  // Columna 12: Variación % (con color)
+                  if (colNum === 12) {
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    cell.font = { bold: true, size: 9 };
+                    if (variacionColor) {
+                      cell.font = { ...cell.font, color: { argb: variacionColor } };
+                    }
+                  }
+
+                  // Columna 13: Subtotal
+                  if (colNum === 13) {
                     cell.numFmt = '#,##0.00';
                     cell.alignment = { horizontal: 'right', vertical: 'middle' };
                   }
@@ -4202,7 +4252,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
               console.log('DEBUG: No hay items recibidos o el array está vacío');
               // Sin items recibidos
               const filaVacia = worksheet.getRow(filaActual);
-              worksheet.mergeCells(`A${filaActual}:M${filaActual}`);
+              worksheet.mergeCells(`A${filaActual}:O${filaActual}`);  // Cambiado de M a O
               filaVacia.getCell(1).value = '      └─ Sin items registrados en esta recepción';
               filaVacia.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
               filaVacia.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF999999' } };
@@ -4213,7 +4263,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
         } else {
           // Sin recepciones
           const filaVacia = worksheet.getRow(filaActual);
-          worksheet.mergeCells(`A${filaActual}:M${filaActual}`);
+          worksheet.mergeCells(`A${filaActual}:O${filaActual}`);  // Cambiado de M a O
           filaVacia.getCell(1).value = '    └─ Sin recepciones registradas para esta orden';
           filaVacia.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
           filaVacia.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF999999' } };
@@ -4224,7 +4274,7 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
     } else {
       // Sin órdenes de compra
       const filaVacia = worksheet.getRow(filaActual);
-      worksheet.mergeCells(`A${filaActual}:M${filaActual}`);
+      worksheet.mergeCells(`A${filaActual}:O${filaActual}`);  // Cambiado de M a O
       filaVacia.getCell(1).value = '  └─ Sin órdenes de compra para este pedido';
       filaVacia.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
       filaVacia.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF999999' } };
@@ -4243,14 +4293,14 @@ async function generarHojaHistorialPedidosExcel(workbook, pedidosHistorial = [])
   const totalFila = worksheet.getRow(filaActual);
   const totalFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
 
-  totalFila.values = ['', '', '', '', '', '', '', '', '', 'TOTAL GENERAL:', totalGeneral, '', ''];
+  totalFila.values = ['', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL GENERAL:', totalGeneral, ''];  // Ajustado para 15 columnas
   totalFila.font = { bold: true, size: 11 };
   totalFila.alignment = { horizontal: 'right', vertical: 'middle' };
   totalFila.height = 25;
   totalFila.eachCell((cell, colNum) => {
     cell.border = borderCompleto();
     cell.fill = totalFill;
-    if (colNum === 11) {
+    if (colNum === 14) {  // Cambiado de 11 a 14 (columna N)
       cell.numFmt = '#,##0.00';
     }
   });
