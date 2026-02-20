@@ -2267,6 +2267,7 @@ const ItemsUI = (() => {
 
 
   return {
+    init,
     fetchMateriales,
     fetchItems,
     filterMateriales,
@@ -2301,3 +2302,6 @@ const ItemsUI = (() => {
     changeItemsPerPage,
   };
 })();
+
+// Exponer el módulo globalmente
+window.ItemsUI = ItemsUI;

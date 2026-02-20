@@ -31,7 +31,12 @@ function cargarClientes() {
   });
 }
 
-$(document).ready(function () {
+function initProyectosDataTable() {
+  // Destruir instancia previa si existe (evita "DataTable already initialized")
+  if ($.fn.DataTable.isDataTable('#datos_proyectos')) {
+    $('#datos_proyectos').DataTable().destroy();
+  }
+
   var table = $("#datos_proyectos").DataTable({
     language: { url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json" },
     searching: true,
@@ -65,9 +70,9 @@ $(document).ready(function () {
         render: function (data, type, row) {
           return data
             ? "$ " +
-                parseFloat(data).toLocaleString("es-ES", {
-                  minimumFractionDigits: 2,
-                })
+            parseFloat(data).toLocaleString("es-ES", {
+              minimumFractionDigits: 2,
+            })
             : "-";
         },
       },
@@ -91,11 +96,14 @@ $(document).ready(function () {
         data: null,
         render: function (data, type, row) {
           return `
+            <button class="btn btn-primary btn-sm btn-inspeccionar" data-id="${row.id_proyecto}" data-nombre="${row.nombre}" title="Inspeccionar proyecto">
+              <i class="bi bi-search"></i>
+            </button>
             <button class="btn btn-warning btn-sm btn-editar" data-id="${row.id_proyecto}">
-              <i class="bi bi-pencil"></i> Editar
+              <i class="bi bi-pencil"></i>
             </button>
             <button class="btn btn-danger btn-sm btn-eliminar" data-id="${row.id_proyecto}">
-              <i class="bi bi-trash"></i> Eliminar
+              <i class="bi bi-trash"></i>
             </button>
           `;
         },
@@ -104,20 +112,26 @@ $(document).ready(function () {
     ],
   });
 
-  $("#datos_proyectos").on("click", ".btn-editar", function () {
+  // Re-asociar eventos (se destruyen junto con el DataTable anterior)
+  $("#datos_proyectos").off('click', '.btn-editar').on("click", ".btn-editar", function () {
     let id = $(this).data("id");
     if (id) cargarModalEditar(id);
   });
 
-  $("#datos_proyectos").on("click", ".btn-eliminar", function () {
+  $("#datos_proyectos").off('click', '.btn-eliminar').on("click", ".btn-eliminar", function () {
     let id = $(this).data("id");
     if (id) eliminarProyecto(id);
   });
 
-  $("#modalProyectos").on("show.bs.modal", function () {
+  $("#modalProyectos").off('show.bs.modal').on("show.bs.modal", function () {
     cargarClientes();
   });
-});
+
+  // Initialize inspection buttons after DataTable is fully loaded
+  if (typeof initializeInspectionButtons === 'function') {
+    setTimeout(initializeInspectionButtons, 100);
+  }
+}
 
 function cargarModalCrear() {
   $("#formProyectos")[0].reset();
@@ -185,7 +199,7 @@ function guardarProyecto() {
       try {
         const errorResponse = JSON.parse(xhr.responseText);
         errorMsg = errorResponse.error || errorMsg;
-      } catch (e) {}
+      } catch (e) { }
 
       alert(errorMsg);
     },
@@ -324,7 +338,7 @@ function guardarProyectoEditar() {
       try {
         const errorResponse = JSON.parse(xhr.responseText);
         errorMsg = errorResponse.error || errorMsg;
-      } catch (e) {}
+      } catch (e) { }
 
       alert(errorMsg);
     },

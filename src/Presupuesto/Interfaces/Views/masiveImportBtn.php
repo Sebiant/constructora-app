@@ -13,10 +13,11 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 
       <form id="formImportar" enctype="multipart/form-data">
         <div class="mb-3">
-          <label for="id_proyecto" class="form-label">Seleccionar Proyecto:</label>
+          <label for="id_proyecto" class="form-label">Proyecto:</label>
           <select id="id_proyecto" class="form-select" required>
             <option value="">Cargando proyectos...</option>
           </select>
+          <small class="text-muted">Proyecto seleccionado para importación</small>
         </div>
 
         <div class="form-group">
@@ -287,7 +288,27 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
 ?>
 
 <script>
-    const API_PRESUPUESTOS = '/sgigescomnew/src/Presupuesto/Interfaces/PresupuestoController.php';
+    // Check if we're in project inspection mode
+    const selectedProjectId = sessionStorage.getItem('selectedProjectId');
+    const isProjectMode = sessionStorage.getItem('isInProjectMode') === 'true';
+    
+    // Only allow access if in project mode
+    if (!isProjectMode || !selectedProjectId) {
+        document.querySelector('.card-body').innerHTML = `
+            <div class="alert alert-warning text-center">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Acceso Restringido</strong>
+                <p class="mb-0 mt-2">La importación masiva solo está disponible durante la inspección de un proyecto.</p>
+                <p class="mb-0">Por favor, selecciona un proyecto y haz clic en "Inspeccionar" para acceder a esta función.</p>
+            </div>
+        `;
+        // Disable form submission
+        document.getElementById('formImportar').style.display = 'none';
+    } else {
+        // Set project ID directly
+        const API_PRESUPUESTOS = '/sgigescomnew/src/Presupuesto/Interfaces/PresupuestoController.php';
+        console.log('Import Masiva - Proyecto seleccionado:', selectedProjectId);
+    }
 </script>
 
 <script src="/sgigescomnew/src/Presupuesto/Interfaces/Views/masiveImportBtn.js?v=<?php echo time(); ?>"></script>

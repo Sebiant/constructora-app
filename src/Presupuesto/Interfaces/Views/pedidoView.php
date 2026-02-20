@@ -1,3 +1,22 @@
+<?php
+// El componente REQUIERE un id_proyecto para funcionar
+$proyectoId = isset($_GET['id_proyecto']) ? intval($_GET['id_proyecto']) : 0;
+$proyectoNombre = '';
+
+if ($proyectoId > 0) {
+    // Obtener nombre del proyecto desde la BD
+    try {
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/config/database.php';
+        $conn = Database::getConnection();
+        $stmt = $conn->prepare("SELECT nombre FROM proyectos WHERE id_proyecto = ?");
+        $stmt->execute([$proyectoId]);
+        $proyecto = $stmt->fetch(PDO::FETCH_ASSOC);
+        $proyectoNombre = $proyecto ? $proyecto['nombre'] : 'Proyecto #' . $proyectoId;
+    } catch (Exception $e) {
+        $proyectoNombre = 'Proyecto #' . $proyectoId;
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -10,6 +29,24 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 </head>
 <body class="bg-light">
+    <!-- Variable JS con el ID del proyecto -->
+    <script>
+        var PROYECTO_ID = <?php echo $proyectoId; ?>;
+        var PROYECTO_NOMBRE = "<?php echo addslashes($proyectoNombre); ?>";
+    </script>
+
+    <?php if ($proyectoId <= 0): ?>
+    <!-- Sin proyecto: mostrar error -->
+    <div class="container-fluid py-4">
+        <div class="card shadow-lg">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-exclamation-triangle display-1 text-warning"></i>
+                <h4 class="mt-3">No se ha seleccionado un proyecto</h4>
+                <p class="text-muted">Este componente requiere un proyecto para funcionar. Por favor, seleccione un proyecto desde el menú de navegación.</p>
+            </div>
+        </div>
+    </div>
+    <?php else: ?>
     <div class="container-fluid py-4">
         <!-- Card Principal Única -->
         <div class="card shadow-lg">
@@ -24,9 +61,8 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Proyecto</label>
-                                <select class="form-select" id="selectProyecto" onchange="cargarPresupuestos()">
-                                    <option value="">-- Seleccionar Proyecto --</option>
-                                </select>
+                                <input type="text" class="form-control" value="<?php echo htmlspecialchars($proyectoNombre); ?>" disabled readonly>
+                                <input type="hidden" id="hiddenProyectoId" value="<?php echo $proyectoId; ?>">
                             </div>
                             
                             <div class="col-md-6">
@@ -384,7 +420,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="/sgigescomnew/src/Presupuesto/Interfaces/Views/pedidoView.js"></script>
     <script>
-        const API_PRESUPUESTOS = '/sgigescomnew/src/Presupuesto/Interfaces/PresupuestoController.php';
+        var API_PRESUPUESTOS = '/sgigescomnew/src/Presupuesto/Interfaces/PresupuestoController.php';
+        _initPedidoComponent();
     </script>
 </body>
 </html>
+<?php endif; ?>

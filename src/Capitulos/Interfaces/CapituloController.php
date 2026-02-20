@@ -35,8 +35,31 @@ try {
     switch ($action) {
         case 'getAll':
             $idPresupuesto = $_GET['id_presupuesto'] ?? null;
-            $useCase = new GetAllCapitulos($repo);
-            $data = $useCase->execute($idPresupuesto ? (int)$idPresupuesto : null);
+            $idProyecto = $_GET['id_proyecto'] ?? null;
+            
+            // Si se proporciona id_proyecto, filtrar por proyecto
+            if ($idProyecto) {
+                $sql = "SELECT c.*, 
+                               CONCAT('Presupuesto ', c.id_presupuesto, ' - ', IFNULL(pr.nombre, 'Sin proyecto')) AS presupuesto_proyecto
+                        FROM capitulos c
+                        LEFT JOIN presupuestos p ON c.id_presupuesto = p.id_presupuesto
+                        LEFT JOIN proyectos pr ON p.id_proyecto = pr.id_proyecto
+                        WHERE p.id_proyecto = :id_proyecto
+                        ORDER BY c.nombre_cap ASC";
+                $stmt = $connection->prepare($sql);
+                $stmt->execute(['id_proyecto' => (int)$idProyecto]);
+                $data = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            } 
+            // Si se proporciona id_presupuesto, usar el caso de uso original
+            else if ($idPresupuesto) {
+                $useCase = new GetAllCapitulos($repo);
+                $data = $useCase->execute((int)$idPresupuesto);
+            }
+            // Si no hay filtros, obtener todos
+            else {
+                $useCase = new GetAllCapitulos($repo);
+                $data = $useCase->execute(null);
+            }
 
             ob_clean();
             // Formatear datos para DataTables

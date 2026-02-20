@@ -1,8 +1,12 @@
-﻿let proyectosData = [];
-let itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
-let materialesExtra = [];
-let pedidosFueraPresupuesto = [];
-let seleccionActual = null;
+﻿var proyectosData = [];
+var itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
+var materialesExtra = [];
+var pedidosFueraPresupuesto = [];
+var seleccionActual = null;
+
+// Control de peticiones concurrentes para evitar condiciones de carrera al cambiar proyecto
+var _presupuestosAbortController = null;
+var _presupuestosRequestToken = 0;
 
 function resetarGestion() {
   itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
@@ -729,7 +733,7 @@ function actualizarResumenComponente(componente) {
   }
 }
 
-const paginador = new PaginadorPresupuestos();
+var paginador = new PaginadorPresupuestos();
 
 function toggleDesglose(itemId) {
   const desglose = document.getElementById(`desglose-${itemId}`);
@@ -1117,50 +1121,48 @@ function generarDesgloseComponentesParaPedido(item) {
   return html;
 }
 
-document.addEventListener("DOMContentLoaded", function () {
-  cargarProyectos();
-  cargarUnidades();
-  cargarTiposMaterial();
-  resetarGestion();
+// Inicialización: se ejecuta directamente (no usa DOMContentLoaded porque
+// cuando el componente se carga vía AJAX/innerHTML, ese evento ya se disparó)
+function _initPedidoComponent() {
+  if (typeof PROYECTO_ID !== 'undefined' && PROYECTO_ID > 0) {
+    inicializarProyecto();
+    cargarUnidades();
+    cargarTiposMaterial();
+    resetarGestion();
 
-  setTimeout(() => {
-    paginador.inicializar();
-    const paginacionContainer = document.getElementById("paginacionContainer");
-    if (paginacionContainer) {
-      paginacionContainer.style.display = "none";
-    }
-  }, 100);
-});
-
-async function cargarProyectos() {
-  try {
-    const response = await fetch(API_PRESUPUESTOS + "?action=getProyectos");
-    const result = await response.json();
-
-    if (!result.success) throw new Error(result.error);
-
-    const selectProyecto = document.getElementById("selectProyecto");
-    selectProyecto.innerHTML =
-      '<option value="">-- Seleccionar Proyecto --</option>';
-
-    result.data.forEach((proyecto) => {
-      const option = document.createElement("option");
-      option.value = proyecto.id_proyecto;
-      option.textContent = proyecto.nombre;
-      selectProyecto.appendChild(option);
-    });
-
-    proyectosData = result.data;
-  } catch (error) {
-    console.error("Error cargando proyectos:", error);
-    alert("Error al cargar los proyectos: " + error.message);
+    setTimeout(() => {
+      paginador.inicializar();
+      const paginacionContainer = document.getElementById("paginacionContainer");
+      if (paginacionContainer) {
+        paginacionContainer.style.display = "none";
+      }
+    }, 100);
   }
 }
 
+// Inicializar proyecto usando PROYECTO_ID pasado desde PHP
+function inicializarProyecto() {
+  // Guardar en proyectosData para compatibilidad
+  proyectosData = [{ id_proyecto: PROYECTO_ID, nombre: PROYECTO_NOMBRE }];
+
+  // Cargar presupuestos inmediatamente
+  cargarPresupuestos();
+}
+
 async function cargarPresupuestos() {
-  const proyectoId = document.getElementById("selectProyecto").value;
+  const proyectoId = PROYECTO_ID;
+
+  // Cancelar cualquier petición de presupuestos anterior (evita condición de carrera al cambiar proyecto)
+  if (_presupuestosAbortController) {
+    _presupuestosAbortController.abort();
+  }
+  _presupuestosAbortController = new AbortController();
+  const miToken = ++_presupuestosRequestToken;
+
   const selectPresupuesto = document.getElementById("selectPresupuesto");
   const projectInfo = document.getElementById("projectInfo");
+
+  if (!selectPresupuesto) return; // El componente ya no está en el DOM
 
   selectPresupuesto.innerHTML =
     '<option value="">-- Seleccionar Presupuesto --</option>';
@@ -1187,14 +1189,22 @@ async function cargarPresupuestos() {
         {
           method: "POST",
           body: formData,
+          signal: _presupuestosAbortController.signal,
         }
       );
+
+      // Si llegó una petición más reciente, ignorar esta respuesta
+      if (miToken !== _presupuestosRequestToken) return;
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status} al cargar presupuestos`);
       }
 
       const rawText = await response.text();
+
+      // Verificar nuevamente por si cambió mientras parseábamos
+      if (miToken !== _presupuestosRequestToken) return;
+
       let result;
       try {
         result = JSON.parse(rawText);
@@ -1207,31 +1217,46 @@ async function cargarPresupuestos() {
 
       const presupuestos = result?.data || result?.presupuestos || [];
 
-      selectPresupuesto.innerHTML =
+      // Verificar que el DOM aun tenga el select del proyecto correcto
+      const selectActual = document.getElementById("selectPresupuesto");
+      if (!selectActual) return;
+
+      selectActual.innerHTML =
         '<option value="">-- Seleccionar Presupuesto --</option>';
 
       if (Array.isArray(presupuestos) && presupuestos.length > 0) {
-        selectPresupuesto.disabled = false;
+        selectActual.disabled = false;
         presupuestos.forEach((presupuesto) => {
           const option = document.createElement("option");
           option.value = presupuesto.id_presupuesto;
           option.textContent = `${presupuesto.nombre || presupuesto.codigo || ('Presupuesto ' + presupuesto.id_presupuesto)
             } - ${presupuesto.nombre_proyecto || 'Sin proyecto'} - $${parseFloat(presupuesto.monto_total || 0).toLocaleString()}`;
           option.setAttribute("data-presupuesto", JSON.stringify(presupuesto));
-          selectPresupuesto.appendChild(option);
+          selectActual.appendChild(option);
         });
       } else {
-        selectPresupuesto.disabled = true;
-        selectPresupuesto.innerHTML =
+        selectActual.disabled = true;
+        selectActual.innerHTML =
           '<option value="">No hay presupuestos para este proyecto</option>';
       }
     } catch (error) {
+      // Ignorar errores de peticiones canceladas (AbortError)
+      if (error.name === 'AbortError') {
+        console.log('[Pedidos] Petición de presupuestos cancelada (cambio de proyecto)');
+        return;
+      }
+
+      if (miToken !== _presupuestosRequestToken) return;
+
       console.error("Error cargando presupuestos:", error);
       alert("Error al cargar los presupuestos: " + error.message);
 
-      selectPresupuesto.disabled = true;
-      selectPresupuesto.innerHTML =
-        '<option value="">Error al cargar presupuestos</option>';
+      const selectActual = document.getElementById("selectPresupuesto");
+      if (selectActual) {
+        selectActual.disabled = true;
+        selectActual.innerHTML =
+          '<option value="">Error al cargar presupuestos</option>';
+      }
     }
   }
 }
@@ -1254,13 +1279,10 @@ async function cargarItems() {
 
       const rawPres = selectedOption.getAttribute("data-presupuesto");
       const presupuesto = rawPres ? JSON.parse(rawPres) : null;
-      const proyectoId = document.getElementById("selectProyecto").value;
+      const proyectoId = PROYECTO_ID;
       const proyecto = proyectosData.find((p) => p.id_proyecto == proyectoId) || null;
 
-      const proyectoNombre =
-        proyecto?.nombre ||
-        document.getElementById("selectProyecto")?.selectedOptions?.[0]?.textContent?.trim() ||
-        '';
+      const proyectoNombre = proyecto?.nombre || PROYECTO_NOMBRE || '';
 
       const items = await cargarItemsPresupuesto(presupuestoId);
       await cargarCapitulosParaFiltro(presupuestoId);
