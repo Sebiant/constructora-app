@@ -1,4 +1,9 @@
-$(document).ready(function () {
+function initProvedoresDataTable() {
+  // Destruir instancia previa si existe
+  if ($.fn.DataTable.isDataTable('#datos_provedores')) {
+    $('#datos_provedores').DataTable().destroy();
+  }
+
   var table = $("#datos_provedores").DataTable({
     language: { url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json" },
     searching: true,
@@ -69,16 +74,22 @@ $(document).ready(function () {
     ],
   });
 
-  $("#datos_provedores").on("click", ".btn-editar", function () {
+  // Re-asociar eventos
+  $("#datos_provedores").off('click', '.btn-editar').on("click", ".btn-editar", function () {
     let id = $(this).data("id");
     if (id) cargarModalEditarProvedor(id);
   });
 
-  $("#datos_provedores").on("click", ".btn-toggle-estado", function () {
+  $("#datos_provedores").off('click', '.btn-toggle-estado').on("click", ".btn-toggle-estado", function () {
     let id = $(this).data("id");
     let estadoActual = $(this).data("estado");
     if (id !== undefined && estadoActual !== undefined) toggleEstadoProvedor(id, estadoActual);
   });
+}
+
+// Inicializar cuando el documento esté listo (para carga directa)
+$(document).ready(function () {
+  initProvedoresDataTable();
 });
 
 function cargarModalCrearProvedor() {

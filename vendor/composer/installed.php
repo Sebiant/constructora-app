@@ -3,7 +3,7 @@
         'name' => 'sebastian/constructora-app',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '6884da3561011d6617da7475f8e593195e6671f3',
+        'reference' => '3911c3cc9a9ee31b8554ac69695a8e334c9cd3a4',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -85,7 +85,7 @@
         'sebastian/constructora-app' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '6884da3561011d6617da7475f8e593195e6671f3',
+            'reference' => '3911c3cc9a9ee31b8554ac69695a8e334c9cd3a4',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

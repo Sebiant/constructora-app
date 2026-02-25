@@ -1,3 +1,9 @@
+<?php
+// Detectar si se está cargando como componente AJAX
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+$isComponent = isset($_GET['is_component']) || $isAjax || defined('IS_COMPONENT');
+
+if (!$isComponent): ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -5,11 +11,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administración de Pedidos</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Custom Theme CSS - Color Primary #00384A -->
     <link rel="stylesheet" href="/sgigescomnew/public/css/custom-theme.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 </head>
 <body class="bg-light">
+<?php endif; ?>
     <div class="container-fluid py-4">
         <!-- Header -->
         <div class="card shadow-lg mb-4">
@@ -364,7 +370,9 @@
         </div>
     </div>
 
+<?php if (!$isComponent): ?>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="pedidoAdminView.js"></script>
 </body>
 </html>
+<?php endif; ?>

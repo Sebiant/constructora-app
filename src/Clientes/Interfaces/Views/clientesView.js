@@ -1,4 +1,9 @@
-$(document).ready(function () {
+function initClientesDataTable() {
+  // Destruir instancia previa si existe (evita "DataTable already initialized")
+  if ($.fn.DataTable.isDataTable('#datos_clientes')) {
+    $('#datos_clientes').DataTable().destroy();
+  }
+
   var table = $("#datos_clientes").DataTable({
     language: {
       url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json",
@@ -55,7 +60,8 @@ $(document).ready(function () {
     ],
   });
 
-  $("#datos_clientes").on("click", ".btn-editar", function () {
+  // Re-asociar eventos (se destruyen junto con el DataTable anterior)
+  $("#datos_clientes").off('click', '.btn-editar').on("click", ".btn-editar", function () {
     var id = $(this).data("id");
     console.log("Botón editar clickeado - ID:", id);
     if (id && id !== "undefined") {
@@ -65,7 +71,7 @@ $(document).ready(function () {
     }
   });
 
-  $("#datos_clientes").on("click", ".btn-eliminar", function () {
+  $("#datos_clientes").off('click', '.btn-eliminar').on("click", ".btn-eliminar", function () {
     var id = $(this).data("id");
     console.log("Botón eliminar clickeado - ID:", id);
     if (id && id !== "undefined") {
@@ -76,7 +82,7 @@ $(document).ready(function () {
   });
 
   // NUEVO: Evento para el toggle del estado
-  $("#datos_clientes").on("click", ".badge-toggle-estado", function () {
+  $("#datos_clientes").off('click', '.badge-toggle-estado').on("click", ".badge-toggle-estado", function () {
     var id = $(this).data("id");
     var estadoActual = $(this).data("estado");
 
@@ -84,6 +90,11 @@ $(document).ready(function () {
 
     toggleEstadoCliente(id, estadoActual);
   });
+}
+
+// Inicializar cuando el documento esté listo (para carga directa)
+$(document).ready(function () {
+  initClientesDataTable();
 });
 
 //Toggle estado del cliente

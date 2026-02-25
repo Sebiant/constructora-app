@@ -207,7 +207,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
           Cancelar
         </button>
         <button type="button" class="btn btn-success" id="btnActualizarPresupuesto">
-          <i class="bi bi-check2-square me-1"></i> Actualizar
+          <i class="bi i-check2-square me-1"></i> Actualizar
         </button>
       </div>
     </div>

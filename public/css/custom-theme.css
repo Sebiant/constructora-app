@@ -1,118 +1,101 @@
-/* 
- * Custom Bootstrap Theme Override
- * Sistema de Gestión Integral
- */
-
 :root {
-  /* Color Primary - Azul oscuro petróleo #00384A */
-  --bs-primary: #00384A;
-  --bs-primary-rgb: 0, 56, 74;
-
-  /* Variaciones del color primary para diferentes estados */
-  --bs-primary-hover: #002838;
-  --bs-primary-active: #002838;
-  --bs-primary-border: #00384A;
-
-  /* Text color on primary background */
-  --bs-primary-text-emphasis: #001a25;
-  --bs-primary-bg-subtle: #cce5ed;
-  --bs-primary-border-subtle: #99cbd9;
+    --primary-color: #00384A;
+    --primary-dark: #002835;
+    --primary-light: #005570;
+    --accent-color: #00A8E8;
 }
 
-/* Sobrescribir clases de Bootstrap con el nuevo color primary */
+/* ============================================================
+   SOBREESCRITURA GLOBAL DE COLORES (Utilidades Bootstrap)
+   ============================================================ */
+
+/* Fondo primario corporativo */
 .bg-primary {
-  background-color: #00384A !important;
+    background-color: var(--primary-color) !important;
 }
 
-.btn-primary {
-  background-color: #00384A;
-  border-color: #00384A;
-}
-
-.btn-primary:hover {
-  background-color: #002838;
-  border-color: #002838;
-}
-
-.btn-primary:active,
-.btn-primary:focus {
-  background-color: #002838;
-  border-color: #002838;
-}
-
+/* Texto primario corporativo */
 .text-primary {
-  color: #00384A !important;
+    color: var(--primary-color) !important;
 }
 
-.border-primary {
-  border-color: #00384A !important;
+/* Botones Primarios */
+.btn-primary {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    color: #ffffff !important;
 }
 
-.badge.bg-primary {
-  background-color: #00384A !important;
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+    background-color: var(--primary-dark) !important;
+    border-color: var(--primary-dark) !important;
+    color: #ffffff !important;
 }
 
-.alert-primary {
-  background-color: #cce5ed;
-  border-color: #99cbd9;
-  color: #001a25;
-}
-
-/* Card headers con bg-primary */
+/* Cabeceras de Cards */
 .card-header.bg-primary {
-  background-color: #00384A !important;
+    background-color: var(--primary-color) !important;
 }
 
-/* Modal headers con bg-primary */
-.modal-header.bg-primary {
-  background-color: #00384A !important;
+/* Tablas DataTables y Bootstrap */
+.table-info,
+.table-info>th,
+.table-info>td {
+    background-color: rgba(0, 56, 74, 0.1) !important;
+    color: var(--primary-color) !important;
 }
 
-/* Table headers */
-.table-primary {
-  --bs-table-bg: #cce5ed;
-  --bs-table-striped-bg: #c0dce6;
-  --bs-table-striped-color: #000;
-  --bs-table-active-bg: #b3d3df;
-  --bs-table-active-color: #000;
-  --bs-table-hover-bg: #b9d8e2;
-  --bs-table-hover-color: #000;
-  color: #000;
-  border-color: #b3d3df;
+.table thead.table-info th {
+    background-color: var(--primary-color) !important;
+    color: #ffffff !important;
+    border-color: var(--primary-dark) !important;
 }
 
-/* Links */
-.link-primary {
-  color: #00384A !important;
+.table-premium thead th {
+    background-color: var(--primary-color) !important;
+    color: #ffffff !important;
 }
 
-.link-primary:hover,
-.link-primary:focus {
-  color: #002838 !important;
+/* Badges y otros elementos de UI */
+.badge.bg-primary {
+    background-color: var(--primary-color) !important;
 }
 
-/* Progress bars */
-.progress-bar {
-  background-color: #00384A;
+/* ============================================================
+   ESTILOS ESPECÍFICOS DEL LAYOUT (Complemento a layoutView.css)
+   ============================================================ */
+
+/* Asegurar que el sidebar use el gradiente basado en el nuevo color */
+.sidebar {
+    background: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-dark) 100%) !important;
 }
 
-/* Form controls focus */
-.form-control:focus,
-.form-select:focus {
-  border-color: #00384A;
-  box-shadow: 0 0 0 0.25rem rgba(0, 56, 74, 0.25);
+/* Logo icon color */
+.logo-container i {
+    color: var(--accent-color) !important;
 }
 
-/* Pagination */
-.pagination .page-link {
-  color: #00384A;
+/* User avatar */
+.user-avatar {
+    background: var(--accent-color) !important;
 }
 
-.pagination .page-item.active .page-link {
-  background-color: #00384A;
-  border-color: #00384A;
+/* Título de la página en el topbar */
+.page-title {
+    color: var(--primary-color) !important;
 }
 
-.pagination .page-link:hover {
-  color: #002838;
+/* Botones tipo "Info" (usados para Crear) - Ajuste sutil para armonía */
+.btn-info {
+    background-color: #007791 !important;
+    /* Un azul petróleo que combina con el primario */
+    border-color: #007791 !important;
+    color: white !important;
+}
+
+.btn-info:hover {
+    background-color: #005f73 !important;
+    border-color: #005f73 !important;
 }

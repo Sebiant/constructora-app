@@ -96,6 +96,58 @@ try {
             }
             break;
 
+        case 'update':
+            try {
+                $data = json_decode(file_get_contents('php://input'), true);
+                if (empty($data['id_presupuesto'])) {
+                    echo json_encode(['success' => false, 'error' => 'ID de presupuesto requerido']);
+                    exit;
+                }
+
+                $sql = "UPDATE presupuestos SET 
+                        codigo = :codigo, 
+                        nombre = :nombre, 
+                        fecha_creacion = :fecha_creacion, 
+                        monto_total = :monto_total, 
+                        observaciones = :observaciones, 
+                        fupdate = NOW() 
+                        WHERE id_presupuesto = :id_presupuesto";
+                
+                $stmt = $connection->prepare($sql);
+                $result = $stmt->execute([
+                    'id_presupuesto' => (int)$data['id_presupuesto'],
+                    'codigo' => $data['codigo'],
+                    'nombre' => $data['nombre'],
+                    'fecha_creacion' => $data['fecha_creacion'],
+                    'monto_total' => (float)$data['monto_total'],
+                    'observaciones' => $data['observaciones'] ?? ''
+                ]);
+
+                echo json_encode(['success' => $result, 'message' => $result ? 'Actualizado' : 'Error']);
+            } catch (\Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
+        case 'delete':
+            try {
+                $id = $_POST['id_presupuesto'] ?? $_GET['id_presupuesto'] ?? null;
+                if (!$id) {
+                    echo json_encode(['success' => false, 'error' => 'ID requerido']);
+                    exit;
+                }
+
+                // Borrado lógico
+                $sql = "UPDATE presupuestos SET idestado = 0, fupdate = NOW() WHERE id_presupuesto = ?";
+                $stmt = $connection->prepare($sql);
+                $result = $stmt->execute([$id]);
+
+                echo json_encode(['success' => $result, 'message' => $result ? 'Eliminado' : 'Error']);
+            } catch (\Exception $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
         case 'getAll':
             $useCase = new GetAllPresupuestos($repo);
             $presupuestos = $useCase->execute();

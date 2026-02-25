@@ -1439,6 +1439,8 @@ const OrdenesCompraUI = (() => {
 
   return {
     init,
+    cargarOrdenes,
+    cargarProveedores,
     verDetalle,
     editarOrden,
     convertirEnCompra,

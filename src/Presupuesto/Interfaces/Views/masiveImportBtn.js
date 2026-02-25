@@ -37,6 +37,7 @@ function mostrarModalCrearPresupuesto() {
     formulario[0].reset();
     console.log("Formulario reseteado");
 
+
     // Establecer fecha actual por defecto
     const hoy = new Date().toISOString().split('T')[0];
     $("#fecha_creacion").val(hoy);

@@ -13,8 +13,7 @@
         'ordenesCompra': '/sgigescomnew/componentes/ordenesCompraComponent.php',
         'compras': '/sgigescomnew/componentes/comprasComponent.php',
         'pedido': '/sgigescomnew/componentes/pedidoComponent.php',
-        'importMasiva': '/sgigescomnew/componentes/ImportMasiveBtnComponent.php',
-        'presupuesto': '/sgigescomnew/src/Presupuesto/Interfaces/Views/presupuestoView.php'
+        'importMasiva': '/sgigescomnew/componentes/ImportMasiveBtnComponent.php'
     };
 
     // Component titles
@@ -28,8 +27,7 @@
         'ordenesCompra': 'Órdenes de Compra',
         'compras': 'Compras',
         'pedido': 'Pedidos del Proyecto',
-        'importMasiva': 'Importación Masiva',
-        'presupuesto': 'Presupuesto'
+        'importMasiva': 'Importación Masiva'
     };
 
     // Current project state
@@ -60,27 +58,27 @@
             currentProjectNameElement: !!document.getElementById('currentProjectName'),
             projectNameFromSession: sessionStorage.getItem('selectedProjectName')
         });
-        
+
         const projectName = sessionStorage.getItem('selectedProjectName');
-        
+
         if (!projectName) {
             console.warn('[Layout] No project name found in session');
             return;
         }
-        
+
         // Try multiple times to find the element
         let attempts = 0;
         const maxAttempts = 10;
-        
+
         const tryUpdateName = () => {
             attempts++;
             const projectNameElement = document.getElementById('currentProjectName');
-            
+
             if (projectNameElement) {
                 projectNameElement.textContent = projectName;
                 console.log('[Layout] Project name updated in header:', projectName);
                 console.log('[Layout] Element found after', attempts, 'attempts');
-                
+
                 // Show indicator
                 const indicator = document.getElementById('projectIndicator');
                 if (indicator) {
@@ -89,10 +87,10 @@
                         indicator.style.display = 'none';
                     }, 3000); // Hide after 3 seconds
                 }
-                
+
                 // Also update topbar project name (direct span, no container)
                 const topbarProjectName = document.getElementById('topbarProjectName');
-                
+
                 if (topbarProjectName) {
                     topbarProjectName.style.display = 'inline';
                     topbarProjectName.textContent = projectName;
@@ -100,10 +98,10 @@
                 } else {
                     console.warn('[Layout] Topbar project element not found');
                 }
-                
+
                 return;
             }
-            
+
             if (attempts < maxAttempts) {
                 console.log('[Layout] Element not found, retrying...', attempts);
                 setTimeout(tryUpdateName, 100);
@@ -112,14 +110,14 @@
                 console.log('[Layout] Available elements:', document.querySelectorAll('[id*="project"], [id*="Project"]'));
             }
         };
-        
+
         tryUpdateName();
     }
 
     // Function to switch to project navigation
     function switchToProjectNav(projectId, projectName) {
         console.log('[Layout] switchToProjectNav called:', { projectId, projectName });
-        
+
         currentProject = { id: projectId, name: projectName };
         isInProjectMode = true;
 
@@ -131,16 +129,16 @@
         const updateNameWithRetry = () => {
             let attempts = 0;
             const maxAttempts = 20;
-            
+
             const tryUpdate = () => {
                 attempts++;
                 const projectNameElement = document.getElementById('currentProjectName');
-                
+
                 if (projectNameElement) {
                     projectNameElement.textContent = projectName;
                     console.log('[Layout] Project name updated in header:', projectName);
                     console.log('[Layout] Element found after', attempts, 'attempts');
-                    
+
                     // Show indicator
                     const indicator = document.getElementById('projectIndicator');
                     if (indicator) {
@@ -149,11 +147,11 @@
                             indicator.style.display = 'none';
                         }, 3000); // Hide after 3 seconds
                     }
-                    
+
                     // Also update topbar project name
                     const topbarProjectInfo = document.getElementById('topbarProjectInfo');
                     const topbarProjectName = document.getElementById('topbarProjectName');
-                    
+
                     if (topbarProjectInfo && topbarProjectName) {
                         topbarProjectInfo.style.display = 'flex';
                         topbarProjectName.textContent = projectName;
@@ -161,20 +159,20 @@
                     } else {
                         console.warn('[Layout] Topbar project elements not found');
                     }
-                    
+
                     return;
                 }
-                
+
                 if (attempts < maxAttempts) {
                     setTimeout(tryUpdate, 50);
                 } else {
                     console.error('[Layout] Could not find currentProjectName element after', maxAttempts, 'attempts');
                 }
             };
-            
+
             tryUpdate();
         };
-        
+
         updateNameWithRetry();
 
         // Store in session
@@ -249,26 +247,30 @@
     // Initialize component-specific functionality
     function initializeComponent(componentName) {
         console.log(`[Layout] Initializing component: ${componentName}`);
-        
+
         switch (componentName) {
             case 'pedidosAdmin':
                 // Initialize pedidosAdmin if functions are available
                 setTimeout(() => {
                     console.log('[Layout] Initializing pedidosAdmin...');
-                    if (typeof OrdenesCompraUI !== 'undefined' && typeof OrdenesCompraUI.init === 'function') {
-                        console.log('[Layout] Calling OrdenesCompraUI.init()...');
-                        OrdenesCompraUI.init();
+                    if (typeof initPedidosAdmin === 'function') {
+                        console.log('[Layout] Calling initPedidosAdmin()...');
+                        initPedidosAdmin();
                     } else {
-                        console.warn('[Layout] OrdenesCompraUI.init not found');
+                        console.warn('[Layout] initPedidosAdmin function not found');
                     }
                 }, 200);
                 break;
 
             case 'ordenesCompra':
-                // Initialize ordenesCompra if functions are available
+                // Initialize ordenesCompra if module is available
                 setTimeout(() => {
                     console.log('[Layout] Initializing ordenesCompra...');
-                    if (typeof cargarOrdenes === 'function') cargarOrdenes();
+                    if (typeof OrdenesCompraUI !== 'undefined' && typeof OrdenesCompraUI.init === 'function') {
+                        OrdenesCompraUI.init();
+                    } else if (typeof cargarOrdenes === 'function') {
+                        cargarOrdenes();
+                    }
                 }, 200);
                 break;
 
@@ -287,7 +289,7 @@
                 setTimeout(() => {
                     console.log('[Layout] Checking for ItemsUI...', typeof ItemsUI);
                     console.log('[Layout] Checking for init function...', typeof init);
-                    
+
                     if (typeof ItemsUI !== 'undefined' && typeof ItemsUI.init === 'function') {
                         console.log('[Layout] Initializing ItemsUI...');
                         ItemsUI.init();
@@ -323,14 +325,14 @@
                 // Initialize import masiva if function is available
                 setTimeout(() => {
                     console.log('[Layout] Checking for import masiva functions...');
-                    
+
                     // Check if we're in project mode
                     const selectedProjectId = sessionStorage.getItem('selectedProjectId');
                     const isProjectMode = sessionStorage.getItem('isInProjectMode') === 'true';
-                    
+
                     if (isProjectMode && selectedProjectId) {
                         console.log('[Layout] Import masiva in project mode, initializing...');
-                        
+
                         // Set project directly without loading all projects
                         const $projectSelect = $('#id_proyecto');
                         if ($projectSelect.length > 0) {
@@ -343,7 +345,7 @@
                             $projectSelect.prop('disabled', true);
                             $projectSelect.addClass('project-locked');
                             $projectSelect.trigger('change');
-                            
+
                             console.log('[Layout] Project set immediately for import masiva:', selectedProjectId);
                         }
                     } else {
@@ -356,14 +358,14 @@
                 // Initialize proyectos DataTable if function is available
                 setTimeout(() => {
                     console.log('[Layout] Initializing proyectos component...');
-                    
+
                     if (typeof initProyectosDataTable === 'function') {
                         console.log('[Layout] Calling initProyectosDataTable...');
                         initProyectosDataTable();
                     } else {
                         console.warn('[Layout] initProyectosDataTable not found');
                     }
-                    
+
                     // Also initialize inspection buttons with longer delay
                     setTimeout(() => {
                         console.log('[Layout] Checking for initializeInspectionButtons...', typeof initializeInspectionButtons);
@@ -380,14 +382,14 @@
             case 'clientes':
                 // Initialize clientes if function is available
                 setTimeout(() => {
-                    if (typeof cargarClientes === 'function') cargarClientes();
+                    if (typeof initClientesDataTable === 'function') initClientesDataTable();
                 }, 200);
                 break;
 
             case 'provedores':
                 // Initialize provedores if function is available
                 setTimeout(() => {
-                    if (typeof cargarProveedores === 'function') cargarProveedores();
+                    if (typeof initProvedoresDataTable === 'function') initProvedoresDataTable();
                 }, 200);
                 break;
 
@@ -398,12 +400,13 @@
                 }, 200);
                 break;
 
-            case 'presupuesto':
-                // Initialize presupuesto if function is available
+            case 'importMasiva':
+                // Initialize combined Budget CRUD + Import component
                 setTimeout(() => {
-                    if (typeof cargarPresupuestos === 'function') cargarPresupuestos();
+                    if (typeof initPresupuestoCRUD === 'function') initPresupuestoCRUD();
                 }, 200);
                 break;
+
 
             default:
                 console.warn(`[Layout] No initialization logic for component: ${componentName}`);
@@ -633,7 +636,7 @@
     // Update active navigation states
     function updateActiveNavigation(componentName) {
         console.log('[Layout] Updating active navigation for:', componentName);
-        
+
         // Update main navigation
         navItems.forEach(nav => {
             nav.classList.remove('active');
@@ -711,13 +714,13 @@
             e.preventDefault();
             const component = this.getAttribute('data-component');
             console.log('[Layout] Project nav item clicked:', component);
-            
+
             if (component) {
                 // Remove active class from all project nav items
                 projectNavItems.forEach(nav => nav.classList.remove('active'));
                 // Add active class to clicked item
                 this.classList.add('active');
-                
+
                 // Load the component
                 loadComponent(component);
             }
@@ -730,13 +733,13 @@
             e.preventDefault();
             const component = this.getAttribute('data-component');
             console.log('[Layout] Main nav item clicked:', component);
-            
+
             if (component) {
                 // Remove active class from all main nav items
                 navItems.forEach(nav => nav.classList.remove('active'));
                 // Add active class to clicked item
                 this.classList.add('active');
-                
+
                 // Load the component
                 loadComponent(component);
             }
@@ -747,12 +750,12 @@
     function initializeLayout() {
         console.log('[Layout] Initializing layout...');
         console.log('[Layout] DOM ready, checking elements...');
-        
+
         // Wait a bit for DOM to be fully ready
         setTimeout(() => {
             // Update project name if in project mode
             updateProjectNameInHeader();
-            
+
             // Check if we should start in project mode
             const savedMode = sessionStorage.getItem('isInProjectMode');
             const savedProject = sessionStorage.getItem('currentProject');

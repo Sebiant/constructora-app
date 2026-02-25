@@ -19,45 +19,72 @@ let filtrosActuales = {
 // ============================================
 
 /**
- * Inicializa la interfaz al cargar la página
+ * Inicializa la interfaz de administración de pedidos
  */
-document.addEventListener('DOMContentLoaded', function () {
+function initPedidosAdmin() {
+    console.log('[pedidosAdmin] Inicializando interfaz...');
+
+    // Cargar datos iniciales
     cargarProyectos();
     cargarEstadisticas();
     cargarPedidos();
 
-    // Agregar event listeners para que los filtros funcionen automáticamente
-    document.getElementById('filterProyecto').addEventListener('change', aplicarFiltros);
-    document.getElementById('filterEstado').addEventListener('change', aplicarFiltros);
-    document.getElementById('filterFechaDesde').addEventListener('change', aplicarFiltros);
-    document.getElementById('filterFechaHasta').addEventListener('change', aplicarFiltros);
+    // Agregar event listeners (usando removeEventListener o verificando existencia para evitar duplicados si se recarga el componente)
+    const elements = {
+        'filterProyecto': 'change',
+        'filterEstado': 'change',
+        'filterFechaDesde': 'change',
+        'filterFechaHasta': 'change'
+    };
+
+    for (const [id, event] of Object.entries(elements)) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.removeEventListener(event, aplicarFiltros);
+            el.addEventListener(event, aplicarFiltros);
+        }
+    }
 
     // Búsqueda con Enter
-    document.getElementById('searchInput').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            aplicarFiltros();
-        }
-    });
-
-    // Búsqueda con botón y tipeo
     const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.removeEventListener('keypress', handleSearchEnter);
+        searchInput.addEventListener('keypress', handleSearchEnter);
+
+        // Búsqueda con tipeo (debounced)
+        searchInput.removeEventListener('input', handleSearchInput);
+        searchInput.addEventListener('input', handleSearchInput);
+    }
+
+    // Búsqueda con botón
     const searchButton = searchInput?.closest('.input-group')?.querySelector('button');
     if (searchButton) {
+        searchButton.removeEventListener('click', aplicarFiltros);
         searchButton.addEventListener('click', aplicarFiltros);
     }
+}
 
-    let searchTimeout = null;
-    if (searchInput) {
-        searchInput.addEventListener('input', function () {
-            if (searchTimeout) {
-                clearTimeout(searchTimeout);
-            }
-            searchTimeout = setTimeout(() => {
-                aplicarFiltros();
-            }, 350);
-        });
+function handleSearchEnter(e) {
+    if (e.key === 'Enter') {
+        aplicarFiltros();
     }
-});
+}
+
+let searchTimeout = null;
+function handleSearchInput() {
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+    searchTimeout = setTimeout(() => {
+        aplicarFiltros();
+    }, 350);
+}
+
+// Inicializa al cargar el documento (para carga directa)
+document.addEventListener('DOMContentLoaded', initPedidosAdmin);
+
+// Exponer globalmente
+window.initPedidosAdmin = initPedidosAdmin;
 
 /**
  * Carga la lista de proyectos para el filtro
@@ -300,11 +327,11 @@ function renderizarDetallePedido(pedido) {
         const cantidadEnOrden = parseFloat(comp.cantidad_en_orden) || 0;
         const cantidadComprada = parseFloat(comp.cantidad_comprada) || 0;
         const numerosOrden = comp.numeros_orden || '';
-        
+
         // Determinar estado de compra
         let estadoCompra = '';
         let estadoBadge = '';
-        
+
         if (cantidadComprada >= cantidadPedida) {
             estadoCompra = 'Completado';
             estadoBadge = '<span class="badge bg-success">Completado</span>';
@@ -318,7 +345,7 @@ function renderizarDetallePedido(pedido) {
             estadoCompra = 'Pendiente de Compra';
             estadoBadge = '<span class="badge bg-secondary">Pendiente de Compra</span>';
         }
-        
+
         return `
         <tr>
             <td>${comp.descripcion}</td>
@@ -329,13 +356,13 @@ function renderizarDetallePedido(pedido) {
             <td class="text-center">${estadoBadge}</td>
             <td class="text-center">
                 ${cantidadComprada > 0 ? cantidadComprada.toFixed(4) : '-'}
-                ${cantidadComprada > 0 && cantidadComprada < cantidadPedida ? 
-                    `<br><small class="text-muted">(${((cantidadComprada/cantidadPedida)*100).toFixed(1)}%)</small>` : ''}
+                ${cantidadComprada > 0 && cantidadComprada < cantidadPedida ?
+                `<br><small class="text-muted">(${((cantidadComprada / cantidadPedida) * 100).toFixed(1)}%)</small>` : ''}
             </td>
             <td class="text-center">
-                ${numerosOrden ? 
-                    `<small class="text-info">${numerosOrden}</small>` : 
-                    '<span class="text-muted">-</span>'}
+                ${numerosOrden ?
+                `<small class="text-info">${numerosOrden}</small>` :
+                '<span class="text-muted">-</span>'}
             </td>
             <td class="text-center">
                 ${esExcedente ? '<span class="badge bg-warning">Sí</span>' : '<span class="badge bg-success">No</span>'}

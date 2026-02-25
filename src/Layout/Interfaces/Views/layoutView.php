@@ -1,3 +1,14 @@
+<?php
+session_start();
+if (!isset($_SESSION['seguridad'])) {
+    header("Location: /sgigescomnew/src/Auth/Interfaces/Views/loginView.php");
+    exit;
+}
+$userSession = json_decode($_SESSION['seguridad'], true) ?: [];
+$userName = ($userSession['u_nombre'] ?? '') . ' ' . ($userSession['u_apellido'] ?? '');
+$userName = trim($userName) ?: ($userSession['u_login'] ?? 'Usuario');
+$userRole = (isset($userSession['u_perfil']) && $userSession['u_perfil'] == 1) ? 'Administrador' : 'Usuario';
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -122,10 +133,6 @@
                             <i class="bi bi-file-earmark-arrow-up"></i>
                             <span class="nav-text">Importación Masiva</span>
                         </a>
-                        <a href="#" class="nav-item" data-component="presupuesto" data-project-locked="true">
-                            <i class="bi bi-calculator"></i>
-                            <span class="nav-text">Presupuesto</span>
-                        </a>
                     </div>
                 </div>
             </nav>
@@ -136,11 +143,11 @@
                         <i class="bi bi-person-circle"></i>
                     </div>
                     <div class="user-details">
-                        <span class="user-name">Usuario</span>
-                        <span class="user-role">Administrador</span>
+                        <span class="user-name"><?php echo htmlspecialchars($userName); ?></span>
+                        <span class="user-role"><?php echo htmlspecialchars($userRole); ?></span>
                     </div>
                 </div>
-                <button class="btn-logout" title="Cerrar sesión">
+                <button class="btn-logout" title="Cerrar sesión" onclick="window.location.href='/sgigescomnew/logout.php'">
                     <i class="bi bi-box-arrow-right"></i>
                 </button>
             </div>

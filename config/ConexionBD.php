@@ -1,63 +1,78 @@
 <?php
-class ConexionBD {
-    //private $host = "10.128.0.32";
-    private $host = "localhost";
 
-	
-    private $usuario = "gesconjm_mastersgi";
-    private $password = "R])z_Dt2r[*eVT4t";
-    private $baseDatos = "gesconjm_sgicontrol";
+class ConexionBD {
+    private $host;
+    private $usuario;
+    private $password;
+    private $baseDatos;
+    private $port;
     private $conexion;
     private $resultado = [];
     private $indice = 0;
     private $ultimoInsertId = null;
 
-    // Constructor: establece la conexión con la base de datos
     public function __construct() {
+        // Cargar variables de entorno si estÃ¡n disponibles
+        $this->loadEnv();
+
+        $this->host = $_ENV['DB_HOST'] ?? '127.0.0.1';
+        $this->usuario = $_ENV['DB_USERNAME'] ?? 'root';
+        $this->password = $_ENV['DB_PASSWORD'] ?? '';
+        $this->baseDatos = $_ENV['DB_DATABASE'] ?? 'gesconjm_sgicontrol';
+        $this->port = $_ENV['DB_PORT'] ?? '3306';
+
         try {
-            $dsn = "mysql:host={$this->host};dbname={$this->baseDatos};charset=utf8";
+            $dsn = "mysql:host={$this->host};port={$this->port};dbname={$this->baseDatos};charset=utf8mb4";
             $this->conexion = new PDO($dsn, $this->usuario, $this->password);
             $this->conexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch (PDOException $e) {
-            die("? Error de conexión: " . $e->getMessage());
+            // No usar die() para no romper respuestas JSON en el frontend
+            throw new Exception("Error de conexiÃ³n a la base de datos: " . $e->getMessage());
         }
     }
 
-    // Devuelve la conexión activa
+    private function loadEnv() {
+        if (empty($_ENV['DB_HOST'])) {
+            $path = __DIR__ . '/../';
+            if (file_exists($path . '.env') && file_exists($path . 'vendor/autoload.php')) {
+                require_once $path . 'vendor/autoload.php';
+                try {
+                    $dotenv = \Dotenv\Dotenv::createImmutable($path);
+                    $dotenv->safeLoad();
+                } catch (\Exception $e) {
+                    // Ignorar si falla la carga silenciosa
+                }
+            }
+        }
+    }
+
     public function obtenerConexion() {
         return $this->conexion;
     }
 
-    // Cierra la conexión
     public function cerrarConexion() {
         $this->conexion = null;
     }
 
-    // Ejecuta una consulta preparada con parámetros y guarda resultados (si hay)
     public function resolviendo_pregunta($query, $parametros = []) {
         try {
             $stmt = $this->conexion->prepare($query);
             $stmt->execute($parametros);
 
-            // Si la consulta devuelve columnas (SELECT), guarda los resultados
             $this->resultado = [];
-            while ($fila = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $this->resultado[] = $fila;
+            if ($stmt->columnCount() > 0) {
+                while ($fila = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $this->resultado[] = $fila;
+                }
             }
 
-            // Guardar el último ID insertado si aplica
             $this->ultimoInsertId = $this->conexion->lastInsertId();
-
-            // Reiniciar el índice
-            $this->indice = 0;
+            return true;
         } catch (PDOException $e) {
-            echo "? Error en consulta: " . $e->getMessage();
-            $this->resultado = [];
-            $this->ultimoInsertId = null;
+            throw new Exception("Error en la consulta: " . $e->getMessage());
         }
     }
 
-    // Devuelve el registro actual con formato similar a ->fields
     public function retornar_registro() {
         if (isset($this->resultado[$this->indice])) {
             return (object)[ 'fields' => $this->resultado[$this->indice] ];
@@ -65,31 +80,26 @@ class ConexionBD {
         return null;
     }
 
-    // Devuelve todos los resultados como array
     public function obtenerResultados() {
         return $this->resultado;
     }
 
-    // Retorna el número de registros obtenidos
     public function contar_filas() {
         return count($this->resultado);
     }
 
-    // Mueve al siguiente registro
     public function mover_registro() {
         if ($this->indice < count($this->resultado) - 1) {
             $this->indice++;
         }
     }
 
-    // Mueve al registro anterior
     public function mover_registro_atras() {
         if ($this->indice > 0) {
             $this->indice--;
         }
     }
 
-    // Obtiene el último ID insertado
     public function obtenerUltimoInsertId() {
         return $this->ultimoInsertId;
     }

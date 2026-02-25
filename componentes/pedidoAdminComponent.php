@@ -1,4 +1,5 @@
 <?php
+define('IS_COMPONENT', true);
 include $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/src/pedidosAdmin/Interfaces/Views/pedidoAdminView.php';
 ?>
 
