@@ -1,4 +1,4 @@
-<?php
+  <?php
 if (!defined('IS_COMPONENT')) {
     define('IS_COMPONENT', false);
 }
@@ -122,7 +122,7 @@ if (!IS_COMPONENT): ?>
 
 <?php if (!IS_COMPONENT): ?>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/sgigescomnew/src/Presupuesto/Interfaces/Views/presupuestoView.js"></script>
+    <script src="/sgigesconnew/src/Presupuesto/Interfaces/Views/presupuestoView.js"></script>
 </body>
 </html>
 <?php endif; ?>

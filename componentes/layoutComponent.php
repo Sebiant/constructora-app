@@ -1,4 +1,4 @@
 <?php
 // Main Layout Entry Point
-include $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/src/Layout/Interfaces/Views/layoutView.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/sgigesconnew/src/Layout/Interfaces/Views/layoutView.php';
 ?>

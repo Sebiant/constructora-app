@@ -1,4 +1,4 @@
-# Módulo de Autenticación - SGIGESCOM
+# Módulo de Autenticación - SGIGESCON
 
 ## Estructura
 
@@ -56,14 +56,14 @@ src/Auth/
 
 ### 1. Acceso al Login
 ```
-http://localhost/sgigescomnew/src/Auth/Interfaces/Views/loginView.php
+http://localhost/sgigesconnew/src/Auth/Interfaces/Views/loginView.php
 ```
 
 ### 2. Endpoints del Controlador
 
 #### Login
 ```
-POST /sgigescomnew/src/Auth/Interfaces/Controllers/AuthController.php?action=login
+POST /sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=login
 ```
 
 **Parámetros:**
@@ -76,7 +76,7 @@ POST /sgigescomnew/src/Auth/Interfaces/Controllers/AuthController.php?action=log
 {
     "success": true,
     "message": "Inicio de sesión exitoso",
-    "redirect": "/sgigescomnew/src/Layout/Interfaces/Views/layoutView.php",
+    "redirect": "/sgigesconnew/src/Layout/Interfaces/Views/layoutView.php",
     "user": {
         "id": 123,
         "login": "usuario@ejemplo.com",
@@ -89,12 +89,12 @@ POST /sgigescomnew/src/Auth/Interfaces/Controllers/AuthController.php?action=log
 
 #### Logout
 ```
-GET /sgigescomnew/src/Auth/Interfaces/Controllers/AuthController.php?action=logout
+GET /sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=logout
 ```
 
 #### Verificar Sesión
 ```
-GET /sgigescomnew/src/Auth/Interfaces/Controllers/AuthController.php?action=check
+GET /sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=check
 ```
 
 **Respuesta:**
@@ -118,7 +118,7 @@ GET /sgigescomnew/src/Auth/Interfaces/Controllers/AuthController.php?action=chec
 <?php
 session_start();
 if (!isset($_SESSION['seguridad'])) {
-    header("Location: /sgigescomnew/src/Auth/Interfaces/Views/loginView.php");
+    header("Location: /sgigesconnew/src/Auth/Interfaces/Views/loginView.php");
     exit;
 }
 ?>
@@ -136,7 +136,7 @@ $userProfile = $sessionData['u_perfil'];
 
 ### 3. Logout desde el layout
 ```html
-<a href="/sgigescomnew/src/Auth/Interfaces/Controllers/AuthController.php?action=logout" class="btn-logout">
+<a href="/sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=logout" class="btn-logout">
     <i class="bi bi-box-arrow-right"></i>
     Cerrar Sesión
 </a>

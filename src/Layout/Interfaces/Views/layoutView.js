@@ -4,16 +4,16 @@
 
     // Component mapping
     const componentMap = {
-        'proyectos': '/sgigescomnew/componentes/proyectosComponent.php',
-        'items': '/sgigescomnew/componentes/itemsComponent.php',
-        'capitulos': '/sgigescomnew/componentes/capitulosComponent.php',
-        'clientes': '/sgigescomnew/componentes/clientesComponent.php',
-        'provedores': '/sgigescomnew/componentes/provedoresComponent.php',
-        'pedidosAdmin': '/sgigescomnew/componentes/pedidoAdminComponent.php',
-        'ordenesCompra': '/sgigescomnew/componentes/ordenesCompraComponent.php',
-        'compras': '/sgigescomnew/componentes/comprasComponent.php',
-        'pedido': '/sgigescomnew/componentes/pedidoComponent.php',
-        'importMasiva': '/sgigescomnew/componentes/ImportMasiveBtnComponent.php'
+        'proyectos': '/sgigesconnew/componentes/proyectosComponent.php',
+        'items': '/sgigesconnew/componentes/itemsComponent.php',
+        'capitulos': '/sgigesconnew/componentes/capitulosComponent.php',
+        'clientes': '/sgigesconnew/componentes/clientesComponent.php',
+        'provedores': '/sgigesconnew/componentes/provedoresComponent.php',
+        'pedidosAdmin': '/sgigesconnew/componentes/pedidoAdminComponent.php',
+        'ordenesCompra': '/sgigesconnew/componentes/ordenesCompraComponent.php',
+        'compras': '/sgigesconnew/componentes/comprasComponent.php',
+        'pedido': '/sgigesconnew/componentes/pedidoComponent.php',
+        'importMasiva': '/sgigesconnew/componentes/ImportMasiveBtnComponent.php'
     };
 
     // Component titles
@@ -185,14 +185,14 @@
 
         // Update active nav items - NO agregar listeners aquí (ya están registrados al inicio)
 
-        // Automatically load Capitulos component
-        loadComponent('capitulos');
+        // Automatically load Pedido component
+        loadComponent('pedido');
 
-        // Set Capitulos as active in project nav
+        // Set Pedido as active in project nav
         projectNavItems.forEach(nav => nav.classList.remove('active'));
-        const capitulosNav = document.querySelector('#projectNav .nav-item[data-component="capitulos"]');
-        if (capitulosNav) {
-            capitulosNav.classList.add('active');
+        const pedidoNav = document.querySelector('#projectNav .nav-item[data-component="pedido"]');
+        if (pedidoNav) {
+            pedidoNav.classList.add('active');
         }
 
         // Trigger event
@@ -574,9 +574,9 @@
             window.history.pushState({ component: componentName }, '', newUrl);
         }
 
-        // If dashboard, show default content
-        if (!componentPath) {
-            showDashboard();
+        // If dashboard or redirect, load proyectos
+        if (!componentPath || componentName === 'dashboard') {
+            loadComponent('proyectos');
             return;
         }
 
@@ -695,7 +695,7 @@
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function () {
             if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
-                window.location.href = '/sgigescomnew/logout.php';
+                window.location.href = '/sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=logout';
             }
         });
     }
@@ -775,7 +775,7 @@
             if (component && !isInProjectMode) {
                 loadComponent(component);
             } else if (!isInProjectMode) {
-                showDashboard();
+                loadComponent('proyectos');
             }
         }, 100); // Small delay to ensure DOM is ready
     }

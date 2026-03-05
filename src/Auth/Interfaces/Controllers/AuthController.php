@@ -74,7 +74,7 @@ class AuthController
             echo json_encode([
                 'success' => true,
                 'message' => 'Inicio de sesión exitoso',
-                'redirect' => '/sgigescomnew/src/Layout/Interfaces/Views/layoutView.php',
+                'redirect' => '/sgigesconnew/src/Layout/Interfaces/Views/layoutView.php',
                 'user' => [
                     'id' => $userData['u_id'],
                     'login' => $userData['u_login'],
@@ -94,8 +94,6 @@ class AuthController
     
     public function logout()
     {
-        session_start();
-        
         // Obtener ID del usuario antes de destruir la sesión
         $userId = null;
         if (isset($_SESSION['seguridad'])) {
@@ -118,7 +116,7 @@ class AuthController
         }
         
         // Redirigir al login
-        header("Location: /sgigescomnew/src/Auth/Interfaces/Views/loginView.php");
+        header("Location: /sgigesconnew/src/Auth/Interfaces/Views/loginView.php");
         exit;
     }
     
@@ -155,7 +153,7 @@ switch ($action) {
         $controller->checkSession();
         break;
     default:
-        header('Location: /sgigescomnew/src/Auth/Interfaces/Views/loginView.php');
+        header('Location: /sgigesconnew/src/Auth/Interfaces/Views/loginView.php');
         exit;
 }
 ?>

@@ -1,6 +1,6 @@
 <?php
 define('IS_COMPONENT', true);
-include $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/src/pedidosAdmin/Interfaces/Views/pedidoAdminView.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/sgigesconnew/src/pedidosAdmin/Interfaces/Views/pedidoAdminView.php';
 ?>
 
-<script src="/sgigescomnew/src/pedidosAdmin/Interfaces/Views/pedidoAdminView.js"></script>
+<script src="/sgigesconnew/src/pedidosAdmin/Interfaces/Views/pedidoAdminView.js"></script>

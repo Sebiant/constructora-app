@@ -126,11 +126,11 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
 <script>
     // Solo definir si no existe ya (evita conflicto al recargar)
     if (typeof API_PROYECTOS === 'undefined') {
-        var API_PROYECTOS = '/sgigescomnew/src/Proyectos/Interfaces/ProyectoController.php';
+        var API_PROYECTOS = '/sgigesconnew/src/Proyectos/Interfaces/ProyectoController.php';
         console.log('Ruta API:', API_PROYECTOS);
     }
     // Inicializar DataTable cada vez que el componente se carga (funciona en cargas AJAX repetidas)
     initProyectosDataTable();
 </script>
 
-<script src="/sgigescomnew/src/Proyectos/Interfaces/Views/proyectosInspection.js"></script>
+<script src="/sgigesconnew/src/Proyectos/Interfaces/Views/proyectosInspection.js"></script>

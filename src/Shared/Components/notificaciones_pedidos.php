@@ -3,7 +3,7 @@
  * Componente de notificaciones para pedidos aprobados sin orden de compra
  */
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/config/database.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigesconnew/config/database.php';
 
 try {
     $db = new Database();
@@ -304,7 +304,7 @@ if ($totalPedidos > 0): ?>
                             <span class="pedido-total">$<?php echo number_format($pedido['total'], 2, ',', '.'); ?></span>
                         </div>
                         <div class="pedido-acciones">
-                            <a href="/sgigescomnew/src/OrdenesCompra/Interfaces/Views/ordenesCompraView.php?action=nueva&id_pedido=<?php echo $pedido['id_pedido']; ?>" 
+                            <a href="/sgigesconnew/src/OrdenesCompra/Interfaces/Views/ordenesCompraView.php?action=nueva&id_pedido=<?php echo $pedido['id_pedido']; ?>" 
                                class="btn-crear-orden-individual"
                                onclick="event.preventDefault(); console.log('🚀 Botón de notificación presionado para pedido #<?php echo $pedido['id_pedido']; ?>'); 
                                        // Abrir modal y autollenar con el pedido

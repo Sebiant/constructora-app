@@ -2,7 +2,7 @@
 // Este archivo contiene la estructura básica para conectar con el backend
 
 // Configuración
-const API_PEDIDOS = '/sgigescomnew/src/pedidosAdmin/Interfaces/PedidosController.php';
+const API_PEDIDOS = '/sgigesconnew/src/pedidosAdmin/Interfaces/PedidosController.php';
 
 // Variables globales
 let pedidoActual = null;

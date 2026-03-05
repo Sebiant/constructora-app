@@ -1,5 +1,5 @@
 <?php
-include $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/src/Clientes/Interfaces/Views/clientesView.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/sgigesconnew/src/Clientes/Interfaces/Views/clientesView.php';
 ?>
 
-<script src="/sgigescomnew/src/Clientes/Interfaces/Views/clientesView.js"></script>
+<script src="/sgigesconnew/src/Clientes/Interfaces/Views/clientesView.js"></script>

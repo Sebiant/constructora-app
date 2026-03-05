@@ -115,5 +115,5 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
 ?>
 
 <script>
-    const API_PROVEDORES = '/sgigescomnew/src/Provedores/Interfaces/ProvedorController.php';
+    const API_PROVEDORES = '/sgigesconnew/src/Provedores/Interfaces/ProvedorController.php';
 </script>

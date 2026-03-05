@@ -12,7 +12,7 @@ header('Access-Control-Allow-Headers: Content-Type');
 // Capturar cualquier salida antes de JSON
 ob_start();
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/config/database.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigesconnew/config/database.php';
 
 try {
     $connection = Database::getConnection();

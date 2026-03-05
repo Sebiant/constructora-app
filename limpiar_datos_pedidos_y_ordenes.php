@@ -11,14 +11,14 @@
  * - log_recepciones (historial de recepciones)
  *
  * Uso:
- *  - Abrir en el navegador: http://localhost/sgigescomnew/limpiar_datos_pedidos_y_ordenes.php
+ *  - Abrir en el navegador: http://localhost/sgigesconnew/limpiar_datos_pedidos_y_ordenes.php
  *  - Vista previa de conteos y botón para limpiar todo.
  *  - Se puede solicitar en JSON con ?format=json
  */
 
 header('X-Content-Type-Options: nosniff');
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/config/database.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigesconnew/config/database.php';
 
 function getPDO() {
     $db = new Database();

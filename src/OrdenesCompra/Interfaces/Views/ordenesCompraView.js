@@ -12,7 +12,7 @@ const OrdenesCompraUI = (() => {
     inicializado: false
   };
 
-  const API_ORDENES = '/sgigescomnew/src/OrdenesCompra/Interfaces/OrdenesCompraController.php';
+  const API_ORDENES = '/sgigesconnew/src/OrdenesCompra/Interfaces/OrdenesCompraController.php';
 
   const selectores = {
     tablaOrdenes: '#tablaOrdenesBody',
@@ -411,7 +411,7 @@ const OrdenesCompraUI = (() => {
                    data-cant-comprar="${cantComprar}"
                    data-desperdicio="${desperdicio}"
                    ${cantComprar <= 0 ? 'disabled' : ''}
-                   onchange="OrdenesCompraUI.actualizarProductoSeleccionado(${primerId}, this)">
+                   onchange="if(this.checked && parseFloat(document.querySelector('.cantidad-comprar[data-id=\''+this.dataset.id+'\']').value) <= 0) { alert('No puede seleccionar un producto con cantidad cero'); this.checked = false; return; } OrdenesCompraUI.actualizarProductoSeleccionado(this.dataset.id, this)">
           </td>
           <td>
             ${escapeHtml(producto.descripcion)}
@@ -796,6 +796,19 @@ const OrdenesCompraUI = (() => {
 
     if (state.productosSeleccionados.size === 0) {
       mostrarError('Debe seleccionar al menos un producto');
+      return;
+    }
+
+    // Validar que ningún producto tenga cantidad 0
+    let hayCantidadCero = false;
+    state.productosSeleccionados.forEach(p => {
+      if (parseFloat(p.cantidad_comprar) <= 0) {
+        hayCantidadCero = true;
+      }
+    });
+
+    if (hayCantidadCero) {
+      mostrarError('No se pueden generar órdenes con productos en cantidad cero. Por favor ajuste las cantidades o desmarque los productos.');
       return;
     }
 
@@ -1296,6 +1309,8 @@ const OrdenesCompraUI = (() => {
 
     if (state.productosSeleccionados.has(String(id))) {
       const producto = state.productosSeleccionados.get(String(id));
+      // Si el valor es cero, avisar al usuario pero permitir que lo escriba 
+      // La validación final se hace al guardar
       producto.cantidad_comprar = value;
       state.productosSeleccionados.set(String(id), producto);
       actualizarTotales();

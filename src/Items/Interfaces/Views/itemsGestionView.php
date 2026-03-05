@@ -872,6 +872,6 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
-    const API_ITEMS = '/sgigescomnew/src/Items/Interfaces/ItemsController.php';
+    const API_ITEMS = '/sgigesconnew/src/Items/Interfaces/ItemsController.php';
 </script>
-<script src="/sgigescomnew/src/Items/Interfaces/Views/itemsGestionView.js"></script>
+<script src="/sgigesconnew/src/Items/Interfaces/Views/itemsGestionView.js"></script>

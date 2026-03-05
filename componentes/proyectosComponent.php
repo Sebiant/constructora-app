@@ -1,9 +1,9 @@
 <?php
-include $_SERVER['DOCUMENT_ROOT'] . '/sgigescomnew/src/Proyectos/Interfaces/Views/proyectosView.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/sgigesconnew/src/Proyectos/Interfaces/Views/proyectosView.php';
 ?>
 
-<script src="/sgigescomnew/src/Proyectos/Interfaces/Views/proyectosView.js"></script>
-<script src="/sgigescomnew/src/Proyectos/Interfaces/Views/proyectosInspection.js"></script>
+<script src="/sgigesconnew/src/Proyectos/Interfaces/Views/proyectosView.js"></script>
+<script src="/sgigesconnew/src/Proyectos/Interfaces/Views/proyectosInspection.js"></script>
 
 <style>
 .btn-inspeccionar {

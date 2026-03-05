@@ -67,20 +67,20 @@
    ESTILOS ESPECÍFICOS DEL LAYOUT (Complemento a layoutView.css)
    ============================================================ */
 
-/* Asegurar que el sidebar use el gradiente basado en el nuevo color */
-.sidebar {
+/* Asegurar que el sidebar use el diseño definido en layoutView.css */
+/* .sidebar {
     background: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-dark) 100%) !important;
-}
+} */
 
 /* Logo icon color */
-.logo-container i {
+/* .logo-container i {
     color: var(--accent-color) !important;
-}
+} */
 
 /* User avatar */
-.user-avatar {
+/* .user-avatar {
     background: var(--accent-color) !important;
-}
+} */
 
 /* Título de la página en el topbar */
 .page-title {

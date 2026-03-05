@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../Domain/Models/User.php';
 
 // Si ya está logueado, redirigir al dashboard
 if (isset($_SESSION['seguridad'])) {
-    header("Location: /sgigescomnew/src/Layout/Interfaces/Views/layoutView.php");
+    header("Location: /sgigesconnew/src/Layout/Interfaces/Views/layoutView.php");
     exit;
 }
 ?>
@@ -14,10 +14,10 @@ if (isset($_SESSION['seguridad'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - SGIGESCOM</title>
+    <title>Login - SGIGESCON</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="/sgigescomnew/src/Layout/Interfaces/Views/layoutView.css">
+    <link rel="stylesheet" href="/sgigesconnew/src/Layout/Interfaces/Views/layoutView.css">
     <style>
         :root {
             --primary-color: #005699;
@@ -168,10 +168,10 @@ if (isset($_SESSION['seguridad'])) {
 <body>
     <div class="login-card">
         <div class="login-header">
-            <div class="logo-circle">
-                <i class="bi bi-building-gear"></i>
+            <div class="logo-circle" style="background: white; padding: 10px;">
+                <img src="/sgigesconnew/public/images/logogescont.png" alt="Logo SGI" style="width: 100%; height: 100%; object-fit: contain;">
             </div>
-            <h2>SGIGESCOM</h2>
+            <h2>SGIGESCON</h2>
             <p>Sistema de Gestión Integral de Construcción</p>
         </div>
         
@@ -182,7 +182,7 @@ if (isset($_SESSION['seguridad'])) {
             </div>
         <?php endif; ?>
         
-        <form id="loginForm" method="POST" action="/sgigescomnew/src/Auth/Interfaces/Controllers/AuthController.php">
+        <form id="loginForm" method="POST" action="/sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php">
             <div class="form-floating mb-4">
                 <input type="email" class="form-control" id="u_login" name="u_login" placeholder="nombre@ejemplo.com" required>
                 <label for="u_login">Correo Electrónico</label>
@@ -210,12 +210,13 @@ if (isset($_SESSION['seguridad'])) {
         </form>
         
         <div class="footer-text">
-            &copy; 2026 Sebiant Constructora. <br> 
-            <span class="text-muted">Desarrollado con <i class="bi bi-heart-fill text-danger"></i> para la excelencia constructora.</span>
+            <div class="mb-2">
+                <img src="/sgigesconnew/public/images/logoqualitysin.png" alt="Quality Pro Software" style="height: 25px; opacity: 0.8;">
+            </div>
         </div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/sgigescomnew/src/Auth/Interfaces/Views/loginView.js"></script>
+    <script src="/sgigesconnew/src/Auth/Interfaces/Views/loginView.js"></script>
 </body>
 </html>

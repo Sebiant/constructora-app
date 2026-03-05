@@ -1,4 +1,4 @@
-const API_PRESUPUESTOS_CRUD = '/sgigescomnew/src/Presupuesto/Interfaces/PresupuestoController.php';
+const API_PRESUPUESTOS_CRUD = '/sgigesconnew/src/Presupuesto/Interfaces/PresupuestoController.php';
 let dataTablePresupuestos = null;
 
 function initPresupuestoCRUD() {
