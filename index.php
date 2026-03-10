@@ -10,5 +10,5 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Include the layout
-include $_SERVER['DOCUMENT_ROOT'] . '/sgigesconnew/src/Layout/Interfaces/Views/layoutView.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/sgigescon/src/Layout/Interfaces/Views/layoutView.php';
 ?>

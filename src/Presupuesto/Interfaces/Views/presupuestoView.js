@@ -1,4 +1,4 @@
-const API_PRESUPUESTOS_CRUD = '/sgigesconnew/src/Presupuesto/Interfaces/PresupuestoController.php';
+﻿const API_PRESUPUESTOS_CRUD = '/sgigescon/src/Presupuesto/Interfaces/PresupuestoController.php';
 let dataTablePresupuestos = null;
 
 function initPresupuestoCRUD() {
@@ -127,28 +127,28 @@ function guardarPresupuestoCRUD() {
         contentType: "application/json",
         success: function (res) {
             if (res.success) {
-                Swal.fire('Éxito', id ? 'Presupuesto actualizado' : 'Presupuesto creado', 'success');
+                Swal.fire('Ã‰xito', id ? 'Presupuesto actualizado' : 'Presupuesto creado', 'success');
                 $("#modalPresupuestoCRUD").modal("hide");
                 if (dataTablePresupuestos) dataTablePresupuestos.ajax.reload();
             } else {
-                Swal.fire('Error', res.error || 'Ocurrió un error', 'error');
+                Swal.fire('Error', res.error || 'OcurriÃ³ un error', 'error');
             }
         },
         error: function (xhr) {
-            Swal.fire('Error', 'Error de conexión con el servidor', 'error');
+            Swal.fire('Error', 'Error de conexiÃ³n con el servidor', 'error');
         }
     });
 }
 
 function eliminarPresupuestoCRUD(id) {
     Swal.fire({
-        title: '¿Está seguro?',
-        text: "El presupuesto se ocultará de la lista.",
+        title: 'Â¿EstÃ¡ seguro?',
+        text: "El presupuesto se ocultarÃ¡ de la lista.",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
         cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sí, eliminar',
+        confirmButtonText: 'SÃ­, eliminar',
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {

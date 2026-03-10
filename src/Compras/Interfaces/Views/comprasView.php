@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 include_once __DIR__ . '/../../../Shared/Components/header.php';
 ?>
 
@@ -180,5 +180,5 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
 ?>
 
 <script>
-  const API_COMPRAS = '/sgigesconnew/src/Compras/Interfaces/ComprasController.php';
+  const API_COMPRAS = '/sgigescon/src/Compras/Interfaces/ComprasController.php';
 </script>

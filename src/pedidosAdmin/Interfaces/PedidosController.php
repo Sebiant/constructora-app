@@ -1,7 +1,7 @@
-<?php
+﻿<?php
 /**
  * PedidosController.php
- * Controlador para la administración de pedidos
+ * Controlador para la administraciÃ³n de pedidos
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -9,7 +9,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigesconnew/config/database.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigescon/config/database.php';
 
 try {
     $db = new Database();
@@ -62,12 +62,12 @@ try {
     switch ($action) {
         
         // ============================================
-        // ENDPOINTS PARA ADMINISTRACIÓN DE PEDIDOS
+        // ENDPOINTS PARA ADMINISTRACIÃ“N DE PEDIDOS
         // ============================================
 
         case 'getAllPedidosAdmin':
             try {
-                // Obtener parámetros de filtrado
+                // Obtener parÃ¡metros de filtrado
                 $proyectoId = $_GET['proyecto'] ?? '';
                 $estado = $_GET['estado'] ?? '';
                 $fechaDesde = $_GET['fechaDesde'] ?? '';
@@ -137,7 +137,7 @@ try {
                 $stmt->execute($params);
                 $pedidos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-                // Contar total de pedidos (sin paginación)
+                // Contar total de pedidos (sin paginaciÃ³n)
                 $sqlCount = "SELECT COUNT(DISTINCT p.id_pedido) as total
                              FROM pedidos p
                              INNER JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
@@ -193,7 +193,7 @@ try {
 
         case 'getEstadisticasPedidos':
             try {
-                // Estadísticas generales
+                // EstadÃ­sticas generales
                 $sql = "SELECT 
                             COUNT(*) as total,
                             SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) as pendientes,
@@ -226,7 +226,7 @@ try {
                     throw new \Exception('ID de pedido requerido');
                 }
 
-                // Obtener información del pedido
+                // Obtener informaciÃ³n del pedido
                 $sql = "SELECT 
                             p.id_pedido,
                             p.fecha_pedido,
@@ -267,7 +267,7 @@ try {
                                     m.cod_material AS codigo_material_extra,
                                     CAST(m.nombremat AS CHAR) AS nombre_material_extra,
                                     
-                                    -- Información de estado de compra/orden
+                                    -- InformaciÃ³n de estado de compra/orden
                                     COALESCE((
                                         SELECT SUM(ocd.cantidad_solicitada)
                                         FROM ordenes_compra_detalle ocd
@@ -439,7 +439,7 @@ try {
             http_response_code(404);
             echo json_encode([
                 'success' => false,
-                'error' => 'Acción no válida',
+                'error' => 'AcciÃ³n no vÃ¡lida',
                 'action_received' => $action
             ]);
             break;

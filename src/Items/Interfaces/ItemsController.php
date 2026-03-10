@@ -62,6 +62,156 @@ try {
             ]);
             break;
 
+        case 'previewImportRecursosMasivo':
+            if (!isset($_FILES['archivo_excel']) || $_FILES['archivo_excel']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('No se recibió el archivo Excel o hubo un error en la carga.');
+            }
+
+            $rutaTmp = $_FILES['archivo_excel']['tmp_name'];
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($rutaTmp);
+            $hoja = $spreadsheet->getActiveSheet();
+            $rows = $hoja->toArray();
+
+            if (empty($rows) || count($rows) < 2) {
+                throw new Exception('El archivo no contiene datos para importar.');
+            }
+
+            $previewData = [];
+            $isHeader = true;
+            foreach ($rows as $row) {
+                if ($isHeader) {
+                    $isHeader = false;
+                    continue;
+                }
+                
+                $codigo = trim((string)($row[0] ?? ''));
+                $nombre = trim((string)($row[1] ?? ''));
+                $tipoId = (int)($row[2] ?? 0);
+                $unidadId = trim((string)($row[3] ?? ''));
+                $precio = (float)($row[4] ?? 0);
+                $minimoComercial = (float)($row[5] ?? 1.0);
+                $presentacion = trim((string)($row[6] ?? ''));
+                $estado = isset($row[7]) && $row[7] !== '' ? (int)$row[7] : 1;
+
+                if ($codigo === '' && $nombre === '') {
+                    continue;
+                }
+
+                $previewData[] = [
+                    'codigo' => $codigo,
+                    'nombre' => $nombre,
+                    'tipoId' => $tipoId,
+                    'unidadId' => $unidadId,
+                    'precio' => $precio,
+                    'minimoComercial' => $minimoComercial,
+                    'presentacion' => $presentacion,
+                    'estado' => $estado,
+                    'valido' => !($codigo === '' || $nombre === '' || !$tipoId || $unidadId === '' || $precio <= 0)
+                ];
+            }
+
+            echo json_encode([
+                'success' => true,
+                'data' => $previewData
+            ]);
+            break;
+
+        case 'importRecursosMasivo':
+            if (!isset($_FILES['archivo_excel']) || $_FILES['archivo_excel']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('No se recibió el archivo Excel o hubo un error en la carga.');
+            }
+
+            $rutaTmp = $_FILES['archivo_excel']['tmp_name'];
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($rutaTmp);
+            $hoja = $spreadsheet->getActiveSheet();
+            $rows = $hoja->toArray();
+
+            if (empty($rows) || count($rows) < 2) {
+                throw new Exception('El archivo no contiene datos para importar.');
+            }
+
+            $existingStmt = $connection->prepare("SELECT cod_material FROM materiales");
+            $existingStmt->execute();
+            $existingCodes = array_flip(array_map('strval', $existingStmt->fetchAll(PDO::FETCH_COLUMN)));
+
+            $inserted = 0;
+            $skipped = 0;
+
+            $stmtInsertMaterial = $connection->prepare(
+                "INSERT INTO materiales 
+                    (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate, minimo_comercial, presentacion_comercial)
+                 VALUES (?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?)"
+            );
+
+            $stmtInsertPrecio = $connection->prepare(
+                "INSERT INTO material_precio (id_material, valor, fecha, estado, idusuario, fechareg, fechaupdate)
+                 VALUES (?, ?, CURDATE(), 1, ?, NOW(), NOW())"
+            );
+
+            $connection->beginTransaction();
+
+            $isHeader = true;
+            foreach ($rows as $row) {
+                if ($isHeader) {
+                    $isHeader = false;
+                    continue;
+                }
+
+                $codigo = trim((string)($row[0] ?? ''));
+                $nombre = trim((string)($row[1] ?? ''));
+                $tipoId = (int)($row[2] ?? 0);
+                $unidadId = trim((string)($row[3] ?? ''));
+                $precio = (float)($row[4] ?? 0);
+                $minimoComercial = (float)($row[5] ?? 1.0);
+                $presentacion = trim((string)($row[6] ?? ''));
+                $estado = isset($row[7]) && $row[7] !== '' ? (int)$row[7] : 1;
+
+                if ($codigo === '' && $nombre === '') {
+                    continue;
+                }
+
+                if ($codigo === '' || $nombre === '' || !$tipoId || $unidadId === '' || $precio <= 0) {
+                    $skipped++;
+                    continue;
+                }
+
+                if (isset($existingCodes[$codigo])) {
+                    $skipped++;
+                    continue;
+                }
+
+                if ($minimoComercial <= 0) {
+                    $minimoComercial = 1.0;
+                }
+
+                $usuarioId = 1;
+                $stmtInsertMaterial->execute([
+                    $codigo,
+                    $nombre,
+                    $tipoId,
+                    $unidadId,
+                    $usuarioId,
+                    $estado,
+                    $minimoComercial,
+                    $presentacion
+                ]);
+
+                $materialId = (int)$connection->lastInsertId();
+                $stmtInsertPrecio->execute([$materialId, $precio, $usuarioId]);
+
+                $existingCodes[$codigo] = true;
+                $inserted++;
+            }
+
+            $connection->commit();
+
+            echo json_encode([
+                'success' => true,
+                'inserted' => $inserted,
+                'skipped' => $skipped
+            ]);
+            break;
+
         case 'createMaterial':
             $data = getJsonInput();
 
@@ -343,6 +493,13 @@ try {
                 throw new Exception('Datos insuficientes para crear el ítem.');
             }
 
+            // Validar código único
+            $stmtCheck = $connection->prepare('SELECT id_item FROM items WHERE codigo_item = ? LIMIT 1');
+            $stmtCheck->execute([$codigo]);
+            if ($stmtCheck->fetchColumn()) {
+                throw new Exception('Ya existe un ítem con el mismo código.');
+            }
+
             $sql = "INSERT INTO items 
                         (codigo_item, nombre_item, unidad, descripcion, fecha_creacion, idusuario, idestado, es_compuesto, id_item_padre, es_apu, nivel, ruta_jerarquia, id_tipo_item)
                     VALUES (?, ?, ?, ?, NOW(), ?, 1, ?, ?, ?, 1, NULL, ?)";
@@ -370,7 +527,7 @@ try {
 
         case 'updateItem':
             $data = getJsonInput();
-            $itemId = (int)($data['id_item'] ?? 0);
+            $itemId = (int)($data['id_item_main'] ?? 0);
 
             if (!$itemId) {
                 throw new Exception('ID de ítem requerido');
@@ -390,6 +547,13 @@ try {
 
             if ($codigo === '' || $nombre === '' || $unidad === '') {
                 throw new Exception('Datos insuficientes para actualizar el ítem.');
+            }
+
+            // Validar código único (excluyendo el ítem actual)
+            $stmtCheck = $connection->prepare('SELECT id_item FROM items WHERE codigo_item = ? AND id_item <> ? LIMIT 1');
+            $stmtCheck->execute([$codigo, $itemId]);
+            if ($stmtCheck->fetchColumn()) {
+                throw new Exception('Ya existe otro ítem con el mismo código.');
             }
 
             $connection->beginTransaction();
@@ -800,6 +964,7 @@ try {
         case 'createItemWithRelations':
             $payload = getJsonInput();
             $itemData = $payload['item'] ?? [];
+            $itemId = (int)($itemData['id_item_main'] ?? 0); // For consistency, though not used on create
 
             $codigo = trim($itemData['codigo_item'] ?? '');
             $nombre = trim($itemData['nombre_item'] ?? '');
@@ -825,106 +990,112 @@ try {
             $esAPU = $hasComposition ? 0 : 1;
 
             $connection->beginTransaction();
-
-            $stmtInsert = $connection->prepare(
-                "INSERT INTO items 
-                    (codigo_item, nombre_item, unidad, descripcion, fecha_creacion, idusuario, idestado, es_compuesto, id_item_padre, es_apu, nivel, ruta_jerarquia, id_tipo_item)
-                 VALUES (?, ?, ?, ?, NOW(), ?, 1, ?, ?, ?, 1, NULL, ?)"
-            );
-            $stmtInsert->execute([
-                $codigo,
-                $nombre,
-                $unidad,
-                $descripcion,
-                $usuarioId,
-                $esCompuesto,
-                $idPadre,
-                $esAPU,
-                $idTipoItem
-            ]);
-
-            $itemId = (int)$connection->lastInsertId();
-
-            if (!empty($componentes)) {
-                $stmtComponent = $connection->prepare(
-                    "INSERT INTO item_componentes
-                        (id_item, tipo_componente, id_material, descripcion, unidad, cantidad, precio_unitario, porcentaje_desperdicio, idestado)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)"
+            try {
+                $stmtInsert = $connection->prepare(
+                    "INSERT INTO items 
+                        (codigo_item, nombre_item, unidad, descripcion, fecha_creacion, idusuario, idestado, es_compuesto, id_item_padre, es_apu, nivel, ruta_jerarquia, id_tipo_item)
+                     VALUES (?, ?, ?, ?, NOW(), ?, 1, ?, ?, ?, 1, NULL, ?)"
                 );
+                $stmtInsert->execute([
+                    $codigo,
+                    $nombre,
+                    $unidad,
+                    $descripcion,
+                    $usuarioId,
+                    $esCompuesto,
+                    $idPadre,
+                    $esAPU,
+                    $idTipoItem
+                ]);
 
-                foreach ($componentes as $comp) {
-                    $tipoComp = trim($comp['tipo_componente'] ?? '');
-                    $descripcionComp = trim($comp['descripcion'] ?? '');
-                    $unidadComp = trim($comp['unidad'] ?? '');
-                    $cantidadComp = isset($comp['cantidad']) ? (float)$comp['cantidad'] : 0;
-                    $precioComp = isset($comp['precio_unitario']) ? (float)$comp['precio_unitario'] : 0;
-                    $desperdicioComp = isset($comp['porcentaje_desperdicio']) ? (float)$comp['porcentaje_desperdicio'] : 0;
-                    $materialComp = isset($comp['id_material']) && $comp['id_material'] !== '' ? (int)$comp['id_material'] : null;
+                $itemId = (int)$connection->lastInsertId();
 
-                    if ($tipoComp === '' || $descripcionComp === '' || $unidadComp === '' || $cantidadComp <= 0) {
-                        continue;
+                if (!empty($componentes)) {
+                    $stmtComponent = $connection->prepare(
+                        "INSERT INTO item_componentes
+                            (id_item, tipo_componente, id_material, descripcion, unidad, cantidad, precio_unitario, porcentaje_desperdicio, idestado)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)"
+                    );
+
+                    foreach ($componentes as $comp) {
+                        $tipoComp = trim($comp['tipo_componente'] ?? '');
+                        $descripcionComp = trim($comp['descripcion'] ?? '');
+                        $unidadComp = trim($comp['unidad'] ?? '');
+                        $cantidadComp = isset($comp['cantidad']) ? (float)$comp['cantidad'] : 0;
+                        $precioComp = isset($comp['precio_unitario']) ? (float)$comp['precio_unitario'] : 0;
+                        $desperdicioComp = isset($comp['porcentaje_desperdicio']) ? (float)$comp['porcentaje_desperdicio'] : 0;
+                        $materialComp = isset($comp['id_material']) && $comp['id_material'] !== '' ? (int)$comp['id_material'] : null;
+
+                        if ($tipoComp === '' || $descripcionComp === '' || $unidadComp === '' || $cantidadComp <= 0) {
+                            continue;
+                        }
+
+                        if ($tipoComp === 'material' && !$materialComp) {
+                            continue;
+                        }
+
+                        $stmtComponent->execute([
+                            $itemId,
+                            $tipoComp,
+                            $materialComp,
+                            $descripcionComp,
+                            $unidadComp,
+                            $cantidadComp,
+                            $precioComp,
+                            $desperdicioComp
+                        ]);
                     }
-
-                    if ($tipoComp === 'material' && !$materialComp) {
-                        continue;
-                    }
-
-                    $stmtComponent->execute([
-                        $itemId,
-                        $tipoComp,
-                        $materialComp,
-                        $descripcionComp,
-                        $unidadComp,
-                        $cantidadComp,
-                        $precioComp,
-                        $desperdicioComp
-                    ]);
                 }
-            }
 
-            if (!empty($composicion)) {
-                $stmtComposicion = $connection->prepare(
-                    "INSERT INTO item_composicion
-                        (id_item_compuesto, id_item_componente, cantidad, nivel, observaciones, idusuario, fechareg, idestado, orden, porcentaje_desperdicio, es_referencia)
-                     VALUES (?, ?, ?, 1, NULL, ?, NOW(), 1, ?, 0, ?)"
-                );
+                if (!empty($composicion)) {
+                    $stmtComposicion = $connection->prepare(
+                        "INSERT INTO item_composicion
+                            (id_item_compuesto, id_item_componente, cantidad, nivel, observaciones, idusuario, fechareg, idestado, orden, porcentaje_desperdicio, es_referencia)
+                         VALUES (?, ?, ?, 1, NULL, ?, NOW(), 1, ?, 0, ?)"
+                    );
 
-                foreach ($composicion as $comp) {
-                    $idItemComponente = (int)($comp['id_item_componente'] ?? 0);
-                    $cantidadCompuesta = isset($comp['cantidad']) ? (float)$comp['cantidad'] : 0;
-                    $orden = isset($comp['orden']) ? (int)$comp['orden'] : 1;
-                    $esReferencia = isset($comp['es_referencia']) ? (int)$comp['es_referencia'] : 0;
+                    foreach ($composicion as $comp) {
+                        $idItemComponente = (int)($comp['id_item_componente'] ?? 0);
+                        $cantidadCompuesta = isset($comp['cantidad']) ? (float)$comp['cantidad'] : 0;
+                        $orden = isset($comp['orden']) ? (int)$comp['orden'] : 1;
+                        $esReferencia = isset($comp['es_referencia']) ? (int)$comp['es_referencia'] : 0;
 
-                    if (!$idItemComponente || $cantidadCompuesta <= 0 || $idItemComponente === $itemId) {
-                        continue;
+                        if (!$idItemComponente || $cantidadCompuesta <= 0 || $idItemComponente === $itemId) {
+                            continue;
+                        }
+
+                        $stmtComposicion->execute([
+                            $itemId,
+                            $idItemComponente,
+                            $cantidadCompuesta,
+                            $usuarioId,
+                            $orden,
+                            $esReferencia
+                        ]);
                     }
-
-                    $stmtComposicion->execute([
-                        $itemId,
-                        $idItemComponente,
-                        $cantidadCompuesta,
-                        $usuarioId,
-                        $orden,
-                        $esReferencia
-                    ]);
                 }
+
+                if (!empty($precio) && isset($precio['valor']) && (float)$precio['valor'] > 0) {
+                    $valor = (float)$precio['valor'];
+                    $fecha = !empty($precio['fecha']) ? $precio['fecha'] : date('Y-m-d');
+                    $observaciones = trim($precio['observaciones'] ?? '');
+
+                    $connection->prepare("UPDATE item_precio SET estado = 0 WHERE id_item = ?")->execute([$itemId]);
+
+                    $stmtPrecio = $connection->prepare(
+                        "INSERT INTO item_precio (id_item, valor, fecha, estado, observaciones, idusuario, fechareg, fechaupdate)
+                         VALUES (?, ?, ?, 1, ?, ?, NOW(), NOW())"
+                    );
+                    $stmtPrecio->execute([$itemId, $valor, $fecha, $observaciones, $usuarioId]);
+                }
+
+                $connection->commit();
+            } catch (Throwable $e) {
+                if ($connection->inTransaction()) {
+                    $connection->rollBack();
+                }
+                throw $e;
             }
-
-            if (!empty($precio) && isset($precio['valor']) && (float)$precio['valor'] > 0) {
-                $valor = (float)$precio['valor'];
-                $fecha = !empty($precio['fecha']) ? $precio['fecha'] : date('Y-m-d');
-                $observaciones = trim($precio['observaciones'] ?? '');
-
-                $connection->prepare("UPDATE item_precio SET estado = 0 WHERE id_item = ?")->execute([$itemId]);
-
-                $stmtPrecio = $connection->prepare(
-                    "INSERT INTO item_precio (id_item, valor, fecha, estado, observaciones, idusuario, fechareg, fechaupdate)
-                     VALUES (?, ?, ?, 1, ?, ?, NOW(), NOW())"
-                );
-                $stmtPrecio->execute([$itemId, $valor, $fecha, $observaciones, $usuarioId]);
-            }
-
-            $connection->commit();
 
             echo json_encode([
                 'success' => true,

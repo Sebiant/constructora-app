@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 include_once __DIR__ . '/../../../Shared/Components/header.php';
 ?>
 
@@ -46,7 +46,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
               <option value="">Todos los proveedores</option>
             </select>
             <button class="btn btn-outline-success" type="button" 
-                    onclick="window.open('/sgigesconnew/ejemplos/provedoresComponent.php', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes')"
+                    onclick="window.open('/sgigescon/ejemplos/provedoresComponent.php', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes')"
                     title="Abrir gestión de proveedores en nueva ventana">
               <i class="bi bi-plus-circle"></i> Gestionar
             </button>

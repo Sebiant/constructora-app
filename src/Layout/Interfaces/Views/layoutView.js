@@ -1,33 +1,33 @@
-// Layout View JavaScript
+﻿// Layout View JavaScript
 (function () {
     'use strict';
 
     // Component mapping
     const componentMap = {
-        'proyectos': '/sgigesconnew/componentes/proyectosComponent.php',
-        'items': '/sgigesconnew/componentes/itemsComponent.php',
-        'capitulos': '/sgigesconnew/componentes/capitulosComponent.php',
-        'clientes': '/sgigesconnew/componentes/clientesComponent.php',
-        'provedores': '/sgigesconnew/componentes/provedoresComponent.php',
-        'pedidosAdmin': '/sgigesconnew/componentes/pedidoAdminComponent.php',
-        'ordenesCompra': '/sgigesconnew/componentes/ordenesCompraComponent.php',
-        'compras': '/sgigesconnew/componentes/comprasComponent.php',
-        'pedido': '/sgigesconnew/componentes/pedidoComponent.php',
-        'importMasiva': '/sgigesconnew/componentes/ImportMasiveBtnComponent.php'
+        'proyectos': '/sgigescon/componentes/proyectosComponent.php',
+        'items': '/sgigescon/componentes/itemsComponent.php',
+        'capitulos': '/sgigescon/componentes/capitulosComponent.php',
+        'clientes': '/sgigescon/componentes/clientesComponent.php',
+        'provedores': '/sgigescon/componentes/provedoresComponent.php',
+        'pedidosAdmin': '/sgigescon/componentes/pedidoAdminComponent.php',
+        'ordenesCompra': '/sgigescon/componentes/ordenesCompraComponent.php',
+        'compras': '/sgigescon/componentes/comprasComponent.php',
+        'pedido': '/sgigescon/componentes/pedidoComponent.php',
+        'importMasiva': '/sgigescon/componentes/ImportMasiveBtnComponent.php'
     };
 
     // Component titles
     const componentTitles = {
         'proyectos': 'Proyectos',
         'items': 'Items',
-        'capitulos': 'Capítulos',
+        'capitulos': 'CapÃ­tulos',
         'clientes': 'Clientes',
         'provedores': 'Proveedores',
         'pedidosAdmin': 'Pedidos Admin',
-        'ordenesCompra': 'Órdenes de Compra',
+        'ordenesCompra': 'Ã“rdenes de Compra',
         'compras': 'Compras',
         'pedido': 'Pedidos del Proyecto',
-        'importMasiva': 'Importación Masiva'
+        'importMasiva': 'ImportaciÃ³n Masiva'
     };
 
     // Current project state
@@ -121,6 +121,9 @@
         currentProject = { id: projectId, name: projectName };
         isInProjectMode = true;
 
+        // Update document title
+        document.title = projectName + ' - SGI';
+
         // Hide main nav, show project nav
         document.getElementById('mainNav').style.display = 'none';
         document.getElementById('projectNav').style.display = 'block';
@@ -183,7 +186,7 @@
         sessionStorage.setItem('selectedProjectId', projectId);
         sessionStorage.setItem('selectedProjectName', projectName);
 
-        // Update active nav items - NO agregar listeners aquí (ya están registrados al inicio)
+        // Update active nav items - NO agregar listeners aquÃ­ (ya estÃ¡n registrados al inicio)
 
         // Automatically load Pedido component
         loadComponent('pedido');
@@ -206,6 +209,9 @@
     function switchToMainNav() {
         currentProject = null;
         isInProjectMode = false;
+
+        // Update document title
+        document.title = 'SGI - Sistema de Gestión Integral';
 
         // Show main nav, hide project nav
         document.getElementById('mainNav').style.display = 'block';
@@ -436,7 +442,7 @@
                     <h5 class="mt-3">Error al cargar componente</h5>
                     <p class="text-muted">No se pudo cargar el componente: ${componentName}</p>
                     <button class="btn btn-primary" onclick="location.reload()">
-                        <i class="bi bi-arrow-clockwise"></i> Recargar página
+                        <i class="bi bi-arrow-clockwise"></i> Recargar pÃ¡gina
                     </button>
                 </div>
             </div>
@@ -451,10 +457,10 @@
                     <div class="col-md-12">
                         <div class="card">
                             <div class="card-header">
-                                <h5>Bienvenido al Sistema de Gestión Integral</h5>
+                                <h5>Bienvenido al Sistema de GestiÃ³n Integral</h5>
                             </div>
                             <div class="card-body">
-                                <p>Seleccione una opción del menú lateral para comenzar.</p>
+                                <p>Seleccione una opciÃ³n del menÃº lateral para comenzar.</p>
                                 <div class="row mt-4">
                                     <div class="col-md-3">
                                         <div class="card text-center">
@@ -507,11 +513,11 @@
             const oldScript = scripts[index];
 
             if (oldScript.src) {
-                // Normalizar URL para comparación confiable (maneja rutas relativas vs absolutas)
+                // Normalizar URL para comparaciÃ³n confiable (maneja rutas relativas vs absolutas)
                 const resolvedSrc = new URL(oldScript.getAttribute('src'), location.href).href;
 
                 if (_loadedScripts.has(resolvedSrc)) {
-                    // Script ya ejecutado en memoria — omitir para evitar re-declaración de
+                    // Script ya ejecutado en memoria â€” omitir para evitar re-declaraciÃ³n de
                     // class / let / const (ej: PaginadorPresupuestos, API_PROYECTOS...)
                     console.log('[Layout] Script ya cargado, omitiendo:', resolvedSrc.split('/').pop());
                     loadNext(index + 1);
@@ -534,7 +540,7 @@
                 oldScript.parentNode.replaceChild(newScript, oldScript);
 
             } else {
-                // Script inline: ejecutar con manejo de error por re-declaración de const/let
+                // Script inline: ejecutar con manejo de error por re-declaraciÃ³n de const/let
                 const code = oldScript.innerHTML;
                 const newScript = document.createElement('script');
                 Array.from(oldScript.attributes).forEach(attr => {
@@ -545,7 +551,7 @@
                 try {
                     oldScript.parentNode.replaceChild(newScript, oldScript);
                 } catch (e) {
-                    // Re-declaración de const/let: convertir a var y evaluar en scope global
+                    // Re-declaraciÃ³n de const/let: convertir a var y evaluar en scope global
                     try {
                         const safeCode = code.replace(/\b(const|let)\s+/g, 'var ');
                         (0, eval)(safeCode); // eslint-disable-line no-eval
@@ -593,7 +599,7 @@
                 componentPath += `${separator}id_proyecto=${sessionProjectId}`;
             }
         }
-        console.log('[Layout] Loading component:', componentName, '→', componentPath);
+        console.log('[Layout] Loading component:', componentName, 'â†’', componentPath);
 
         // Show loading state
         showLoading();
@@ -694,8 +700,8 @@
     const logoutBtn = document.querySelector('.btn-logout');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function () {
-            if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
-                window.location.href = '/sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=logout';
+            if (confirm('Â¿EstÃ¡s seguro de que deseas cerrar sesiÃ³n?')) {
+                window.location.href = '/sgigescon/src/Auth/Interfaces/Controllers/AuthController.php?action=logout';
             }
         });
     }

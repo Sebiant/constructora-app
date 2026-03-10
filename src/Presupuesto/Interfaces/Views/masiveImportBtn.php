@@ -49,7 +49,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
           (<b>CAP</b>, <b>COD</b>, <b>Cantidad</b>...)
         </div>
 
-        <a href="/sgigesconnew/src/Presupuesto/Interfaces/downloadExcelTemplate.php" 
+        <a href="/sgigescon/src/Presupuesto/Interfaces/downloadExcelTemplate.php" 
           class="btn btn-sm btn-outline-primary">
           <i class="bi bi-download me-1"></i> Descargar formato de Excel
         </a>
@@ -306,9 +306,9 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
         document.getElementById('formImportar').style.display = 'none';
     } else {
         // Set project ID directly
-        const API_PRESUPUESTOS = '/sgigesconnew/src/Presupuesto/Interfaces/PresupuestoController.php';
+        const API_PRESUPUESTOS = '/sgigescon/src/Presupuesto/Interfaces/PresupuestoController.php';
         console.log('Import Masiva - Proyecto seleccionado:', selectedProjectId);
     }
 </script>
 
-<script src="/sgigesconnew/src/Presupuesto/Interfaces/Views/masiveImportBtn.js?v=<?php echo time(); ?>"></script>
+<script src="/sgigescon/src/Presupuesto/Interfaces/Views/masiveImportBtn.js?v=<?php echo time(); ?>"></script>

@@ -1,7 +1,7 @@
-<?php
+﻿<?php
 session_start();
 if (!isset($_SESSION['seguridad'])) {
-    header("Location: /sgigesconnew/src/Auth/Interfaces/Views/loginView.php");
+    header("Location: /sgigescon/src/Auth/Interfaces/Views/loginView.php");
     exit;
 }
 $userSession = json_decode($_SESSION['seguridad'], true) ?: [];
@@ -20,7 +20,7 @@ $userRole = (isset($userSession['u_perfil']) && $userSession['u_perfil'] == 1) ?
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <!-- Custom Theme CSS - Override Bootstrap colors -->
-    <link rel="stylesheet" href="/sgigesconnew/public/css/custom-theme.css">
+    <link rel="stylesheet" href="/sgigescon/public/css/custom-theme.css">
     
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -32,7 +32,7 @@ $userRole = (isset($userSession['u_perfil']) && $userSession['u_perfil'] == 1) ?
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     
     <!-- Layout CSS -->
-    <link rel="stylesheet" href="/sgigesconnew/src/Layout/Interfaces/Views/layoutView.css">
+    <link rel="stylesheet" href="/sgigescon/src/Layout/Interfaces/Views/layoutView.css">
 </head>
 <body>
     <div class="layout-container">
@@ -40,7 +40,7 @@ $userRole = (isset($userSession['u_perfil']) && $userSession['u_perfil'] == 1) ?
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo-container">
-                    <img src="/sgigesconnew/public/images/logogescont.png" alt="Logo" class="sidebar-logo">
+                    <img src="/sgigescon/public/images/logogescont.png" alt="Logo" class="sidebar-logo">
                 </div>
                 <button class="sidebar-toggle" id="sidebarToggle">
                     <i class="bi bi-list"></i>
@@ -147,7 +147,7 @@ $userRole = (isset($userSession['u_perfil']) && $userSession['u_perfil'] == 1) ?
                     </div>
                 </div>
                 <div class="sidebar-footer-actions">
-                    <button class="btn-logout" title="Cerrar sesión" onclick="window.location.href='/sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=logout'">
+                    <button class="btn-logout" title="Cerrar sesión" onclick="window.location.href='/sgigescon/src/Auth/Interfaces/Controllers/AuthController.php?action=logout'">
                         <i class="bi bi-box-arrow-right"></i>
                     </button>
                     <!-- Logo Quality Pro movido al Topbar -->
@@ -170,7 +170,7 @@ $userRole = (isset($userSession['u_perfil']) && $userSession['u_perfil'] == 1) ?
                 <div class="topbar-right">
                     <div class="topbar-divider"></div>
                     <div class="topbar-quality-logo" title="Powered by Quality Pro Software">
-                        <img src="/sgigesconnew/public/images/logoqualitysin.png" alt="Quality Pro">
+                        <img src="/sgigescon/public/images/logoqualitysin.png" alt="Quality Pro">
                     </div>
                 </div>
             </header>
@@ -200,6 +200,6 @@ $userRole = (isset($userSession['u_perfil']) && $userSession['u_perfil'] == 1) ?
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     
     <!-- Custom JS -->
-    <script src="/sgigesconnew/src/Layout/Interfaces/Views/layoutView.js"></script>
+    <script src="/sgigescon/src/Layout/Interfaces/Views/layoutView.js"></script>
 </body>
 </html>

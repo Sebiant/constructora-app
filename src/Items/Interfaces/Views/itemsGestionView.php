@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 include_once __DIR__ . '/../../../Shared/Components/header.php';
 ?>
 
@@ -117,6 +117,9 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                     id="searchMateriales" oninput="ItemsUI.filterMateriales()">
                                 <button class="btn btn-sm btn-outline-secondary" onclick="ItemsUI.fetchMateriales(true)">
                                     <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary" type="button" id="btnImportarRecursosMasivo">
+                                    <i class="bi bi-upload"></i> Importación masiva
                                 </button>
                             </div>
                         </div>
@@ -354,7 +357,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
             </div>
             <form id="formItem" onsubmit="ItemsUI.submitItem(event)">
                 <div class="modal-body">
-                    <input type="hidden" name="id_item" id="itemId">
+                    <input type="hidden" name="id_item_main" id="itemId">
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label">Código</label>
@@ -864,6 +867,67 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
     </div>
 </div>
 
+<!-- Modal Importación Masiva de Recursos -->
+<div class="modal fade" id="modalImportRecursos" tabindex="-1" aria-labelledby="modalImportRecursosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold" id="modalImportRecursosLabel">
+                    <i class="bi bi-upload me-2"></i> Importación masiva de recursos
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="formImportRecursos" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="archivo_excel_recursos" class="form-label fw-semibold">Archivo Excel (.xlsx)</label>
+                        <input type="file" name="archivo_excel" id="archivo_excel_recursos" class="form-control" accept=".xlsx" required>
+                        <div class="form-text">Debe contener columnas: CODIGO, NOMBRE, ID_TIPO_MATERIAL, IDUNIDAD, PRECIO, MINIMO_COMERCIAL, PRESENTACION_COMERCIAL, ESTADO</div>
+                    </div>
+
+                    <a href="/sgigescon/src/Items/Interfaces/downloadExcelTemplateRecursos.php" class="btn btn-sm btn-outline-primary mb-3">
+                        <i class="bi bi-download me-1"></i> Descargar formato de Excel
+                    </a>
+
+                    <div id="importRecursosPreviewContainer" class="d-none">
+                        <h6 class="border-bottom pb-2">Vista previa de datos a importar</h6>
+                        <div class="table-responsive" style="max-height: 300px;">
+                            <table class="table table-sm table-bordered table-striped" style="font-size: 0.85rem;">
+                                <thead class="table-light position-sticky top-0 shadow-sm">
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Nombre</th>
+                                        <th>ID Tipo</th>
+                                        <th>ID Unidad</th>
+                                        <th>Precio</th>
+                                        <th>Mínimo</th>
+                                        <th>Presentación</th>
+                                        <th>Estado</th>
+                                        <th>Válido</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="importRecursosPreviewBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="importRecursosResultado" class="d-none mt-3"></div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-info text-white" id="btnPreviewImportRecursos">
+                        <i class="bi bi-eye"></i> Leer Excel
+                    </button>
+                    <button type="submit" class="btn btn-primary d-none" id="btnSubmitImportRecursos">
+                        <i class="bi bi-upload"></i> Confirmar Importación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <?php
 include_once __DIR__ . '/../../../Shared/Components/footer.php';
 ?>
@@ -872,6 +936,6 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
-    const API_ITEMS = '/sgigesconnew/src/Items/Interfaces/ItemsController.php';
+    const API_ITEMS = '/sgigescon/src/Items/Interfaces/ItemsController.php';
 </script>
-<script src="/sgigesconnew/src/Items/Interfaces/Views/itemsGestionView.js"></script>
+<script src="/sgigescon/src/Items/Interfaces/Views/itemsGestionView.js"></script>

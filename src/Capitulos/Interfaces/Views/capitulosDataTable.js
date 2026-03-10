@@ -1,5 +1,9 @@
 $(document).ready(function () {
+  if ($.fn.DataTable.isDataTable('#datos_capitulos')) {
+    $('#datos_capitulos').DataTable().destroy();
+  }
   var table = $("#datos_capitulos").DataTable({
+    destroy: true,
     language: { url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json" },
     searching: true,
     paging: true,
@@ -111,9 +115,9 @@ function mostrarTodosLosCapitulos() {
 }
 
 // Función de inicialización para llamadas desde el layout
-window.initCapitulosDataTable = function() {
+window.initCapitulosDataTable = function () {
   console.log('[Capitulos] Initializing DataTable from layout...');
-  
+
   // Destruir instancia previa si existe
   if ($.fn.DataTable.isDataTable('#datos_capitulos')) {
     $('#datos_capitulos').DataTable().destroy();
@@ -121,6 +125,7 @@ window.initCapitulosDataTable = function() {
 
   // Inicializar el DataTable
   var table = $("#datos_capitulos").DataTable({
+    destroy: true,
     language: { url: "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json" },
     searching: true,
     paging: true,

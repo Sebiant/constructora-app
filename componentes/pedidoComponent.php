@@ -1,3 +1,3 @@
-<?php
-include $_SERVER['DOCUMENT_ROOT'] . '/sgigesconnew/src/Presupuesto/Interfaces/Views/pedidoView.php';
+﻿<?php
+include $_SERVER['DOCUMENT_ROOT'] . '/sgigescon/src/Presupuesto/Interfaces/Views/pedidoView.php';
 ?>

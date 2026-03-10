@@ -79,5 +79,5 @@ include_once __DIR__ . '/../../../Shared/Components/footer.php';
 ?>
 
 <script>
-    const API_CLIENTES = '/sgigesconnew/src/Clientes/Interfaces/ClienteController.php';
+    const API_CLIENTES = '/sgigescon/src/Clientes/Interfaces/ClienteController.php';
 </script>

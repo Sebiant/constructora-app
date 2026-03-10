@@ -64,6 +64,35 @@ const ItemsUI = (() => {
       document.querySelector(selectors.modalItem)
     );
 
+    // Evitar error del navegador: "An invalid form control ... is not focusable"
+    // Los inputs required dentro de collapses/sections ocultas deben deshabilitarse.
+    wireItemPriceFooterValidation();
+
+    const importRecursosBtn = document.getElementById("btnImportarRecursosMasivo");
+    if (importRecursosBtn) {
+      importRecursosBtn.addEventListener("click", () => openImportRecursosModal());
+    }
+
+    const importRecursosForm = document.getElementById("formImportRecursos");
+    if (importRecursosForm) {
+      importRecursosForm.addEventListener("submit", (e) => submitImportRecursos(e));
+    }
+
+    const btnPreview = document.getElementById("btnPreviewImportRecursos");
+    if (btnPreview) {
+      btnPreview.addEventListener("click", () => previewImportRecursos());
+    }
+
+    const fileInputRecursos = document.getElementById("archivo_excel_recursos");
+    if (fileInputRecursos) {
+      fileInputRecursos.addEventListener("change", () => {
+        document.getElementById("importRecursosPreviewContainer")?.classList.add("d-none");
+        document.getElementById("btnSubmitImportRecursos")?.classList.add("d-none");
+        document.getElementById("btnPreviewImportRecursos")?.classList.remove("d-none");
+        document.getElementById("importRecursosResultado")?.classList.add("d-none");
+      });
+    }
+
     // Event listeners para agregar recursos por tipo
     document.getElementById("addMaterialFromSelectBtn")?.addEventListener("click", () => addResourceFromSelect('material'));
     document.getElementById("addManoObraFromSelectBtn")?.addEventListener("click", () => addResourceFromSelect('mano_obra'));
@@ -82,6 +111,198 @@ const ItemsUI = (() => {
 
     // Cargar selectores filtrados por tipo
     loadResourceSelectsByType();
+  }
+
+  function setItemPriceFooterInputsEnabled(enabled) {
+    const valor = document.getElementById('itemPriceValorFooter');
+    const fecha = document.getElementById('itemPriceFechaFooter');
+    const obs = document.getElementById('itemPriceObsFooter');
+    const btn = document.querySelector('#itemPriceFormFooter button[type="submit"]');
+
+    [valor, fecha, obs, btn].forEach((el) => {
+      if (!el) return;
+      el.disabled = !enabled;
+    });
+
+    if (valor) valor.required = Boolean(enabled);
+    if (fecha) fecha.required = Boolean(enabled);
+
+    if (!enabled) {
+      if (valor) valor.value = '';
+      if (fecha) fecha.value = '';
+      if (obs) obs.value = '';
+    }
+  }
+
+  function wireItemPriceFooterValidation() {
+    const insights = document.getElementById('itemInsightsSectionFooter');
+    const collapseEl = document.getElementById('itemPriceFormFooter');
+
+    // Estado inicial: si la sección está oculta, deshabilitar inputs.
+    const isInsightsVisible = Boolean(insights && !insights.classList.contains('d-none'));
+    const isCollapseShown = Boolean(collapseEl && collapseEl.classList.contains('show'));
+    setItemPriceFooterInputsEnabled(isInsightsVisible && isCollapseShown);
+
+    if (!collapseEl) return;
+
+    collapseEl.addEventListener('shown.bs.collapse', () => {
+      const isVisible = Boolean(insights && !insights.classList.contains('d-none'));
+      setItemPriceFooterInputsEnabled(isVisible);
+    });
+
+    collapseEl.addEventListener('hidden.bs.collapse', () => {
+      setItemPriceFooterInputsEnabled(false);
+    });
+  }
+
+  function openImportRecursosModal() {
+    const modalEl = document.getElementById("modalImportRecursos");
+    if (!modalEl) return;
+
+    const resultEl = document.getElementById("importRecursosResultado");
+    if (resultEl) {
+      resultEl.classList.add("d-none");
+      resultEl.innerHTML = "";
+    }
+
+    document.getElementById("importRecursosPreviewContainer")?.classList.add("d-none");
+    document.getElementById("btnSubmitImportRecursos")?.classList.add("d-none");
+    document.getElementById("btnPreviewImportRecursos")?.classList.remove("d-none");
+
+    const fileInput = document.getElementById("archivo_excel_recursos");
+    if (fileInput) fileInput.value = "";
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+  }
+
+  async function previewImportRecursos() {
+    const fileInput = document.getElementById("archivo_excel_recursos");
+    const resultEl = document.getElementById("importRecursosResultado");
+    const previewContainer = document.getElementById("importRecursosPreviewContainer");
+    const previewBody = document.getElementById("importRecursosPreviewBody");
+    const btnPreview = document.getElementById("btnPreviewImportRecursos");
+    const btnSubmit = document.getElementById("btnSubmitImportRecursos");
+
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      alert("Por favor selecciona un archivo Excel.");
+      return;
+    }
+
+    if (btnPreview) btnPreview.disabled = true;
+    if (resultEl) {
+      resultEl.classList.remove("d-none");
+      resultEl.innerHTML = '<div class="text-info mt-2">Leyendo archivo...</div>';
+    }
+
+    const formData = new FormData();
+    formData.append("archivo_excel", file);
+
+    try {
+      const response = await fetch(`${API_ITEMS}?action=previewImportRecursosMasivo`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        const msg = data.error || "No se pudo leer el archivo.";
+        if (resultEl) resultEl.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(msg)}</div>`;
+        return;
+      }
+
+      // Render table
+      if (previewBody) {
+        previewBody.innerHTML = data.data.map(row => `
+          <tr class="${!row.valido ? 'table-danger' : ''}">
+            <td>${escapeHtml(row.codigo)}</td>
+            <td>${escapeHtml(row.nombre)}</td>
+            <td>${row.tipoId}</td>
+            <td>${escapeHtml(row.unidadId)}</td>
+            <td>${row.precio}</td>
+            <td>${row.minimoComercial}</td>
+            <td>${escapeHtml(row.presentacion)}</td>
+            <td>${row.estado}</td>
+            <td class="text-center">
+              ${row.valido ? '<span class="badge bg-success">Sí</span>' : '<span class="badge bg-danger">No</span>'}
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      if (previewContainer) previewContainer.classList.remove("d-none");
+      if (btnSubmit) btnSubmit.classList.remove("d-none");
+      if (btnPreview) btnPreview.classList.add("d-none");
+      if (resultEl) resultEl.classList.add("d-none");
+
+    } catch (error) {
+      if (resultEl) {
+        resultEl.classList.remove("d-none");
+        resultEl.innerHTML = `<div class="alert alert-danger mb-0">Error: ${escapeHtml(error.message)}</div>`;
+      }
+    } finally {
+      if (btnPreview) btnPreview.disabled = false;
+    }
+  }
+
+  async function submitImportRecursos(event) {
+    event.preventDefault();
+
+    const fileInput = document.getElementById("archivo_excel_recursos");
+    const resultEl = document.getElementById("importRecursosResultado");
+    const submitBtn = document.getElementById("btnSubmitImportRecursos");
+
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      alert("Por favor selecciona un archivo Excel.");
+      return;
+    }
+
+    if (submitBtn) submitBtn.disabled = true;
+    if (resultEl) {
+      resultEl.classList.remove("d-none");
+      resultEl.innerHTML = '<div class="text-info">Procesando archivo...</div>';
+    }
+
+    const formData = new FormData();
+    formData.append("archivo_excel", file);
+
+    try {
+      const response = await fetch(`${API_ITEMS}?action=importRecursosMasivo`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        const msg = data.error || "No se pudo importar el archivo.";
+        if (resultEl) resultEl.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(msg)}</div>`;
+        return;
+      }
+
+      if (resultEl) {
+        const inserted = Number(data.inserted || 0);
+        const skipped = Number(data.skipped || 0);
+        resultEl.innerHTML = `<div class="alert alert-success mb-0">Importación finalizada. Insertados: <strong>${inserted}</strong>. Omitidos: <strong>${skipped}</strong>.</div>`;
+      }
+
+      await fetchMateriales(true);
+    } catch (error) {
+      if (resultEl) resultEl.innerHTML = `<div class="alert alert-danger mb-0">Error: ${escapeHtml(error.message)}</div>`;
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  }
+
+  function escapeHtml(value) {
+    const str = String(value ?? "");
+    return str
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
   async function loadItemPriceHistory(idItem) {
@@ -513,8 +734,37 @@ const ItemsUI = (() => {
       state.materialModal.hide();
       await fetchMateriales(true);
 
+      // Si el modal de ítem está abierto, refrescar inmediatamente los selects de recursos
+      // (caso típico: creas un material y sin recargar quieres verlo en el select del ítem)
+      const modalItemElement = document.querySelector(selectors.modalItem);
+      const isItemModalOpen = Boolean(modalItemElement && modalItemElement.classList.contains('show'));
+
       // Recargar los selects filtrados por tipo para que aparezcan los nuevos materiales
-      loadResourceSelectsByType();
+      if (isItemModalOpen) {
+        // Pequeña espera para asegurar que el DOM del modal y Select2 estén en estado estable
+        setTimeout(() => {
+          try {
+            loadResourceSelectsByType();
+          } catch (e) {
+            // silenciar
+          }
+        }, 150);
+      } else {
+        loadResourceSelectsByType();
+      }
+
+      // Refrescar otros selects/datalists de materiales
+      try {
+        populateMaterialSelectDropdown();
+      } catch (e) {
+        // silenciar
+      }
+
+      try {
+        updateMaterialAutocomplete();
+      } catch (e) {
+        // silenciar
+      }
 
       // También recargar el select general de materiales si existe
       if (typeof populateMaterialSelect === 'function') {
@@ -550,8 +800,12 @@ const ItemsUI = (() => {
     const form = document.getElementById("formItem");
     if (!form) return;
 
+    console.log('[prepareItemModal] before reset, #itemId.value:', document.getElementById("itemId").value);
     form.reset();
+    console.log('[prepareItemModal] after reset, #itemId.value:', document.getElementById("itemId").value);
+    console.log('[prepareItemModal] item:', item);
     document.getElementById("itemId").value = item?.id_item ?? "";
+    console.log('[prepareItemModal] after setting, #itemId.value:', document.getElementById("itemId").value);
     document.getElementById("modalItemLabel").textContent = item ? "Editar Ítem" : "Nuevo Ítem";
 
     if (item) {
@@ -565,6 +819,19 @@ const ItemsUI = (() => {
         priceSection.classList.remove("d-none");
       }
     }
+
+    // El formulario de precio del footer debe estar deshabilitado cuando el insight no aplica
+    // (por ejemplo al crear un ítem nuevo).
+    const insightsFooter = document.getElementById('itemInsightsSectionFooter');
+    if (insightsFooter) {
+      if (item) {
+        // Se mostrará solo cuando haya cálculos/impactos; por defecto mantener oculto.
+        insightsFooter.classList.add('d-none');
+      } else {
+        insightsFooter.classList.add('d-none');
+      }
+    }
+    setItemPriceFooterInputsEnabled(false);
     state.currentItemId = item?.id_item ?? null;
 
     // Resetear componentes básicos
@@ -614,18 +881,25 @@ const ItemsUI = (() => {
   function editItem(item) {
     prepareItemModal(item);
     state.itemModal.show();
+    console.log('[editItem] after modal.show(), #itemId.value:', document.getElementById("itemId").value);
   }
 
   async function submitItem(event) {
     event.preventDefault();
+    console.log('[submitItem] at start, #itemId.value:', document.getElementById("itemId").value);
     const formData = new FormData(event.target);
     const payload = Object.fromEntries(formData.entries());
+    console.log('[submitItem] payload from FormData:', payload);
+    console.log('[submitItem] payload.id_item_main:', payload.id_item_main);
 
     payload.idestado = Number(payload.idestado ?? 1);
 
-    const isEdit = Boolean(payload.id_item);
+    const isEdit = Boolean(payload.id_item_main);
     let endpoint = isEdit ? "updateItem" : "createItem";
     let requestBody = payload;
+
+    // Debug: log endpoint, isEdit, and payload.id_item_main
+    console.log('[submitItem] isEdit:', isEdit, 'endpoint:', endpoint, 'payload.id_item_main:', payload.id_item_main);
 
     if (!isEdit && (state.draftComponents.length || state.draftComposition.length)) {
       endpoint = "createItemWithRelations";
@@ -645,6 +919,8 @@ const ItemsUI = (() => {
         removed_component_ids: Array.from(state.removedComponentIds),
         removed_composition_ids: Array.from(state.removedCompositionIds),
       };
+      console.log('[submitItem] requestBody for edit:', requestBody);
+      console.log('[submitItem] removed_component_ids being sent:', Array.from(state.removedComponentIds));
     }
 
     try {
@@ -653,9 +929,22 @@ const ItemsUI = (() => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
-      const result = await response.json();
 
-      if (!result.success) throw new Error(result.error || "No se pudo guardar el ítem");
+      let result = null;
+      try {
+        result = await response.json();
+      } catch (e) {
+        result = null;
+      }
+
+      if (!response.ok) {
+        const msg = (result && (result.error || result.message))
+          ? (result.error || result.message)
+          : `Error HTTP ${response.status}`;
+        throw new Error(msg);
+      }
+
+      if (!result || !result.success) throw new Error((result && result.error) || "No se pudo guardar el ítem");
 
       state.itemModal.hide();
       resetDraftComponents();
@@ -1521,6 +1810,16 @@ const ItemsUI = (() => {
       return;
     }
 
+    function getSelect2DropdownParent() {
+      const modal = document.querySelector(selectors.modalItem);
+      if (!modal) return $(document.body);
+      // En algunos layouts el modal tiene offsets raros; usar modal-content ayuda a que el dropdown
+      // se posicione relativo al contenido visible.
+      const modalContent = modal.querySelector('.modal-content');
+      if (modalContent) return $(modalContent);
+      return $(modal);
+    }
+
     // Mapeo de tipos de material a tipos de componente
     const tipoMaterialMap = {
       1: 'mano_obra',     // Mano de obra
@@ -1571,7 +1870,7 @@ const ItemsUI = (() => {
           placeholder: 'Buscar material...',
           allowClear: true,
           width: '100%',
-          dropdownParent: $('#modalItem'),
+          dropdownParent: getSelect2DropdownParent(),
           language: {
             noResults: function () {
               return "No se encontraron materiales";
@@ -1605,7 +1904,7 @@ const ItemsUI = (() => {
           placeholder: 'Buscar mano de obra...',
           allowClear: true,
           width: '100%',
-          dropdownParent: $('#modalItem'),
+          dropdownParent: getSelect2DropdownParent(),
           language: {
             noResults: function () {
               return "No se encontró mano de obra";
@@ -1639,7 +1938,7 @@ const ItemsUI = (() => {
           placeholder: 'Buscar equipo/maquinaria...',
           allowClear: true,
           width: '100%',
-          dropdownParent: $('#modalItem'),
+          dropdownParent: getSelect2DropdownParent(),
           language: {
             noResults: function () {
               return "No se encontraron equipos";
@@ -1878,11 +2177,17 @@ const ItemsUI = (() => {
   }
 
   function removeDraftComponent(index) {
-    if (index >= 0 && index < state.draftComponents.length) {
-      if (confirm('¿Eliminar este componente?')) {
-        state.draftComponents.splice(index, 1);
-        renderDraftComponents();
+    const component = state.draftComponents[index];
+    console.log('[removeDraftComponent] component:', component);
+    if (!component) return;
+    if (confirm('¿Eliminar este componente?')) {
+      if (component.persisted && component.id_componente) {
+        console.log('[removeDraftComponent] Adding to removedComponentIds:', component.id_componente);
+        state.removedComponentIds.add(Number(component.id_componente));
+        console.log('[removeDraftComponent] removedComponentIds now:', Array.from(state.removedComponentIds));
       }
+      state.draftComponents.splice(index, 1);
+      renderDraftComponents();
     }
   }
 

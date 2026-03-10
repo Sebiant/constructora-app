@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
             submitButton.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Iniciando sesión...';
             
             // Enviar formulario con fetch
-            fetch('/sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php', {
+            fetch('/sgigescon/src/Auth/Interfaces/Controllers/AuthController.php', {
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin'

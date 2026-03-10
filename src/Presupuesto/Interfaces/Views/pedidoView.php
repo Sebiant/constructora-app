@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // El componente REQUIERE un id_proyecto para funcionar
 $proyectoId = isset($_GET['id_proyecto']) ? intval($_GET['id_proyecto']) : 0;
 $proyectoNombre = '';
@@ -6,7 +6,7 @@ $proyectoNombre = '';
 if ($proyectoId > 0) {
     // Obtener nombre del proyecto desde la BD
     try {
-        require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigesconnew/config/database.php';
+        require_once $_SERVER['DOCUMENT_ROOT'] . '/sgigescon/config/database.php';
         $conn = Database::getConnection();
         $stmt = $conn->prepare("SELECT nombre FROM proyectos WHERE id_proyecto = ?");
         $stmt->execute([$proyectoId]);
@@ -25,7 +25,7 @@ if ($proyectoId > 0) {
     <title>Gestión de Proyectos y Materiales</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Custom Theme CSS - Color Primary #00384A -->
-    <link rel="stylesheet" href="/sgigesconnew/public/css/custom-theme.css">
+    <link rel="stylesheet" href="/sgigescon/public/css/custom-theme.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 </head>
 <body class="bg-light">
@@ -418,9 +418,9 @@ if ($proyectoId > 0) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="/sgigesconnew/src/Presupuesto/Interfaces/Views/pedidoView.js"></script>
+    <script src="/sgigescon/src/Presupuesto/Interfaces/Views/pedidoView.js"></script>
     <script>
-        var API_PRESUPUESTOS = '/sgigesconnew/src/Presupuesto/Interfaces/PresupuestoController.php';
+        var API_PRESUPUESTOS = '/sgigescon/src/Presupuesto/Interfaces/PresupuestoController.php';
         _initPedidoComponent();
     </script>
 </body>

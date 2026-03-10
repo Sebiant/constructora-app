@@ -1,8 +1,8 @@
-// pedidoAdminView.js - JavaScript para la interfaz de administración de pedidos
-// Este archivo contiene la estructura básica para conectar con el backend
+﻿// pedidoAdminView.js - JavaScript para la interfaz de administraciÃ³n de pedidos
+// Este archivo contiene la estructura bÃ¡sica para conectar con el backend
 
-// Configuración
-const API_PEDIDOS = '/sgigesconnew/src/pedidosAdmin/Interfaces/PedidosController.php';
+// ConfiguraciÃ³n
+const API_PEDIDOS = '/sgigescon/src/pedidosAdmin/Interfaces/PedidosController.php';
 
 // Variables globales
 let pedidoActual = null;
@@ -19,7 +19,7 @@ let filtrosActuales = {
 // ============================================
 
 /**
- * Inicializa la interfaz de administración de pedidos
+ * Inicializa la interfaz de administraciÃ³n de pedidos
  */
 function initPedidosAdmin() {
     console.log('[pedidosAdmin] Inicializando interfaz...');
@@ -45,18 +45,18 @@ function initPedidosAdmin() {
         }
     }
 
-    // Búsqueda con Enter
+    // BÃºsqueda con Enter
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
         searchInput.removeEventListener('keypress', handleSearchEnter);
         searchInput.addEventListener('keypress', handleSearchEnter);
 
-        // Búsqueda con tipeo (debounced)
+        // BÃºsqueda con tipeo (debounced)
         searchInput.removeEventListener('input', handleSearchInput);
         searchInput.addEventListener('input', handleSearchInput);
     }
 
-    // Búsqueda con botón
+    // BÃºsqueda con botÃ³n
     const searchButton = searchInput?.closest('.input-group')?.querySelector('button');
     if (searchButton) {
         searchButton.removeEventListener('click', aplicarFiltros);
@@ -108,7 +108,7 @@ function cargarProyectos() {
 }
 
 /**
- * Carga las estadísticas del dashboard
+ * Carga las estadÃ­sticas del dashboard
  */
 function cargarEstadisticas() {
     fetch(API_PEDIDOS + '?action=getEstadisticasPedidos')
@@ -121,7 +121,7 @@ function cargarEstadisticas() {
                 document.getElementById('statRechazados').textContent = data.data.rechazados || 0;
             }
         })
-        .catch(error => console.error('Error cargando estadísticas:', error));
+        .catch(error => console.error('Error cargando estadÃ­sticas:', error));
 }
 
 /**
@@ -250,20 +250,20 @@ function renderizarBadgeEstado(estado) {
 }
 
 /**
- * Renderiza la paginación
+ * Renderiza la paginaciÃ³n
  */
 function renderizarPaginacion(totalPaginas, paginaActual) {
     const paginacion = document.getElementById('paginacion');
     let html = '';
 
-    // Botón anterior
+    // BotÃ³n anterior
     html += `
         <li class="page-item ${paginaActual === 1 ? 'disabled' : ''}">
             <a class="page-link" href="#" onclick="cargarPedidos(${paginaActual - 1}); return false;">Anterior</a>
         </li>
     `;
 
-    // Páginas
+    // PÃ¡ginas
     for (let i = 1; i <= totalPaginas; i++) {
         html += `
             <li class="page-item ${i === paginaActual ? 'active' : ''}">
@@ -272,7 +272,7 @@ function renderizarPaginacion(totalPaginas, paginaActual) {
         `;
     }
 
-    // Botón siguiente
+    // BotÃ³n siguiente
     html += `
         <li class="page-item ${paginaActual === totalPaginas ? 'disabled' : ''}">
             <a class="page-link" href="#" onclick="cargarPedidos(${paginaActual + 1}); return false;">Siguiente</a>
@@ -365,12 +365,12 @@ function renderizarDetallePedido(pedido) {
                 '<span class="text-muted">-</span>'}
             </td>
             <td class="text-center">
-                ${esExcedente ? '<span class="badge bg-warning">Sí</span>' : '<span class="badge bg-success">No</span>'}
+                ${esExcedente ? '<span class="badge bg-warning">SÃ­</span>' : '<span class="badge bg-success">No</span>'}
             </td>
         </tr>`;
     }).join('');
 
-    // Mostrar/ocultar sección de excedentes
+    // Mostrar/ocultar secciÃ³n de excedentes
     const excedentes = pedido.componentes.filter(c => parseInt(c.es_excedente, 10) === 1);
     if (excedentes.length > 0) {
         document.getElementById('seccionExcedentes').style.display = 'block';
@@ -380,14 +380,14 @@ function renderizarDetallePedido(pedido) {
                 <td>${exc.descripcion}</td>
                 <td class="text-center">${exc.cantidad}</td>
                 <td class="text-end">${formatearMoneda(exc.subtotal)}</td>
-                <td>${exc.justificacion || 'Sin justificación'}</td>
+                <td>${exc.justificacion || 'Sin justificaciÃ³n'}</td>
             </tr>
         `).join('');
     } else {
         document.getElementById('seccionExcedentes').style.display = 'none';
     }
 
-    // Mostrar/ocultar botones según estado
+    // Mostrar/ocultar botones segÃºn estado
     if (pedido.estado === 'pendiente') {
         document.getElementById('btnAprobar').style.display = 'inline-block';
         document.getElementById('btnRechazar').style.display = 'inline-block';
@@ -398,11 +398,11 @@ function renderizarDetallePedido(pedido) {
 }
 
 // ============================================
-// FUNCIONES DE APROBACIÓN/RECHAZO
+// FUNCIONES DE APROBACIÃ“N/RECHAZO
 // ============================================
 
 /**
- * Muestra el modal de aprobación
+ * Muestra el modal de aprobaciÃ³n
  */
 function aprobarPedido() {
     if (!pedidoActual) return;
@@ -413,7 +413,7 @@ function aprobarPedido() {
 }
 
 /**
- * Confirma la aprobación del pedido
+ * Confirma la aprobaciÃ³n del pedido
  */
 function confirmarAprobacion() {
     const comentarios = document.getElementById('comentariosAprobacion').value;

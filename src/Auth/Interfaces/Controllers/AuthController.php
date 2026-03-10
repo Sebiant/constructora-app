@@ -24,34 +24,34 @@ class AuthController
         
         try {
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                throw new \Exception('Método no permitido');
+                throw new \Exception('MÃ©todo no permitido');
             }
             
             if (!isset($_POST["u_login"], $_POST["u_password"])) {
-                throw new \Exception('Por favor, ingrese usuario y contraseña');
+                throw new \Exception('Por favor, ingrese usuario y contraseÃ±a');
             }
             
             $email = trim($_POST["u_login"]);
             $password = trim($_POST["u_password"]);
             
-            // Validar formato de correo electrónico
+            // Validar formato de correo electrÃ³nico
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                throw new \Exception('Por favor, ingrese un correo electrónico válido');
+                throw new \Exception('Por favor, ingrese un correo electrÃ³nico vÃ¡lido');
             }
             
-            // Validar contraseña
+            // Validar contraseÃ±a
             if (empty($password) || strlen($password) < 6) {
-                throw new \Exception('La contraseña debe tener al menos 6 caracteres');
+                throw new \Exception('La contraseÃ±a debe tener al menos 6 caracteres');
             }
             
             // Verificar credenciales
             $userData = $this->user->verifyCredentials($email, $password);
             
             if (!$userData) {
-                throw new \Exception('El usuario o la contraseña son incorrectos');
+                throw new \Exception('El usuario o la contraseÃ±a son incorrectos');
             }
             
-            // Crear sesión
+            // Crear sesiÃ³n
             $session = new Session($userData);
             $_SESSION['seguridad'] = json_encode([
                 'u_login' => $userData['u_login'],
@@ -61,20 +61,20 @@ class AuthController
                 'u_apellido' => $userData['u_apellido']
             ]);
             
-            // Actualizar último acceso
+            // Actualizar Ãºltimo acceso
             $this->user->updateLastAccess($userData['u_id']);
             
-            // Configurar cookie de recordarme si se solicitó
+            // Configurar cookie de recordarme si se solicitÃ³
             if (isset($_POST['remember']) && $_POST['remember'] == 'on') {
                 $token = bin2hex(random_bytes(32));
                 setcookie('remember_token', $token, time() + (30 * 24 * 60 * 60), '/', '', true, true);
-                // Aquí podrías guardar el token en la base de datos
+                // AquÃ­ podrÃ­as guardar el token en la base de datos
             }
             
             echo json_encode([
                 'success' => true,
-                'message' => 'Inicio de sesión exitoso',
-                'redirect' => '/sgigesconnew/src/Layout/Interfaces/Views/layoutView.php',
+                'message' => 'Inicio de sesiÃ³n exitoso',
+                'redirect' => '/sgigescon/src/Layout/Interfaces/Views/layoutView.php',
                 'user' => [
                     'id' => $userData['u_id'],
                     'login' => $userData['u_login'],
@@ -94,14 +94,14 @@ class AuthController
     
     public function logout()
     {
-        // Obtener ID del usuario antes de destruir la sesión
+        // Obtener ID del usuario antes de destruir la sesiÃ³n
         $userId = null;
         if (isset($_SESSION['seguridad'])) {
             $sessionData = json_decode($_SESSION['seguridad'], true);
             $userId = $sessionData['u_id'] ?? null;
         }
         
-        // Destruir sesión
+        // Destruir sesiÃ³n
         session_destroy();
         
         // Eliminar cookies
@@ -116,7 +116,7 @@ class AuthController
         }
         
         // Redirigir al login
-        header("Location: /sgigesconnew/src/Auth/Interfaces/Views/loginView.php");
+        header("Location: /sgigescon/src/Auth/Interfaces/Views/loginView.php");
         exit;
     }
     
@@ -153,7 +153,6 @@ switch ($action) {
         $controller->checkSession();
         break;
     default:
-        header('Location: /sgigesconnew/src/Auth/Interfaces/Views/loginView.php');
+        header('Location: /sgigescon/src/Auth/Interfaces/Views/loginView.php');
         exit;
 }
-?>

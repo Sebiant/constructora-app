@@ -1,100 +1,100 @@
-# Módulo de Autenticación - SGIGESCON
+﻿# MÃ³dulo de AutenticaciÃ³n - SGIGESCON
 
 ## Estructura
 
 ```
 src/Auth/
-├── Domain/
-│   ├── Models/
-│   │   ├── User.php          # Modelo de usuario
-│   │   └── Session.php       # Modelo de sesión
-├── Interfaces/
-│   ├── Controllers/
-│   │   └── AuthController.php # Controlador de autenticación
-│   └── Views/
-│       ├── loginView.php      # Vista del login
-│       └── loginView.js      # JavaScript del login
-└── README.md                # Este archivo
+â”œâ”€â”€ Domain/
+â”‚   â”œâ”€â”€ Models/
+â”‚   â”‚   â”œâ”€â”€ User.php          # Modelo de usuario
+â”‚   â”‚   â””â”€â”€ Session.php       # Modelo de sesiÃ³n
+â”œâ”€â”€ Interfaces/
+â”‚   â”œâ”€â”€ Controllers/
+â”‚   â”‚   â””â”€â”€ AuthController.php # Controlador de autenticaciÃ³n
+â”‚   â””â”€â”€ Views/
+â”‚       â”œâ”€â”€ loginView.php      # Vista del login
+â”‚       â””â”€â”€ loginView.js      # JavaScript del login
+â””â”€â”€ README.md                # Este archivo
 ```
 
 ## Funcionalidades
 
 ### 1. Login
-- **Validación de correo electrónico**: Verifica formato válido
-- **Validación de contraseña**: Mínimo 6 caracteres
-- **Verificación de credenciales**: Contra base de datos con hash
-- **Manejo de sesión**: Creación y gestión de sesión segura
-- **Recordarme**: Opción para mantener sesión activa
-- **Redirección automática**: Al dashboard si está logueado
+- **ValidaciÃ³n de correo electrÃ³nico**: Verifica formato vÃ¡lido
+- **ValidaciÃ³n de contraseÃ±a**: MÃ­nimo 6 caracteres
+- **VerificaciÃ³n de credenciales**: Contra base de datos con hash
+- **Manejo de sesiÃ³n**: CreaciÃ³n y gestiÃ³n de sesiÃ³n segura
+- **Recordarme**: OpciÃ³n para mantener sesiÃ³n activa
+- **RedirecciÃ³n automÃ¡tica**: Al dashboard si estÃ¡ logueado
 
 ### 2. Logout
-- **Destrucción de sesión**: Limpia variables de sesión
-- **Eliminación de cookies**: Limpia cookies de remember me
-- **Registro de actividad**: Guarda último acceso
+- **DestrucciÃ³n de sesiÃ³n**: Limpia variables de sesiÃ³n
+- **EliminaciÃ³n de cookies**: Limpia cookies de remember me
+- **Registro de actividad**: Guarda Ãºltimo acceso
 
-### 3. Verificación de sesión
-- **Check de autenticación**: Verifica si el usuario está logueado
-- **Datos de usuario**: Retorna información del usuario actual
+### 3. VerificaciÃ³n de sesiÃ³n
+- **Check de autenticaciÃ³n**: Verifica si el usuario estÃ¡ logueado
+- **Datos de usuario**: Retorna informaciÃ³n del usuario actual
 
-## Características de Seguridad
+## CaracterÃ­sticas de Seguridad
 
-### 1. Hash de Contraseñas
+### 1. Hash de ContraseÃ±as
 - Utiliza `password_hash()` con `PASSWORD_DEFAULT`
-- Verificación con `password_verify()`
+- VerificaciÃ³n con `password_verify()`
 
-### 2. Prevención de ataques
+### 2. PrevenciÃ³n de ataques
 - **SQL Injection**: Usando prepared statements
 - **XSS**: Escapando salida con `htmlspecialchars()`
-- **CSRF**: Tokens de sesión y validación
+- **CSRF**: Tokens de sesiÃ³n y validaciÃ³n
 
 ### 3. Manejo de errores
-- **Mensajes genéricos**: No revela información sensible
+- **Mensajes genÃ©ricos**: No revela informaciÃ³n sensible
 - **Logging**: Registro de intentos fallidos
-- **Rate limiting**: (Implementación futura)
+- **Rate limiting**: (ImplementaciÃ³n futura)
 
 ## Uso
 
 ### 1. Acceso al Login
 ```
-http://localhost/sgigesconnew/src/Auth/Interfaces/Views/loginView.php
+http://localhost/sgigescon/src/Auth/Interfaces/Views/loginView.php
 ```
 
 ### 2. Endpoints del Controlador
 
 #### Login
 ```
-POST /sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=login
+POST /sgigescon/src/Auth/Interfaces/Controllers/AuthController.php?action=login
 ```
 
-**Parámetros:**
-- `u_login`: Correo electrónico
-- `u_password`: Contraseña
-- `remember`: (opcional) "on" para recordar sesión
+**ParÃ¡metros:**
+- `u_login`: Correo electrÃ³nico
+- `u_password`: ContraseÃ±a
+- `remember`: (opcional) "on" para recordar sesiÃ³n
 
 **Respuesta:**
 ```json
 {
     "success": true,
-    "message": "Inicio de sesión exitoso",
-    "redirect": "/sgigesconnew/src/Layout/Interfaces/Views/layoutView.php",
+    "message": "Inicio de sesiÃ³n exitoso",
+    "redirect": "/sgigescon/src/Layout/Interfaces/Views/layoutView.php",
     "user": {
         "id": 123,
         "login": "usuario@ejemplo.com",
         "perfil": 1,
         "nombre": "Juan",
-        "apellido": "Pérez"
+        "apellido": "PÃ©rez"
     }
 }
 ```
 
 #### Logout
 ```
-GET /sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=logout
+GET /sgigescon/src/Auth/Interfaces/Controllers/AuthController.php?action=logout
 ```
 
-#### Verificar Sesión
+#### Verificar SesiÃ³n
 ```
-GET /sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=check
+GET /sgigescon/src/Auth/Interfaces/Controllers/AuthController.php?action=check
 ```
 
 **Respuesta:**
@@ -106,19 +106,19 @@ GET /sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=chec
         "u_perfil": 1,
         "u_id": 123,
         "u_nombre": "Juan",
-        "u_apellido": "Pérez"
+        "u_apellido": "PÃ©rez"
     }
 }
 ```
 
-## Integración con Layout Existente
+## IntegraciÃ³n con Layout Existente
 
-### 1. Verificación de sesión
+### 1. VerificaciÃ³n de sesiÃ³n
 ```php
 <?php
 session_start();
 if (!isset($_SESSION['seguridad'])) {
-    header("Location: /sgigesconnew/src/Auth/Interfaces/Views/loginView.php");
+    header("Location: /sgigescon/src/Auth/Interfaces/Views/loginView.php");
     exit;
 }
 ?>
@@ -136,9 +136,9 @@ $userProfile = $sessionData['u_perfil'];
 
 ### 3. Logout desde el layout
 ```html
-<a href="/sgigesconnew/src/Auth/Interfaces/Controllers/AuthController.php?action=logout" class="btn-logout">
+<a href="/sgigescon/src/Auth/Interfaces/Controllers/AuthController.php?action=logout" class="btn-logout">
     <i class="bi bi-box-arrow-right"></i>
-    Cerrar Sesión
+    Cerrar SesiÃ³n
 </a>
 ```
 
@@ -160,6 +160,6 @@ $userProfile = $sessionData['u_perfil'];
 
 ## Notas
 
-- El módulo mantiene compatibilidad con la estructura de base de datos existente
+- El mÃ³dulo mantiene compatibilidad con la estructura de base de datos existente
 - Se migraron las funcionalidades del sistema antiguo (`antiguo/src/Sesion/`)
-- Se implementaron mejores prácticas de seguridad y arquitectura limpia
+- Se implementaron mejores prÃ¡cticas de seguridad y arquitectura limpia
