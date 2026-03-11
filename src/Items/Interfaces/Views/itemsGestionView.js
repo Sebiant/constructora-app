@@ -218,14 +218,15 @@ const ItemsUI = (() => {
           <tr class="${!row.valido ? 'table-danger' : ''}">
             <td>${escapeHtml(row.codigo)}</td>
             <td>${escapeHtml(row.nombre)}</td>
-            <td>${row.tipoId}</td>
-            <td>${escapeHtml(row.unidadId)}</td>
+            <td>${escapeHtml(row.tipo)}</td>
+            <td>${escapeHtml(row.unidad)}</td>
             <td>${row.precio}</td>
             <td>${row.minimoComercial}</td>
             <td>${escapeHtml(row.presentacion)}</td>
-            <td>${row.estado}</td>
             <td class="text-center">
-              ${row.valido ? '<span class="badge bg-success">Sí</span>' : '<span class="badge bg-danger">No</span>'}
+              ${row.valido 
+                ? '<span class="badge bg-success">Válido</span>' 
+                : '<span class="badge bg-warning text-dark" title="' + escapeHtml(row.motivoIncompleto) + '">Incompleto</span>'}
             </td>
           </tr>
         `).join('');
@@ -302,7 +303,10 @@ const ItemsUI = (() => {
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+      .replaceAll("'", "&#039;")
+      .replaceAll("\n", " ")
+      .replaceAll("\r", " ")
+      .replaceAll("\t", " ");
   }
 
   async function loadItemPriceHistory(idItem) {

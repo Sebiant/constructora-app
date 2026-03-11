@@ -882,7 +882,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                     <div class="mb-3">
                         <label for="archivo_excel_recursos" class="form-label fw-semibold">Archivo Excel (.xlsx)</label>
                         <input type="file" name="archivo_excel" id="archivo_excel_recursos" class="form-control" accept=".xlsx" required>
-                        <div class="form-text">Debe contener columnas: CODIGO, NOMBRE, ID_TIPO_MATERIAL, IDUNIDAD, PRECIO, MINIMO_COMERCIAL, PRESENTACION_COMERCIAL, ESTADO</div>
+                        <div class="form-text">Importante: Use nombres exactos para TIPO y UNIDAD según la hoja "Valores Válidos". No se permiten IDs ni valores libres. El ESTADO se asigna automáticamente: Activo si está completo; Inactivo si faltan datos. Columnas: CODIGO, NOMBRE, TIPO, UNIDAD, PRECIO, MINIMO_COMERCIAL, PRESENTACION_COMERCIAL</div>
                     </div>
 
                     <a href="/sgigescon/src/Items/Interfaces/downloadExcelTemplateRecursos.php" class="btn btn-sm btn-outline-primary mb-3">
@@ -897,12 +897,11 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                     <tr>
                                         <th>Código</th>
                                         <th>Nombre</th>
-                                        <th>ID Tipo</th>
-                                        <th>ID Unidad</th>
+                                        <th>Tipo</th>
+                                        <th>Unidad</th>
                                         <th>Precio</th>
                                         <th>Mínimo</th>
                                         <th>Presentación</th>
-                                        <th>Estado</th>
                                         <th>Válido</th>
                                     </tr>
                                 </thead>

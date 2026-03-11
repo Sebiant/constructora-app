@@ -1,6 +1,15 @@
 <?php
 
 require __DIR__ . '/../../../vendor/autoload.php';
+
+function safeJsonEncode($data) {
+    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+        throw new Exception('Error al codificar JSON: ' . json_last_error_msg());
+    }
+    return $json;
+}
+
 require __DIR__ . '/../../../config/database.php';
 
 $db = new \Database();
@@ -84,33 +93,48 @@ try {
                     continue;
                 }
                 
-                $codigo = trim((string)($row[0] ?? ''));
-                $nombre = trim((string)($row[1] ?? ''));
-                $tipoId = (int)($row[2] ?? 0);
-                $unidadId = trim((string)($row[3] ?? ''));
+                // Sanitizar valores: eliminar HTML y caracteres no válidos
+                $codigo = trim(strip_tags((string)($row[0] ?? '')));
+                $nombre = trim(strip_tags((string)($row[1] ?? '')));
+                $tipo = trim(strip_tags((string)($row[2] ?? '')));
+                $unidad = trim(strip_tags((string)($row[3] ?? '')));
                 $precio = (float)($row[4] ?? 0);
                 $minimoComercial = (float)($row[5] ?? 1.0);
-                $presentacion = trim((string)($row[6] ?? ''));
-                $estado = isset($row[7]) && $row[7] !== '' ? (int)$row[7] : 1;
+                $presentacion = trim(strip_tags((string)($row[6] ?? '')));
+                // Se ignora columna ESTADO; se define automáticamente
+                $estado = 1; // Activo por defecto si está completo
 
                 if ($codigo === '' && $nombre === '') {
                     continue;
                 }
 
+                // Marcar como incompleto si faltan datos críticos o están vacíos
+                $isEmpty = ($codigo === '' || $nombre === '' || $tipo === '' || $unidad === '' || $precio <= 0);
+                $incomplete = $isEmpty || ($codigo === '' || $nombre === '' || $tipo === '' || $unidad === '' || $precio <= 0);
+                $valido = !$incomplete;
+                // Si está incompleto o vacío, dejar inactivo hasta completar
+                if ($incomplete) {
+                    $estado = 0;
+                }
+
                 $previewData[] = [
                     'codigo' => $codigo,
                     'nombre' => $nombre,
-                    'tipoId' => $tipoId,
-                    'unidadId' => $unidadId,
+                    'tipo' => $tipo,
+                    'unidad' => $unidad,
                     'precio' => $precio,
                     'minimoComercial' => $minimoComercial,
                     'presentacion' => $presentacion,
                     'estado' => $estado,
-                    'valido' => !($codigo === '' || $nombre === '' || !$tipoId || $unidadId === '' || $precio <= 0)
+                    'valido' => $valido,
+                    'incomplete' => $incomplete,
+                    'motivoIncompleto' => $incomplete 
+                        ? ($isEmpty ? 'Datos incompletos: campos vacíos' : 'Datos incompletos: código, nombre, tipo, unidad o precio faltantes') 
+                        : ''
                 ];
             }
 
-            echo json_encode([
+            echo safeJsonEncode([
                 'success' => true,
                 'data' => $previewData
             ]);
@@ -134,8 +158,21 @@ try {
             $existingStmt->execute();
             $existingCodes = array_flip(array_map('strval', $existingStmt->fetchAll(PDO::FETCH_COLUMN)));
 
+            // Cargar tipos y unidades para mapeo por nombre
+            $tiposStmt = $connection->query("SELECT id_tipo_material, desc_tipo FROM tipo_material WHERE estado = 1");
+            $tipos = [];
+            foreach ($tiposStmt->fetchAll(PDO::FETCH_ASSOC) as $t) {
+                $tipos[strtolower(trim($t['desc_tipo']))] = (int)$t['id_tipo_material'];
+            }
+            $unidadesStmt = $connection->query("SELECT idunidad, unidesc FROM gr_unidad WHERE id_estado = 1");
+            $unidades = [];
+            foreach ($unidadesStmt->fetchAll(PDO::FETCH_ASSOC) as $u) {
+                $unidades[strtolower(trim($u['unidesc']))] = (string)$u['idunidad'];
+            }
+
             $inserted = 0;
             $skipped = 0;
+            $incomplete = 0;
 
             $stmtInsertMaterial = $connection->prepare(
                 "INSERT INTO materiales 
@@ -157,28 +194,36 @@ try {
                     continue;
                 }
 
-                $codigo = trim((string)($row[0] ?? ''));
-                $nombre = trim((string)($row[1] ?? ''));
-                $tipoId = (int)($row[2] ?? 0);
-                $unidadId = trim((string)($row[3] ?? ''));
+                // Sanitizar valores: eliminar HTML y caracteres no válidos
+                $codigo = trim(strip_tags((string)($row[0] ?? '')));
+                $nombre = trim(strip_tags((string)($row[1] ?? '')));
+                $tipo = trim(strip_tags((string)($row[2] ?? '')));
+                $unidad = trim(strip_tags((string)($row[3] ?? '')));
                 $precio = (float)($row[4] ?? 0);
                 $minimoComercial = (float)($row[5] ?? 1.0);
-                $presentacion = trim((string)($row[6] ?? ''));
-                $estado = isset($row[7]) && $row[7] !== '' ? (int)$row[7] : 1;
+                $presentacion = trim(strip_tags((string)($row[6] ?? '')));
+                // Se ignora columna ESTADO; se define automáticamente
+                $estado = 1; // Activo por defecto si está completo
 
                 if ($codigo === '' && $nombre === '') {
                     continue;
                 }
 
-                if ($codigo === '' || $nombre === '' || !$tipoId || $unidadId === '' || $precio <= 0) {
-                    $skipped++;
-                    continue;
+                // Si faltan datos críticos, marcar como incompleto (estado=0) y permitir importar
+                $isIncomplete = ($codigo === '' || $nombre === '' || $tipo === '' || $unidad === '' || $precio <= 0);
+                if ($isIncomplete) {
+                    $estado = 0; // Incompleto
+                    $incomplete++;
                 }
 
                 if (isset($existingCodes[$codigo])) {
                     $skipped++;
                     continue;
                 }
+
+                // Mapear tipo y unidad por nombre
+                $tipoId = $tipos[strtolower($tipo)] ?? null;
+                $unidadId = $unidades[strtolower($unidad)] ?? null;
 
                 if ($minimoComercial <= 0) {
                     $minimoComercial = 1.0;
@@ -197,7 +242,9 @@ try {
                 ]);
 
                 $materialId = (int)$connection->lastInsertId();
-                $stmtInsertPrecio->execute([$materialId, $precio, $usuarioId]);
+                if ($precio > 0) {
+                    $stmtInsertPrecio->execute([$materialId, $precio, $usuarioId]);
+                }
 
                 $existingCodes[$codigo] = true;
                 $inserted++;
@@ -208,7 +255,8 @@ try {
             echo json_encode([
                 'success' => true,
                 'inserted' => $inserted,
-                'skipped' => $skipped
+                'skipped' => $skipped,
+                'incomplete' => $incomplete
             ]);
             break;
 
