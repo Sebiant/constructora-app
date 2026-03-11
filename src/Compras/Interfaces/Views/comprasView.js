@@ -862,26 +862,43 @@ function getEstadoBadge(estado) {
   return badges[estado] || '<span class="badge bg-secondary">' + estado + '</span>';
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function initCompras() {
+  console.log('🚀 Inicializando componente de compras...');
   try {
     await cargarProyectos();
     await cargarPedidos();
     await cargarCompras();
   } catch (e) {
-    console.error(e);
-    qs('listaPedidos').innerHTML = `<div class="alert alert-danger">${escapeHtml(e.message)}</div>`;
+    console.error('Error al cargar datos iniciales de compras:', e);
+    const listaPedidos = qs('listaPedidos');
+    if (listaPedidos) {
+      listaPedidos.innerHTML = `<div class="alert alert-danger">${escapeHtml(e.message)}</div>`;
+    }
   }
 
-  qs('btnRefrescar').addEventListener('click', cargarPedidos);
-  qs('btnBuscar').addEventListener('click', cargarPedidos);
+  // Vincular eventos de búsqueda y filtros
+  const btnRefrescar = qs('btnRefrescar');
+  if (btnRefrescar) btnRefrescar.addEventListener('click', cargarPedidos);
+  
+  const btnBuscar = qs('btnBuscar');
+  if (btnBuscar) btnBuscar.addEventListener('click', cargarPedidos);
 
-  if (qs('btnRefrescarCompras')) qs('btnRefrescarCompras').addEventListener('click', cargarCompras);
-  if (qs('filterProyectoCompras')) qs('filterProyectoCompras').addEventListener('change', cargarCompras);
-  if (qs('fechaDesdeCompras')) qs('fechaDesdeCompras').addEventListener('change', cargarCompras);
-  if (qs('fechaHastaCompras')) qs('fechaHastaCompras').addEventListener('change', cargarCompras);
-  if (qs('searchCompras')) {
+  const btnRefrescarCompras = qs('btnRefrescarCompras');
+  if (btnRefrescarCompras) btnRefrescarCompras.addEventListener('click', cargarCompras);
+  
+  const filterProyectoCompras = qs('filterProyectoCompras');
+  if (filterProyectoCompras) filterProyectoCompras.addEventListener('change', cargarCompras);
+  
+  const fechaDesdeCompras = qs('fechaDesdeCompras');
+  if (fechaDesdeCompras) fechaDesdeCompras.addEventListener('change', cargarCompras);
+  
+  const fechaHastaCompras = qs('fechaHastaCompras');
+  if (fechaHastaCompras) fechaHastaCompras.addEventListener('change', cargarCompras);
+  
+  const searchCompras = qs('searchCompras');
+  if (searchCompras) {
     let t = null;
-    qs('searchCompras').addEventListener('input', () => {
+    searchCompras.addEventListener('input', () => {
       if (t) clearTimeout(t);
       t = setTimeout(() => {
         cargarCompras();
@@ -889,33 +906,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  qs('filterProyecto').addEventListener('change', cargarPedidos);
-  qs('fechaDesde').addEventListener('change', cargarPedidos);
-  qs('fechaHasta').addEventListener('change', cargarPedidos);
-  qs('searchInput').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') cargarPedidos();
-  });
+  const filterProyecto = qs('filterProyecto');
+  if (filterProyecto) filterProyecto.addEventListener('change', cargarPedidos);
+  
+  const fechaDesde = qs('fechaDesde');
+  if (fechaDesde) fechaDesde.addEventListener('change', cargarPedidos);
+  
+  const fechaHasta = qs('fechaHasta');
+  if (fechaHasta) fechaHasta.addEventListener('change', cargarPedidos);
+  
+  const searchInput = qs('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') cargarPedidos();
+    });
+  }
 
-  // Campos de proveedor eliminados
-
-  if (qs('totalCompra')) {
-    qs('totalCompra').addEventListener('input', () => {
+  const totalCompra = qs('totalCompra');
+  if (totalCompra) {
+    totalCompra.addEventListener('input', () => {
       totalCompraTouched = true;
     });
   }
 
-  // Añadir evento para detectar cambios en el campo número de factura
-  if (qs('numeroFactura')) {
-    qs('numeroFactura').addEventListener('input', actualizarTotalCompra);
+  const numeroFactura = qs('numeroFactura');
+  if (numeroFactura) {
+    numeroFactura.addEventListener('input', actualizarTotalCompra);
   }
 
-  // Búsqueda de proveedores eliminada
-
-  // Modal de proveedores eliminado
-
-  qs('formCompra').addEventListener('submit', onGuardarCompra);
+  const formCompra = qs('formCompra');
+  if (formCompra) {
+    console.log('✅ Formulario de compra encontrado, vinculando submit');
+    formCompra.addEventListener('submit', onGuardarCompra);
+  } else {
+    console.warn('⚠️ No se encontró el formulario formCompra para vincular el evento submit');
+  }
+  
   actualizarTotalCompra();
-});
+}
+
+// La inicialización se realiza desde el layoutView.js llamando a initCompras()
+window.initCompras = initCompras;
 
 // Exponer para onclick inline
 window.seleccionarPedido = seleccionarPedido;

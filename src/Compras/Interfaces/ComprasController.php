@@ -1,7 +1,7 @@
 ﻿<?php
 /**
  * ComprasController.php
- * Controlador para gestiÃ³n de compras sobre pedidos aprobados
+ * Controlador para gestión de compras sobre pedidos aprobados
  */
 
 header('Content-Type: application/json');
@@ -103,7 +103,7 @@ try {
             break;
 
         case 'getCompraDetalle':
-            // Compatibilidad con compras antiguas (tabla compras). Si estÃ¡s usando compras_finales, usa getCompraFinalDetalle.
+            // Compatibilidad con compras antiguas (tabla compras). Si estás usando compras_finales, usa getCompraFinalDetalle.
             try {
                 $idCompra = $_GET['id_compra'] ?? null;
                 if (!$idCompra) {
@@ -147,7 +147,7 @@ try {
                     throw new Exception('Compra no encontrada');
                 }
 
-                // Intentar obtener detalles desde log_recepciones (mÃ©todo nuevo y preciso)
+                // Intentar obtener detalles desde log_recepciones (método nuevo y preciso)
                 $sqlDet = "SELECT 
                                 lr.id_det_pedido,
                                 lr.descripcion,
@@ -167,7 +167,7 @@ try {
                 $stmtD->execute([(int)$idCompra]);
                 $detalles = $stmtD->fetchAll(PDO::FETCH_ASSOC);
                 
-                // Si no hay detalles en log_recepciones (compra antigua), intentar por el mÃ©todo antiguo
+                // Si no hay detalles en log_recepciones (compra antigua), intentar por el método antiguo
                 if (empty($detalles)) {
                     $sqlDetAntiguo = "SELECT
                                         ocd.id_det_pedido,
@@ -192,7 +192,7 @@ try {
                     
                     // Agregar advertencia para compras antiguas
                     if (!empty($detalles)) {
-                        $compra['advertencia'] = 'Esta compra fue registrada antes de implementar el historial detallado. Los valores mostrados corresponden al estado acumulado actual, no a lo recibido especÃ­ficamente en esta transacciÃ³n.';
+                        $compra['advertencia'] = 'Esta compra fue registrada antes de implementar el historial detallado. Los valores mostrados corresponden al estado acumulado actual, no a lo recibido específicamente en esta transacción.';
                     }
                 }
 
@@ -391,14 +391,14 @@ try {
 
         case 'registrarCompraDeOrden':
             try {
-                // Limpiar buffer de salida para evitar contaminaciÃ³n JSON
+                // Limpiar buffer de salida para evitar contaminación JSON
                 if (ob_get_length()) {
                     ob_clean();
                 }
                 
-                // Validar que sea una llamada POST vÃ¡lida
+                // Validar que sea una llamada POST válida
                 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                    throw new Exception('MÃ©todo no permitido');
+                    throw new Exception('Método no permitido');
                 }
                 
                 $data = json_decode(file_get_contents('php://input'), true);
@@ -408,8 +408,8 @@ try {
                 $observaciones = $data['observaciones'] ?? null;
                 $itemsRecibidos = $data['items_recibidos'] ?? [];
 
-                // LOG DE DEPURACIÃ“N: Registrar quÃ© datos llegaron
-                error_log("=== REGISTRO DE RECEPCIÃ“N ===");
+                // LOG DE DEPURACIÓN: Registrar qué datos llegaron
+                error_log("=== REGISTRO DE RECEPCIÓN ===");
                 error_log("Orden ID: " . $idOrden);
                 error_log("Factura: " . $numeroFactura);
                 error_log("Items recibidos: " . count($itemsRecibidos));
@@ -418,7 +418,7 @@ try {
                 }
 
                 if (!$idOrden) throw new Exception('ID de orden requerido');
-                if (!$numeroFactura) throw new Exception('NÃºmero de factura requerido');
+                if (!$numeroFactura) throw new Exception('Número de factura requerido');
                 if (empty($itemsRecibidos)) throw new Exception('Debe especificar los items recibidos');
 
                 // Validar orden existente
@@ -430,7 +430,7 @@ try {
                 session_start();
                 $idUsuario = $_SESSION['u_id'] ?? 1;
 
-                // Iniciar transacciÃ³n
+                // Iniciar transacción
                 $connection->beginTransaction();
                 
                 // Procesar items recibidos y detectar faltantes
@@ -444,7 +444,7 @@ try {
                     $cantidadRecibidaAhora = (float)$item['cantidad_recibida'];
                     $precioUnitario = (float)$item['precio_unitario'];
                     
-                    // Calcular subtotal del item para esta recepciÃ³n
+                    // Calcular subtotal del item para esta recepción
                     $subtotalItem = $cantidadRecibidaAhora * $precioUnitario;
                     $totalCalculado += $subtotalItem;
                     
@@ -466,7 +466,7 @@ try {
                     if ($cantidadFaltante > 0.01) { // Tolerancia para decimales
                         $todosCompletos = false;
                         
-                        // Obtener descripciÃ³n y unidad del item
+                        // Obtener descripción y unidad del item
                         $stmtItem = $connection->prepare("SELECT descripcion, unidad FROM ordenes_compra_detalle WHERE id_orden_compra = ? AND id_det_pedido = ?");
                         $stmtItem->execute([$idOrden, $idDetPedido]);
                         $itemInfo = $stmtItem->fetch(PDO::FETCH_ASSOC);
@@ -495,7 +495,7 @@ try {
                 $stmtCompra->execute([$orden['id_pedido'], $idOrden, $numeroFactura, $totalCalculado, $observaciones, $orden['id_provedor'], $idUsuario]);
                 $idCompra = $connection->lastInsertId();
 
-                // LOG DE DEPURACIÃ“N: Ver quÃ© items llegaron
+                // LOG DE DEPURACIÓN: Ver qué items llegaron
                 error_log("Items recibidos antes de procesar: " . count($itemsRecibidos));
                 foreach ($itemsRecibidos as $idx => $it) {
                     error_log("  [{$idx}] id_det_pedido={$it['id_det_pedido']}, cantidad={$it['cantidad_recibida']}");
@@ -508,12 +508,12 @@ try {
                     if (!isset($itemsUnicos[$key])) {
                         $itemsUnicos[$key] = $item;
                     } else {
-                        error_log("ADVERTENCIA: Item duplicado detectado - id_det_pedido={$key}. Se ignorarÃ¡ el duplicado.");
+                        error_log("ADVERTENCIA: Item duplicado detectado - id_det_pedido={$key}. Se ignorará el duplicado.");
                     }
                 }
                 $itemsRecibidos = array_values($itemsUnicos);
                 
-                error_log("Items Ãºnicos despuÃ©s de deduplicar: " . count($itemsRecibidos));
+                error_log("Items únicos después de deduplicar: " . count($itemsRecibidos));
 
                 // Guardar detalle de cada item recibido en el log
                 foreach ($itemsRecibidos as $item) {
@@ -522,8 +522,8 @@ try {
                     $precioUnitario = (float)$item['precio_unitario'];
                     
                     if ($cantidadRecibida > 0) {
-                        // VALIDACIÃ“N CRÃTICA: Verificar que el id_det_pedido pertenece a esta orden
-                        // Esto previene que se guarden items de otras Ã³rdenes por error
+                        // VALIDACIÓN CRÃTICA: Verificar que el id_det_pedido pertenece a esta orden
+                        // Esto previene que se guarden items de otras órdenes por error
                         $stmtValidar = $connection->prepare("SELECT COUNT(*) as existe FROM ordenes_compra_detalle WHERE id_orden_compra = ? AND id_det_pedido = ?");
                         $stmtValidar->execute([$idOrden, $idDetPedido]);
                         $validacion = $stmtValidar->fetch(PDO::FETCH_ASSOC);
@@ -534,7 +534,7 @@ try {
                             continue; // Saltar este item
                         }
                         
-                        // Obtener informaciÃ³n del item (solo si pasÃ³ la validaciÃ³n)
+                        // Obtener información del item (solo si pasó la validación)
                         $stmtItem = $connection->prepare("SELECT descripcion, unidad FROM ordenes_compra_detalle WHERE id_orden_compra = ? AND id_det_pedido = ?");
                         $stmtItem->execute([$idOrden, $idDetPedido]);
                         $itemInfo = $stmtItem->fetch(PDO::FETCH_ASSOC);
@@ -595,7 +595,7 @@ try {
 
         default:
             http_response_code(404);
-            echo json_encode(['success' => false, 'error' => 'AcciÃ³n no vÃ¡lida', 'action_received' => $action]);
+            echo json_encode(['success' => false, 'error' => 'Acción no válida', 'action_received' => $action]);
             break;
     }
 } catch (Exception $e) {

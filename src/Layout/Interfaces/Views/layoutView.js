@@ -1,4 +1,4 @@
-﻿// Layout View JavaScript
+// Layout View JavaScript
 (function () {
     'use strict';
 
@@ -20,14 +20,14 @@
     const componentTitles = {
         'proyectos': 'Proyectos',
         'items': 'Items',
-        'capitulos': 'CapÃ­tulos',
+        'capitulos': 'Capítulos',
         'clientes': 'Clientes',
         'provedores': 'Proveedores',
         'pedidosAdmin': 'Pedidos Admin',
-        'ordenesCompra': 'Ã“rdenes de Compra',
+        'ordenesCompra': 'Órdenes de Compra',
         'compras': 'Compras',
         'pedido': 'Pedidos del Proyecto',
-        'importMasiva': 'ImportaciÃ³n Masiva'
+        'importMasiva': 'Importación Masiva'
     };
 
     // Current project state
@@ -186,7 +186,7 @@
         sessionStorage.setItem('selectedProjectId', projectId);
         sessionStorage.setItem('selectedProjectName', projectName);
 
-        // Update active nav items - NO agregar listeners aquÃ­ (ya estÃ¡n registrados al inicio)
+        // Update active nav items - NO agregar listeners aquí (ya están registrados al inicio)
 
         // Automatically load Pedido component
         loadComponent('pedido');
@@ -281,12 +281,17 @@
                 break;
 
             case 'compras':
-                // Initialize compras if functions are available
+                // Initialize compras if function is available
                 setTimeout(() => {
-                    // Check for compras-specific functions first, then fallback to generic ones
-                    if (typeof cargarProyectos === 'function') cargarProyectos();
-                    if (typeof cargarPedidos === 'function') cargarPedidos();
-                    if (typeof cargarCompras === 'function') cargarCompras();
+                    console.log('[Layout] Initializing compras via initCompras...');
+                    if (typeof initCompras === 'function') {
+                        initCompras();
+                    } else {
+                        // Fallback in case initCompras is not defined yet
+                        if (typeof cargarProyectos === 'function') cargarProyectos();
+                        if (typeof cargarPedidos === 'function') cargarPedidos();
+                        if (typeof cargarCompras === 'function') cargarCompras();
+                    }
                 }, 200);
                 break;
 
@@ -442,7 +447,7 @@
                     <h5 class="mt-3">Error al cargar componente</h5>
                     <p class="text-muted">No se pudo cargar el componente: ${componentName}</p>
                     <button class="btn btn-primary" onclick="location.reload()">
-                        <i class="bi bi-arrow-clockwise"></i> Recargar pÃ¡gina
+                        <i class="bi bi-arrow-clockwise"></i> Recargar página
                     </button>
                 </div>
             </div>
@@ -457,10 +462,10 @@
                     <div class="col-md-12">
                         <div class="card">
                             <div class="card-header">
-                                <h5>Bienvenido al Sistema de GestiÃ³n Integral</h5>
+                                <h5>Bienvenido al Sistema de Gestión Integral</h5>
                             </div>
                             <div class="card-body">
-                                <p>Seleccione una opciÃ³n del menÃº lateral para comenzar.</p>
+                                <p>Seleccione una opción del menú lateral para comenzar.</p>
                                 <div class="row mt-4">
                                     <div class="col-md-3">
                                         <div class="card text-center">
@@ -513,11 +518,11 @@
             const oldScript = scripts[index];
 
             if (oldScript.src) {
-                // Normalizar URL para comparaciÃ³n confiable (maneja rutas relativas vs absolutas)
+                // Normalizar URL para comparación confiable (maneja rutas relativas vs absolutas)
                 const resolvedSrc = new URL(oldScript.getAttribute('src'), location.href).href;
 
                 if (_loadedScripts.has(resolvedSrc)) {
-                    // Script ya ejecutado en memoria â€” omitir para evitar re-declaraciÃ³n de
+                    // Script ya ejecutado en memoria â€” omitir para evitar re-declaración de
                     // class / let / const (ej: PaginadorPresupuestos, API_PROYECTOS...)
                     console.log('[Layout] Script ya cargado, omitiendo:', resolvedSrc.split('/').pop());
                     loadNext(index + 1);
@@ -540,7 +545,7 @@
                 oldScript.parentNode.replaceChild(newScript, oldScript);
 
             } else {
-                // Script inline: ejecutar con manejo de error por re-declaraciÃ³n de const/let
+                // Script inline: ejecutar con manejo de error por re-declaración de const/let
                 const code = oldScript.innerHTML;
                 const newScript = document.createElement('script');
                 Array.from(oldScript.attributes).forEach(attr => {
@@ -551,7 +556,7 @@
                 try {
                     oldScript.parentNode.replaceChild(newScript, oldScript);
                 } catch (e) {
-                    // Re-declaraciÃ³n de const/let: convertir a var y evaluar en scope global
+                    // Re-declaración de const/let: convertir a var y evaluar en scope global
                     try {
                         const safeCode = code.replace(/\b(const|let)\s+/g, 'var ');
                         (0, eval)(safeCode); // eslint-disable-line no-eval
@@ -700,7 +705,7 @@
     const logoutBtn = document.querySelector('.btn-logout');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function () {
-            if (confirm('Â¿EstÃ¡s seguro de que deseas cerrar sesiÃ³n?')) {
+            if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
                 window.location.href = '/sgigescon/src/Auth/Interfaces/Controllers/AuthController.php?action=logout';
             }
         });

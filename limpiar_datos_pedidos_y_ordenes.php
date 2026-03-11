@@ -12,7 +12,7 @@
  *
  * Uso:
  *  - Abrir en el navegador: http://localhost/sgigescon/limpiar_datos_pedidos_y_ordenes.php
- *  - Vista previa de conteos y botÃ³n para limpiar todo.
+ *  - Vista previa de conteos y botón para limpiar todo.
  *  - Se puede solicitar en JSON con ?format=json
  */
 
@@ -57,7 +57,7 @@ $allTables = [
     'pedidos',
 ];
 
-// Detectar quÃ© tablas existen en la BD actual
+// Detectar qué tablas existen en la BD actual
 $existing = [];
 foreach ($allTables as $t) {
     if (tableExists($pdo, $t)) {
@@ -80,7 +80,7 @@ if ($method === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clean
     $errors = [];
 
     try {
-        // Deshabilitar claves forÃ¡neas para evitar problemas de orden
+        // Deshabilitar claves foráneas para evitar problemas de orden
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         $pdo->beginTransaction();
 
@@ -157,7 +157,7 @@ if ($method === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clean
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Limpieza de datos: Pedidos, Ã“rdenes y Compras</title>
+  <title>Limpieza de datos: Pedidos, Órdenes y Compras</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
@@ -166,12 +166,12 @@ if ($method === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clean
       <div class="col-lg-8">
         <div class="card shadow-sm border-0">
           <div class="card-header bg-danger text-white">
-            <h5 class="mb-0">Limpieza de datos (Pedidos / Ã“rdenes / Compras)</h5>
+            <h5 class="mb-0">Limpieza de datos (Pedidos / Órdenes / Compras)</h5>
           </div>
           <div class="card-body">
             <div class="alert alert-warning" role="alert">
-              Esta acciÃ³n eliminarÃ¡ datos de negocio (pedidos, detalles, Ã³rdenes, detalles, compras, log de recepciones y compras finales si existen).
-              No elimina catÃ¡logos como materiales, items, proyectos, presupuestos, proveedores. Ãšsalo con cuidado.
+              Esta acción eliminará datos de negocio (pedidos, detalles, órdenes, detalles, compras, log de recepciones y compras finales si existen).
+              No elimina catálogos como materiales, items, proyectos, presupuestos, proveedores. Úsalo con cuidado.
             </div>
 
             <h6>Tablas detectadas en la base actual</h6>
@@ -199,7 +199,7 @@ if ($method === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clean
               </tbody>
             </table>
 
-            <form method="post" class="mt-4" onsubmit="return confirm('Â¿Seguro que deseas eliminar los datos listados? Esta acciÃ³n no se puede deshacer.');">
+            <form method="post" class="mt-4" onsubmit="return confirm('¿Seguro que deseas eliminar los datos listados? Esta acción no se puede deshacer.');">
               <input type="hidden" name="action" value="clean">
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" role="switch" id="reset_ai" name="reset_ai" value="1" checked>
@@ -215,7 +215,7 @@ if ($method === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clean
 
             <hr>
             <div class="small text-muted">
-              TambiÃ©n puedes usar JSON: <code>?format=json</code>. Para ejecutar limpieza vÃ­a JSON, envÃ­a POST con <code>action=clean</code>.
+              También puedes usar JSON: <code>?format=json</code>. Para ejecutar limpieza vía JSON, envía POST con <code>action=clean</code>.
             </div>
           </div>
         </div>

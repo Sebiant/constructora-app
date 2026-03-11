@@ -46,7 +46,7 @@ try {
     $detallesPedidos = [];
 }
 
-// Estilos para la notificaciÃ³n integrada en el card-body
+// Estilos para la notificación integrada en el card-body
 echo '<style>
 .notificacion-pedidos {
     position: relative;
@@ -288,7 +288,7 @@ if ($totalPedidos > 0): ?>
     
     <div class="notificacion-contenido" id="notificacionContenido">
         <div class="notificacion-header">
-            ðŸ“‹ Pedidos Aprobados Sin Orden de Compra
+            📋 Pedidos Aprobados Sin Orden de Compra
         </div>
         
         <div class="notificacion-body">
@@ -306,13 +306,13 @@ if ($totalPedidos > 0): ?>
                         <div class="pedido-acciones">
                             <a href="/sgigescon/src/OrdenesCompra/Interfaces/Views/ordenesCompraView.php?action=nueva&id_pedido=<?php echo $pedido['id_pedido']; ?>" 
                                class="btn-crear-orden-individual"
-                               onclick="event.preventDefault(); console.log('ðŸš€ BotÃ³n de notificaciÃ³n presionado para pedido #<?php echo $pedido['id_pedido']; ?>'); 
+                               onclick="event.preventDefault(); console.log('🚀 Botón de notificación presionado para pedido #<?php echo $pedido['id_pedido']; ?>'); 
                                        // Abrir modal y autollenar con el pedido
                                        const abrir = () => {
                                          if (window.OrdenesCompraUI && typeof OrdenesCompraUI.abrirNuevaOrdenConPedido === 'function') {
                                            OrdenesCompraUI.abrirNuevaOrdenConPedido(<?php echo $pedido['id_pedido']; ?>);
                                          } else {
-                                           // Fallback mÃ­nimo: mostrar modal si el UI aÃºn no estÃ¡ listo
+                                           // Fallback mínimo: mostrar modal si el UI aún no está listo
                                            const modal = document.getElementById('modalOrdenCompra');
                                            if (modal) {
                                              const modalInstance = new bootstrap.Modal(modal);
@@ -344,7 +344,7 @@ function toggleNotificacionPedidos() {
     contenido.classList.toggle('show');
 }
 
-// Cerrar notificaciÃ³n al hacer clic fuera
+// Cerrar notificación al hacer clic fuera
 document.addEventListener('click', function(event) {
     const notificacion = document.querySelector('.notificacion-pedidos');
     if (!notificacion.contains(event.target)) {

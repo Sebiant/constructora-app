@@ -1,7 +1,7 @@
 ﻿<?php
 /**
  * PedidosController.php
- * Controlador para la administraciÃ³n de pedidos
+ * Controlador para la administración de pedidos
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -62,12 +62,12 @@ try {
     switch ($action) {
         
         // ============================================
-        // ENDPOINTS PARA ADMINISTRACIÃ“N DE PEDIDOS
+        // ENDPOINTS PARA ADMINISTRACIÓN DE PEDIDOS
         // ============================================
 
         case 'getAllPedidosAdmin':
             try {
-                // Obtener parÃ¡metros de filtrado
+                // Obtener parámetros de filtrado
                 $proyectoId = $_GET['proyecto'] ?? '';
                 $estado = $_GET['estado'] ?? '';
                 $fechaDesde = $_GET['fechaDesde'] ?? '';
@@ -137,7 +137,7 @@ try {
                 $stmt->execute($params);
                 $pedidos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-                // Contar total de pedidos (sin paginaciÃ³n)
+                // Contar total de pedidos (sin paginación)
                 $sqlCount = "SELECT COUNT(DISTINCT p.id_pedido) as total
                              FROM pedidos p
                              INNER JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
@@ -193,7 +193,7 @@ try {
 
         case 'getEstadisticasPedidos':
             try {
-                // EstadÃ­sticas generales
+                // Estadísticas generales
                 $sql = "SELECT 
                             COUNT(*) as total,
                             SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) as pendientes,
@@ -226,7 +226,7 @@ try {
                     throw new \Exception('ID de pedido requerido');
                 }
 
-                // Obtener informaciÃ³n del pedido
+                // Obtener información del pedido
                 $sql = "SELECT 
                             p.id_pedido,
                             p.fecha_pedido,
@@ -267,7 +267,7 @@ try {
                                     m.cod_material AS codigo_material_extra,
                                     CAST(m.nombremat AS CHAR) AS nombre_material_extra,
                                     
-                                    -- InformaciÃ³n de estado de compra/orden
+                                    -- Información de estado de compra/orden
                                     COALESCE((
                                         SELECT SUM(ocd.cantidad_solicitada)
                                         FROM ordenes_compra_detalle ocd
@@ -439,7 +439,7 @@ try {
             http_response_code(404);
             echo json_encode([
                 'success' => false,
-                'error' => 'AcciÃ³n no vÃ¡lida',
+                'error' => 'Acción no válida',
                 'action_received' => $action
             ]);
             break;

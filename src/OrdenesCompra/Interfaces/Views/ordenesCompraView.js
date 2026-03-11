@@ -27,7 +27,7 @@
     montoTotal: '#montoTotal'
   };
 
-  // InicializaciÃ³n
+  // Inicialización
   async function init() {
     state.modalOrden = new bootstrap.Modal(document.querySelector(selectores.modalOrden));
     state.modalDetalle = new bootstrap.Modal(document.querySelector(selectores.modalDetalle));
@@ -71,7 +71,7 @@
       cargarOrdenes()
     ]);
 
-    // Marcar inicializaciÃ³n completa
+    // Marcar inicialización completa
     state.inicializado = true;
   }
 
@@ -81,15 +81,15 @@
       const response = await fetch(`${API_ORDENES}?action=getOrdenesCompra`);
       const result = await response.json();
 
-      if (!result.success) throw new Error(result.error || 'Error al cargar Ã³rdenes');
+      if (!result.success) throw new Error(result.error || 'Error al cargar órdenes');
 
       state.ordenes = result.data || [];
       state.ordenesFiltradas = [];
       renderizarOrdenes();
       actualizarResumen();
     } catch (error) {
-      console.error('Error cargando Ã³rdenes:', error);
-      mostrarError('Error al cargar las Ã³rdenes de compra');
+      console.error('Error cargando órdenes:', error);
+      mostrarError('Error al cargar las órdenes de compra');
     }
   }
 
@@ -110,14 +110,14 @@
 
   async function cargarPedidos() {
     try {
-      console.log('ðŸ“¡ Cargando pedidos disponibles...');
+      console.log('📡 Cargando pedidos disponibles...');
       const response = await fetch(`${API_ORDENES}?action=getPedidosDisponibles`);
       const result = await response.json();
 
-      console.log('ðŸ“¥ Respuesta de pedidos:', result);
+      console.log('📥 Respuesta de pedidos:', result);
 
       if (result.success) {
-        console.log('âœ… Pedidos cargados:', result.data);
+        console.log('✅ Pedidos cargados:', result.data);
         state.pedidos = result.data || [];
         llenarSelect('idPedido', state.pedidos, 'id_pedido', 'descripcion_pedido');
       } else {
@@ -126,7 +126,7 @@
       }
     } catch (error) {
       console.error('âŒ Error cargando pedidos:', error);
-      mostrarError('Error de conexiÃ³n al cargar pedidos');
+      mostrarError('Error de conexión al cargar pedidos');
     }
   }
 
@@ -135,7 +135,7 @@
     console.log('ðŸ” Cargando productos para pedido ID:', idPedido);
 
     if (!idPedido) {
-      console.log('âŒ No se seleccionÃ³ pedido');
+      console.log('âŒ No se seleccionó pedido');
       return;
     }
 
@@ -145,18 +145,18 @@
       const response = await fetch(`${API_ORDENES}?action=verificarOrdenExistente&id_pedido=${idPedido}`);
       const result = await response.json();
 
-      console.log('ðŸ“¥ Respuesta de verificaciÃ³n:', result);
+      console.log('📥 Respuesta de verificación:', result);
 
       if (result.success && result.tieneOrdenCompleto) {
-        console.log('âš ï¸ El pedido ya estÃ¡ completamente ordenado (faltante_total=0)');
-        alert('Este pedido ya estÃ¡ completamente ordenado. Seleccione otro pedido con faltantes.');
+        console.log('âš ï¸ El pedido ya está completamente ordenado (faltante_total=0)');
+        alert('Este pedido ya está completamente ordenado. Seleccione otro pedido con faltantes.');
 
-        // Limpiar selecciÃ³n
+        // Limpiar selección
         document.getElementById('idPedido').value = '';
         document.getElementById('tablaProductosBody').innerHTML = '';
         document.getElementById('contadorProductos').textContent = '0 productos';
 
-        // Deshabilitar el botÃ³n de guardar
+        // Deshabilitar el botón de guardar
         const btnGuardar = document.getElementById('btnGuardarOrden');
         if (btnGuardar) {
           btnGuardar.disabled = true;
@@ -166,7 +166,7 @@
 
         return;
       } else {
-        // Rehabilitar botÃ³n guardar si hay posibilidad de comprar
+        // Rehabilitar botón guardar si hay posibilidad de comprar
         const btnGuardar = document.getElementById('btnGuardarOrden');
         if (btnGuardar) {
           btnGuardar.disabled = false;
@@ -186,7 +186,7 @@
 
     state.isCargandoProductos = true;
     try {
-      console.log('ðŸ“¡ Haciendo llamada a API...');
+      console.log('📡 Haciendo llamada a API...');
       const url = `${API_ORDENES}?action=getProductosPedido&id_pedido=${idPedido}`;
       console.log('ðŸŒ URL de llamada:', url);
 
@@ -197,16 +197,16 @@
         result = JSON.parse(raw);
       } catch (e) {
         console.error('âŒ Respuesta no JSON desde el servidor:', raw);
-        throw new Error('Respuesta invÃ¡lida del servidor');
+        throw new Error('Respuesta inválida del servidor');
       }
 
-      console.log('ðŸ“¥ Respuesta de API:', result);
-      console.log('ðŸ“Š Status HTTP:', response.status);
-      console.log('ðŸ“Š Headers:', response.headers);
+      console.log('📥 Respuesta de API:', result);
+      console.log('📊 Status HTTP:', response.status);
+      console.log('📊 Headers:', response.headers);
 
       if (result.success) {
-        console.log('âœ… Productos cargados:', result.data);
-        console.log('ðŸ“Š Cantidad de productos:', result.data ? result.data.length : 0);
+        console.log('✅ Productos cargados:', result.data);
+        console.log('📊 Cantidad de productos:', result.data ? result.data.length : 0);
         state.productos = result.data || [];
         renderizarTablaProductos();
         actualizarResumen();
@@ -216,8 +216,8 @@
       }
     } catch (error) {
       console.error('âŒ Error en la llamada:', error);
-      console.error('ðŸ“Š Stack trace:', error.stack);
-      mostrarError('Error de conexiÃ³n al cargar productos');
+      console.error('📊 Stack trace:', error.stack);
+      mostrarError('Error de conexión al cargar productos');
     } finally {
       state.isCargandoProductos = false;
     }
@@ -244,7 +244,7 @@
         <tr>
           <td colspan="8" class="text-center py-4">
             <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
-            <p class="mb-0 mt-2 text-muted">No hay Ã³rdenes de compra registradas</p>
+            <p class="mb-0 mt-2 text-muted">No hay órdenes de compra registradas</p>
           </td>
         </tr>
       `;
@@ -281,7 +281,7 @@
       contenedor.innerHTML = `
         <div class="col-12 text-center py-4">
           <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
-          <p class="mb-0 mt-2 text-muted">No hay Ã³rdenes de compra registradas</p>
+          <p class="mb-0 mt-2 text-muted">No hay órdenes de compra registradas</p>
         </div>
       `;
       return;
@@ -332,18 +332,18 @@
     const contenedor = document.getElementById('tablaProductosBody');
     const contador = document.getElementById('contadorProductos');
 
-    console.log('ðŸŽ¨ Renderizando tabla de productos...');
-    console.log('ðŸ“Š Productos en state:', state.productos);
-    console.log('ðŸ“Š Contenedor encontrado:', !!contenedor);
-    console.log('ðŸ“Š Contador encontrado:', !!contador);
+    console.log('🎨 Renderizando tabla de productos...');
+    console.log('📊 Productos en state:', state.productos);
+    console.log('📊 Contenedor encontrado:', !!contenedor);
+    console.log('📊 Contador encontrado:', !!contador);
 
     if (!contenedor) {
-      console.error('âŒ No se encontrÃ³ el contenedor tablaProductosBody');
+      console.error('âŒ No se encontró el contenedor tablaProductosBody');
       return;
     }
 
     if (!state.productos || state.productos.length === 0) {
-      console.log('ðŸ“­ No hay productos para mostrar');
+      console.log('📥 No hay productos para mostrar');
       contenedor.innerHTML = `
         <tr>
           <td colspan="10" class="text-center py-3 text-muted">
@@ -356,7 +356,7 @@
       return;
     }
 
-    console.log('ðŸ“Š Renderizando', state.productos.length, 'productos');
+    console.log('📊 Renderizando', state.productos.length, 'productos');
     let html = state.productos.map((producto, index) => {
       const cantPedida = Number(producto.cantidad_solicitada ?? producto.cantidad ?? 0);
       const cantOC = Number(producto.cantidad_comprada ?? 0);
@@ -365,7 +365,7 @@
       const disponible = Number(producto.cantidad_disponible ?? 0);
       const minimoComercial = Number(producto.minimo_comercial ?? 1.0);
 
-      // Calcular cantidad real a comprar con mÃ­nimo comercial
+      // Calcular cantidad real a comprar con mínimo comercial
       const cantNecesaria = Math.min(disponible, cantPedida - cantOC);
       const unidadesMinimas = Math.ceil(cantNecesaria / minimoComercial);
       const cantComprar = unidadesMinimas * minimoComercial;
@@ -376,7 +376,7 @@
       const idsOriginales = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido : [producto.id_det_pedido];
       const primerId = idsOriginales[0]; // Usar el primer ID para el checkbox
 
-      // Indicador visual si hay mÃºltiples productos agrupados
+      // Indicador visual si hay múltiples productos agrupados
       const indicadorAgrupado = idsOriginales.length > 1 ?
         '<span class="badge bg-info ms-1" title="Productos agrupados"><i class="bi bi-layers"></i></span>' : '';
 
@@ -384,7 +384,7 @@
       const indicadorDesperdicio = desperdicio > 0.01 ?
         `<span class="badge bg-warning ms-1" title="Desperdicio: ${desperdicio.toFixed(2)} (${porcentajeDesperdicio.toFixed(1)}%)"><i class="bi bi-exclamation-triangle"></i> ${desperdicio.toFixed(2)}</span>` : '';
 
-      // InformaciÃ³n de presentaciÃ³n comercial
+      // Información de presentación comercial
       const presentacionInfo = producto.presentacion_comercial && producto.presentacion_comercial !== 'Unidad' ?
         `<br><small class="text-muted">${producto.presentacion_comercial}</small>` : '';
 
@@ -438,7 +438,7 @@
                      data-minimo-comercial="${minimoComercial}"
                      onchange="OrdenesCompraUI.actualizarCantidadComprar(this)">
               <button class="btn btn-outline-primary btn-sm" type="button"
-                      title="Usar cantidad calculada con mÃ­nimo comercial"
+                      title="Usar cantidad calculada con mínimo comercial"
                       onclick="OrdenesCompraUI.autofillCantidadPedida('${primerId}')">
                 <i class="bi bi-arrow-repeat"></i>
               </button>
@@ -459,12 +459,12 @@
       `;
     }).join('');
 
-    console.log('ðŸ“Š HTML generado, longitud:', html.length);
+    console.log('📊 HTML generado, longitud:', html.length);
 
     contenedor.innerHTML = html;
     if (contador) contador.textContent = `${state.productos.length} productos`;
 
-    console.log('âœ… Tabla renderizada con', state.productos.length, 'productos');
+    console.log('✅ Tabla renderizada con', state.productos.length, 'productos');
   }
 
   function renderizarProductosPedido(productos) {
@@ -475,7 +475,7 @@
       tbody.innerHTML = `
         <tr>
           <td colspan="9" class="text-center py-3 text-muted">
-            El pedido no tiene productos disponibles para Ã³rdenes de compra
+            El pedido no tiene productos disponibles para órdenes de compra
           </td>
         </tr>
       `;
@@ -554,7 +554,7 @@
         const max = parseFloat(e.target.max);
         const value = parseFloat(e.target.value) || 0;
 
-        // Validar que no exceda el mÃ¡ximo disponible
+        // Validar que no exceda el máximo disponible
         if (value > max) {
           e.target.value = max;
         }
@@ -595,13 +595,13 @@
 
   // Funciones de UI
   function mostrarModalNuevaOrden() {
-    console.log('ðŸš€ Mostrando modal de nueva orden...');
+    console.log('🚀 Mostrando modal de nueva orden...');
 
-    // Verificar si hay parÃ¡metros en la URL (viene desde notificaciÃ³n)
+    // Verificar si hay parámetros en la URL (viene desde notificación)
     const urlParams = new URLSearchParams(window.location.search);
     const idPedidoDesdeURL = urlParams.get('id_pedido');
 
-    console.log('ðŸ“‹ ParÃ¡metros URL detectados:', {
+    console.log('📋 Parámetros URL detectados:', {
       idPedidoDesdeURL: idPedidoDesdeURL,
       tieneParametros: urlParams.toString()
     });
@@ -620,7 +620,7 @@
     const impuestosOrden = document.getElementById('impuestosOrden');
     const totalOrden = document.getElementById('totalOrden');
 
-    console.log('ðŸ“‹ Elementos encontrados:', {
+    console.log('📋 Elementos encontrados:', {
       form: !!form,
       idPedido: !!idPedido,
       idProveedor: !!idProveedor,
@@ -639,18 +639,18 @@
     if (impuestosOrden) impuestosOrden.textContent = '$0.00';
     if (totalOrden) totalOrden.textContent = '$0.00';
 
-    // Si viene desde notificaciÃ³n con id_pedido, autocompletar datos
+    // Si viene desde notificación con id_pedido, autocompletar datos
     if (idPedidoDesdeURL) {
-      console.log('ðŸ”„ Detectado pedido desde notificaciÃ³n, autocompletando datos...');
+      console.log('ðŸ”„ Detectado pedido desde notificación, autocompletando datos...');
       idPedido.value = idPedidoDesdeURL;
 
-      // Disparar evento change para cargar productos automÃ¡ticamente
+      // Disparar evento change para cargar productos automáticamente
       const changeEvent = new Event('change', { bubbles: true });
       idPedido.dispatchEvent(changeEvent);
 
-      console.log('âœ… Pedido autocompletado:', idPedidoDesdeURL);
+      console.log('✅ Pedido autocompletado:', idPedidoDesdeURL);
 
-      // Esperar un poco mÃ¡s y luego cargar productos
+      // Esperar un poco más y luego cargar productos
       setTimeout(() => {
         cargarProductosPedido();
       }, 200);
@@ -662,7 +662,7 @@
       modalTitle.innerHTML = '<i class="bi bi-clipboard-plus"></i> Nueva Orden de Compra';
     }
 
-    console.log('ðŸŽ¯ Intentando mostrar modal...');
+    console.log('🎯 Intentando mostrar modal...');
     console.log('Modal title encontrado:', !!modalTitle);
 
     // Verificar si el modal existe
@@ -670,19 +670,19 @@
     console.log('Elemento modal encontrado:', !!modalElement);
 
     if (modalElement) {
-      console.log('âœ… Modal encontrado, intentando mostrar...');
+      console.log('✅ Modal encontrado, intentando mostrar...');
       try {
         const modal = new bootstrap.Modal(modalElement);
-        console.log('ðŸ“‹ Instancia de modal creada:', !!modal);
+        console.log('📋 Instancia de modal creada:', !!modal);
         modal.show();
-        console.log('âœ… Modal mostrado exitosamente');
+        console.log('✅ Modal mostrado exitosamente');
       } catch (error) {
         console.error('âŒ Error al mostrar modal:', error);
         alert('Error al abrir el modal de nueva orden');
       }
     } else {
-      console.error('âŒ No se encontrÃ³ el elemento modalOrdenCompra');
-      alert('Error: No se encontrÃ³ el modal de nueva orden');
+      console.error('âŒ No se encontró el elemento modalOrdenCompra');
+      alert('Error: No se encontró el modal de nueva orden');
     }
   }
 
@@ -719,7 +719,7 @@
       if (fechaDesde && orden.fecha_orden < fechaDesde) return false;
       if (fechaHasta && orden.fecha_orden > fechaHasta) return false;
 
-      // BÃºsqueda general
+      // Búsqueda general
       if (busqueda) {
         const searchText = `${orden.numero_orden} ${orden.id_pedido} ${orden.numero_factura} ${orden.nombre_proveedor}`.toLowerCase();
         if (!searchText.includes(busqueda)) return false;
@@ -755,7 +755,7 @@
       }
     });
 
-    const impuestos = subtotal * 0.16; // 16% IVA (ajustar segÃºn configuraciÃ³n)
+    const impuestos = subtotal * 0.16; // 16% IVA (ajustar según configuración)
     const total = subtotal + impuestos;
 
     document.getElementById('subtotalOrden').textContent = `$${formatMoney(subtotal)}`;
@@ -808,7 +808,7 @@
       return;
     }
 
-    // Validar que ningÃºn producto tenga cantidad 0
+    // Validar que ningún producto tenga cantidad 0
     let hayCantidadCero = false;
     state.productosSeleccionados.forEach(p => {
       if (parseFloat(p.cantidad_comprar) <= 0) {
@@ -817,7 +817,7 @@
     });
 
     if (hayCantidadCero) {
-      mostrarError('No se pueden generar Ã³rdenes con productos en cantidad cero. Por favor ajuste las cantidades o desmarque los productos.');
+      mostrarError('No se pueden generar órdenes con productos en cantidad cero. Por favor ajuste las cantidades o desmarque los productos.');
       return;
     }
 
@@ -848,7 +848,7 @@
       // Cerrar modal antes de refrescar listas
       if (state.modalOrden) {
         state.modalOrden.hide();
-        console.log('âœ… Modal cerrado exitosamente');
+        console.log('✅ Modal cerrado exitosamente');
       }
 
       // Refrescar datos
@@ -857,7 +857,7 @@
         cargarPedidos() // refrescar listado para excluir pedidos que quedaron sin faltantes
       ]);
 
-      // Actualizar notificaciÃ³n de pedidos sin orden dinÃ¡micamente
+      // Actualizar notificación de pedidos sin orden dinámicamente
       actualizarNotificacionPedidos();
     } catch (error) {
       console.error('Error guardando orden:', error);
@@ -866,19 +866,19 @@
   }
 
   async function verDetalle(idOrden) {
-    console.log('ðŸ” BotÃ³n inspeccionar presionado. ID Orden:', idOrden);
+    console.log('ðŸ” Botón inspeccionar presionado. ID Orden:', idOrden);
 
     try {
-      console.log('ðŸ“¡ Haciendo llamada a la API...');
+      console.log('📡 Haciendo llamada a la API...');
 
       const response = await fetch(`${API_ORDENES}?action=getDetalleOrden&id_orden_compra=${idOrden}`);
-      console.log('ðŸ“¡ Response status:', response.status);
+      console.log('📡 Response status:', response.status);
 
       const result = await response.json();
-      console.log('ðŸ“Š Resultado de la API:', result);
+      console.log('📊 Resultado de la API:', result);
 
       if (result.success) {
-        console.log('âœ… API exitosa, mostrando modal...');
+        console.log('✅ API exitosa, mostrando modal...');
         mostrarModalDetalle(result.data);
       } else {
         console.error('âŒ Error en API:', result.error);
@@ -891,22 +891,22 @@
   }
 
   function mostrarModalDetalle(orden) {
-    console.log('ðŸŽ¨ Renderizando modal con datos:', orden);
+    console.log('🎨 Renderizando modal con datos:', orden);
 
     const contenido = document.getElementById('contenidoDetalle');
     if (!contenido) {
-      console.error('âŒ No se encontrÃ³ el elemento #contenidoDetalle');
+      console.error('âŒ No se encontró el elemento #contenidoDetalle');
       return;
     }
 
     console.log('ðŸ“ Escribiendo HTML en el modal...');
 
-    // Generar HTML para Ã³rdenes relacionadas
+    // Generar HTML para órdenes relacionadas
     let htmlOrdenesRelacionadas = '';
     if (orden.ordenes_relacionadas && orden.ordenes_relacionadas.length > 0) {
       htmlOrdenesRelacionadas = `
         <div class="alert alert-info mb-3">
-          <h6 class="alert-heading"><i class="bi bi-link-45deg"></i> Ã“rdenes Relacionadas</h6>
+          <h6 class="alert-heading"><i class="bi bi-link-45deg"></i> Órdenes Relacionadas</h6>
           <div class="mb-2">
             ${orden.ordenes_relacionadas.map(rel => {
         const badgeClass = rel.tipo === 'original' ? 'bg-primary' : 'bg-warning';
@@ -936,7 +936,7 @@
       
       <div class="row mb-3">
         <div class="col-md-6">
-          <strong>NÃºmero de Orden:</strong> ${orden.numero_orden}
+          <strong>Número de Orden:</strong> ${orden.numero_orden}
           ${orden.es_complementaria ? '<span class="badge bg-warning ms-2">Complementaria</span>' : ''}
         </div>
         <div class="col-md-6">
@@ -1001,7 +1001,7 @@
             <table class="table table-sm table-striped">
               <thead>
                 <tr>
-                  <th>DescripciÃ³n</th>
+                  <th>Descripción</th>
                   <th class="text-center">Unidad</th>
                   <th class="text-end">Cant. Solicitada</th>
                   <th class="text-end">Cant. Comprada</th>
@@ -1013,7 +1013,7 @@
               </thead>
               <tbody>
                 ${(() => {
-        // Agrupar productos por descripciÃ³n antes de mostrarlos
+        // Agrupar productos por descripción antes de mostrarlos
         const productosAgrupados = agruparProductosPorDescripcion(orden.productos);
 
         return productosAgrupados.map(producto => {
@@ -1023,12 +1023,12 @@
           const precio = parseFloat(producto.precio_unitario || 0);
           const subtotal = parseFloat(producto.subtotal || 0);
 
-          // Determinar estado segÃºn si es orden original o complementaria
+          // Determinar estado según si es orden original o complementaria
           const esOrdenOriginal = !orden.es_complementaria;
           let estadoBadge;
 
           if (esOrdenOriginal) {
-            // Orden original: estados mÃ¡s definitivos
+            // Orden original: estados más definitivos
             estadoBadge = '<span class="badge bg-danger">No recibido</span>';
             if (recibida >= solicitada) {
               estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
@@ -1038,18 +1038,18 @@
               estadoBadge = '<span class="badge bg-warning">Comprado, no recibido</span>';
             }
           } else {
-            // Orden complementaria: estados mÃ¡s temporales
+            // Orden complementaria: estados más temporales
             estadoBadge = '<span class="badge bg-secondary">Pendiente</span>';
             if (recibida >= solicitada) {
               estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
             } else if (recibida > 0) {
               estadoBadge = '<span class="badge bg-warning text-dark">Recibido parcial</span>';
             } else if (comprada > 0) {
-              estadoBadge = '<span class="badge bg-info">Comprado, pendiente recepciÃ³n</span>';
+              estadoBadge = '<span class="badge bg-info">Comprado, pendiente recepción</span>';
             }
           }
 
-          // Si hay mÃºltiples IDs originales, mostrar un indicador
+          // Si hay múltiples IDs originales, mostrar un indicador
           const indicadorAgrupado = producto.ids_originales.length > 1 ?
             '<span class="badge bg-info ms-1" title="Productos agrupados"><i class="bi bi-layers"></i></span>' : '';
 
@@ -1086,7 +1086,7 @@
               ${orden.historial_recepciones.map((recepcion, index) => {
         const fecha = new Date(recepcion.fecha_compra).toLocaleString('es-CO');
         const itemsRecibidos = recepcion.items_recibidos || [];
-        const numeroRecepcion = index + 1; // NumeraciÃ³n secuencial que se reinicia para cada orden
+        const numeroRecepcion = index + 1; // Numeración secuencial que se reinicia para cada orden
 
         return `
                   <div class="accordion-item">
@@ -1094,7 +1094,7 @@
                       <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}" aria-expanded="false" aria-controls="collapse${index}">
                         <div class="d-flex justify-content-between align-items-center w-100">
                           <div>
-                            <strong>RecepciÃ³n #${numeroRecepcion}</strong>
+                            <strong>Recepción #${numeroRecepcion}</strong>
                             <span class="badge bg-success ms-2">$${parseFloat(recepcion.total_recepcion || 0).toFixed(2)}</span>
                             <small class="text-muted ms-2">(ID: ${recepcion.id_compra})</small>
                           </div>
@@ -1113,7 +1113,7 @@
                             <strong>${recepcion.nombre_usuario || 'Sistema'}</strong>
                           </div>
                           <div class="col-md-6 text-end">
-                            <small class="text-muted">Total recepciÃ³n:</small><br>
+                            <small class="text-muted">Total recepción:</small><br>
                             <strong class="text-success">$${parseFloat(recepcion.total_recepcion || 0).toFixed(2)}</strong>
                           </div>
                         </div>
@@ -1154,7 +1154,7 @@
                               </tbody>
                             </table>
                           </div>
-                        ` : '<div class="text-muted">No hay detalles de items en esta recepciÃ³n.</div>'}
+                        ` : '<div class="text-muted">No hay detalles de items en esta recepción.</div>'}
                       </div>
                     </div>
                   </div>
@@ -1172,21 +1172,21 @@
   }
 
   function editarOrden(idOrden) {
-    // Implementar ediciÃ³n
+    // Implementar edición
     console.log('Editar orden:', idOrden);
-    mostrarError('FunciÃ³n de ediciÃ³n en desarrollo');
+    mostrarError('Función de edición en desarrollo');
   }
 
   function convertirEnCompra(idOrden) {
-    // Implementar conversiÃ³n a compra
+    // Implementar conversión a compra
     console.log('Convertir en compra:', idOrden);
-    mostrarError('FunciÃ³n de conversiÃ³n en desarrollo');
+    mostrarError('Función de conversión en desarrollo');
   }
 
   function verDetallePedido(idPedido) {
     // Implementar vista de detalle de pedido
     console.log('Ver detalle pedido:', idPedido);
-    mostrarError('FunciÃ³n en desarrollo');
+    mostrarError('Función en desarrollo');
   }
 
   // Utilidades
@@ -1230,7 +1230,7 @@
 
   function agruparProductosPorDescripcion(productos) {
     // Los productos ya vienen agrupados desde el backend, solo necesitamos
-    // asegurar que los datos estÃ©n correctos para el frontend
+    // asegurar que los datos estén correctos para el frontend
     return productos.map(producto => ({
       ...producto,
       ids_originales: Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido : [producto.id_det_pedido]
@@ -1258,16 +1258,16 @@
   }
 
   function mostrarExito(mensaje) {
-    // Implementar notificaciÃ³n de Ã©xito
+    // Implementar notificación de éxito
     alert(mensaje);
   }
 
   function mostrarError(mensaje) {
-    // Implementar notificaciÃ³n de error
+    // Implementar notificación de error
     alert(mensaje);
   }
 
-  // ActualizaciÃ³n de selecciÃ³n y cantidades desde handlers inline
+  // Actualización de selección y cantidades desde handlers inline
   function actualizarProductoSeleccionado(idDetPedido, checkboxEl) {
     const cantidadInput = document.querySelector(`.cantidad-comprar[data-id="${idDetPedido}"]`);
 
@@ -1286,7 +1286,7 @@
     }
 
     if (!producto) {
-      console.error('No se encontrÃ³ el producto con IDs:', idsOriginales);
+      console.error('No se encontró el producto con IDs:', idsOriginales);
       return;
     }
 
@@ -1319,7 +1319,7 @@
     if (state.productosSeleccionados.has(String(id))) {
       const producto = state.productosSeleccionados.get(String(id));
       // Si el valor es cero, avisar al usuario pero permitir que lo escriba 
-      // La validaciÃ³n final se hace al guardar
+      // La validación final se hace al guardar
       producto.cantidad_comprar = value;
       state.productosSeleccionados.set(String(id), producto);
       actualizarTotales();
@@ -1330,7 +1330,7 @@
     const input = document.querySelector(`.cantidad-comprar[data-id="${idDetPedido}"]`);
     if (!input) return;
 
-    // Obtener datos del cÃ¡lculo comercial
+    // Obtener datos del cálculo comercial
     const cantNecesariaAttr = input.getAttribute('data-cant-necesaria');
     const cantComprarAttr = input.getAttribute('data-cant-comprar');
     const minimoComercialAttr = input.getAttribute('data-minimo-comercial');
@@ -1339,12 +1339,12 @@
     let cantComprar = parseFloat(cantComprarAttr) || 0;
     let minimoComercial = parseFloat(minimoComercialAttr) || 1.0;
 
-    // Usar la cantidad calculada con mÃ­nimo comercial
+    // Usar la cantidad calculada con mínimo comercial
     input.value = cantComprar;
     actualizarCantidadComprar(input);
 
-    // Mostrar informaciÃ³n del cÃ¡lculo en consola
-    console.log(`ðŸ”„ Autofill con mÃ­nimo comercial:`, {
+    // Mostrar información del cálculo en consola
+    console.log(`ðŸ”„ Autofill con mínimo comercial:`, {
       idDetPedido,
       cantNecesaria,
       minimoComercial,
@@ -1352,7 +1352,7 @@
       desperdicio: cantComprar - cantNecesaria
     });
 
-    // Marcar/asegurar selecciÃ³n del producto si no lo estÃ¡
+    // Marcar/asegurar selección del producto si no lo está
     const checkbox = document.querySelector(`.producto-checkbox[data-id="${idDetPedido}"]`);
     if (checkbox && !checkbox.checked) {
       checkbox.checked = true;
@@ -1360,9 +1360,9 @@
     }
   }
 
-  // Exponer funciones pÃºblicas
+  // Exponer funciones públicas
   async function abrirNuevaOrdenConPedido(idPedidoPreseleccionado) {
-    // Asegurar que el modal y los datos base estÃ©n listos
+    // Asegurar que el modal y los datos base estén listos
     const form = document.querySelector(selectores.formOrden);
     if (form) form.reset();
 
@@ -1377,21 +1377,21 @@
 
     const idPedidoSelect = document.getElementById('idPedido');
     if (!idPedidoSelect) {
-      console.error('No se encontrÃ³ el select #idPedido');
+      console.error('No se encontró el select #idPedido');
       return;
     }
 
-    // Asegurar que los pedidos estÃ©n cargados
+    // Asegurar que los pedidos estén cargados
     if (state.pedidos.length === 0) {
       try { await cargarPedidos(); } catch (e) { console.warn('No se pudo recargar pedidos antes del autollenado', e); }
     }
 
-    // Si aÃºn no estÃ¡ el option cargado, intentar breve reintento
+    // Si aún no está el option cargado, intentar breve reintento
     const setPedidoYDisparar = () => {
       idPedidoSelect.value = String(idPedidoPreseleccionado);
       const changeEvent = new Event('change', { bubbles: true });
       idPedidoSelect.dispatchEvent(changeEvent);
-      // Cargar explÃ­citamente productos como refuerzo
+      // Cargar explícitamente productos como refuerzo
       try { cargarProductosPedido(); } catch (e) { }
       setTimeout(() => {
         try { cargarProductosPedido(); } catch (e) { }
@@ -1399,13 +1399,13 @@
     };
 
     if (!Array.from(idPedidoSelect.options).some(op => op.value == idPedidoPreseleccionado)) {
-      // Reintentar una vez tras un pequeÃ±o delay por si el listado de pedidos estÃ¡ terminando de cargarse
+      // Reintentar una vez tras un pequeño delay por si el listado de pedidos está terminando de cargarse
       setTimeout(() => setPedidoYDisparar(), 150);
     } else {
       setPedidoYDisparar();
     }
 
-    // TÃ­tulo del modal y mostrarlo
+    // Título del modal y mostrarlo
     const modalTitle = document.getElementById('modalOrdenTitle');
     if (modalTitle) {
       modalTitle.innerHTML = '<i class="bi bi-clipboard-plus"></i> Nueva Orden de Compra';
@@ -1421,18 +1421,18 @@
     }
   }
 
-  // FunciÃ³n para actualizar la notificaciÃ³n de pedidos sin orden dinÃ¡micamente
+  // Función para actualizar la notificación de pedidos sin orden dinámicamente
   async function actualizarNotificacionPedidos() {
     try {
-      console.log('Actualizando notificaciÃ³n de pedidos sin orden...');
+      console.log('Actualizando notificación de pedidos sin orden...');
       const response = await fetch(`${API_ORDENES}?action=getPedidosSinOrden`);
       const result = await response.json();
 
       if (!result.success) return;
 
-      console.log('NotificaciÃ³n actualizada:', result.data);
+      console.log('Notificación actualizada:', result.data);
 
-      // Actualizar el contador en la notificaciÃ³n
+      // Actualizar el contador en la notificación
       const notificacionBadge = document.querySelector('.notificacion-badge strong');
       if (notificacionBadge) {
         const totalPedidos = result.data.total || 0;
@@ -1457,7 +1457,7 @@
       }
 
     } catch (error) {
-      console.error('Error actualizando notificaciÃ³n:', error);
+      console.error('Error actualizando notificación:', error);
     }
   }
 
@@ -1475,7 +1475,7 @@
     autofillCantidadPedida
   };
 
-  // Event listener para el botÃ³n de cerrar del modal
+  // Event listener para el botón de cerrar del modal
   document.addEventListener('click', function (e) {
     if (e.target.hasAttribute('data-bs-dismiss') || e.target.closest('[data-bs-dismiss]')) {
       if (state.modalOrden) {
@@ -1491,16 +1491,16 @@
 // Exponer en window para uso en handlers inline
 window.OrdenesCompraUI = OrdenesCompraUI;
 
-// Inicializar cuando el DOM estÃ© listo
+// Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', () => {
   OrdenesCompraUI.init();
 });
 
 // ============================================
-// FUNCIONES PARA GESTIÃ“N DE PROVEEDORES
+// FUNCIONES PARA GESTIÓN DE PROVEEDORES
 // ============================================
 
-// La constante API_PROVEDORES ya estÃ¡ definida arriba, no duplicar
+// La constante API_PROVEDORES ya está definida arriba, no duplicar
 
 /**
  * Prepara el modal para crear un nuevo proveedor
@@ -1553,7 +1553,7 @@ function guardarProveedor() {
     })
     .catch(error => {
       console.error('Error:', error);
-      alert('Error de conexiÃ³n al crear proveedor');
+      alert('Error de conexión al crear proveedor');
     });
 }
 
@@ -1628,6 +1628,6 @@ function guardarProveedorEditar() {
     })
     .catch(error => {
       console.error('Error:', error);
-      alert('Error de conexiÃ³n al actualizar proveedor');
+      alert('Error de conexión al actualizar proveedor');
     });
 }
