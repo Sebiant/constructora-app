@@ -406,12 +406,12 @@
           <td width="5%">
             <input type="checkbox" class="form-check-input producto-checkbox" 
                    data-id="${primerId}" 
-                   data-ids-originales="${JSON.stringify(idsOriginales)}"
+                   data-ids-originales='${escapeHtml(JSON.stringify(idsOriginales))}'
                    data-disponible="${disponible}"
                    data-cant-comprar="${cantComprar}"
                    data-desperdicio="${desperdicio}"
                    ${cantComprar <= 0 ? 'disabled' : ''}
-                   onchange="if(this.checked && parseFloat(document.querySelector('.cantidad-comprar[data-id=\''+this.dataset.id+'\']').value) <= 0) { alert('No puede seleccionar un producto con cantidad cero'); this.checked = false; return; } OrdenesCompraUI.actualizarProductoSeleccionado(this.dataset.id, this)">
+                   onchange="OrdenesCompraUI.actualizarProductoSeleccionado(this.dataset.id, this)">
           </td>
           <td>
             ${escapeHtml(producto.descripcion)}
@@ -432,14 +432,14 @@
                      max="${cantComprar}" 
                      value="${cantComprar}"
                      data-id="${primerId}"
-                     data-ids-originales="${JSON.stringify(idsOriginales)}"
+                     data-ids-originales='${escapeHtml(JSON.stringify(idsOriginales))}'
                      data-cant-pedida="${cantPedida}"
                      data-cant-necesaria="${cantNecesaria}"
                      data-minimo-comercial="${minimoComercial}"
                      onchange="OrdenesCompraUI.actualizarCantidadComprar(this)">
               <button class="btn btn-outline-primary btn-sm" type="button"
                       title="Usar cantidad calculada con mÃ­nimo comercial"
-                      onclick="OrdenesCompraUI.autofillCantidadPedida(${primerId})">
+                      onclick="OrdenesCompraUI.autofillCantidadPedida('${primerId}')">
                 <i class="bi bi-arrow-repeat"></i>
               </button>
             </div>
@@ -737,7 +737,7 @@
 
     checkboxes.forEach(checkbox => {
       checkbox.checked = e.target.checked;
-      checkbox.dispatchEvent(new Event('change'));
+      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
     });
   }
 
@@ -751,16 +751,16 @@
       // Actualizar subtotal en la tabla
       const row = document.querySelector(`tr[data-id-det-pedido="${producto.id_det_pedido}"]`);
       if (row) {
-        row.querySelector('.subtotal-producto').textContent = `$${formatCurrency(subtotalProducto)}`;
+        row.querySelector('.subtotal-producto').textContent = `$${formatMoney(subtotalProducto)}`;
       }
     });
 
     const impuestos = subtotal * 0.16; // 16% IVA (ajustar segÃºn configuraciÃ³n)
     const total = subtotal + impuestos;
 
-    document.getElementById('subtotalOrden').textContent = `$${formatCurrency(subtotal)}`;
-    document.getElementById('impuestosOrden').textContent = `$${formatCurrency(impuestos)}`;
-    document.getElementById('totalOrden').textContent = `$${formatCurrency(total)}`;
+    document.getElementById('subtotalOrden').textContent = `$${formatMoney(subtotal)}`;
+    document.getElementById('impuestosOrden').textContent = `$${formatMoney(impuestos)}`;
+    document.getElementById('totalOrden').textContent = `$${formatMoney(total)}`;
   }
 
   function actualizarContadorProductos() {
@@ -793,6 +793,15 @@
       form.reportValidity();
       return;
     }
+
+    // Debug: Ver qué hay en productosSeleccionados
+    console.log('DEBUG: productosSeleccionados.size =', state.productosSeleccionados.size);
+    console.log('DEBUG: productosSeleccionados.entries =', Array.from(state.productosSeleccionados.entries()));
+    
+    // Debug: Ver si hay checkboxes marcados
+    const checkboxesMarcados = document.querySelectorAll('.producto-checkbox:checked');
+    console.log('DEBUG: checkboxes marcados =', checkboxesMarcados.length);
+    checkboxesMarcados.forEach(cb => console.log('DEBUG: checkbox marcado id =', cb.dataset.id));
 
     if (state.productosSeleccionados.size === 0) {
       mostrarError('Debe seleccionar al menos un producto');
