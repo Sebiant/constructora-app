@@ -214,22 +214,71 @@ const ItemsUI = (() => {
 
       // Render table
       if (previewBody) {
-        previewBody.innerHTML = data.data.map(row => `
-          <tr class="${!row.valido ? 'table-danger' : ''}">
-            <td>${escapeHtml(row.codigo)}</td>
-            <td>${escapeHtml(row.nombre)}</td>
-            <td>${escapeHtml(row.tipo)}</td>
-            <td>${escapeHtml(row.unidad)}</td>
-            <td>${row.precio}</td>
-            <td>${row.minimoComercial}</td>
-            <td>${escapeHtml(row.presentacion)}</td>
-            <td class="text-center">
-              ${row.valido 
-                ? '<span class="badge bg-success">Válido</span>' 
-                : '<span class="badge bg-warning text-dark" title="' + escapeHtml(row.motivoIncompleto) + '">Incompleto</span>'}
-            </td>
-          </tr>
-        `).join('');
+        const totalRows = data.data.length;
+        const incompletosCount = data.data.filter(r => r.incomplete).length;
+        const validosCount = totalRows - incompletosCount;
+
+        // Resumen antes de la tabla
+        let summaryHtml = '';
+        if (incompletosCount > 0) {
+          summaryHtml = `<div class="alert alert-warning py-2 mb-2 d-flex align-items-start gap-2">
+            <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+            <div>
+              <strong>${incompletosCount} registro(s) con datos nulos</strong> quedarán como <span class="badge bg-secondary">Inactivo</span> hasta completar sus datos. 
+              Podrás <strong>reimportar el Excel corregido</strong> cuantas veces sea necesario.<br>
+              <small class="text-muted">Los registros incompletos se importarán pero no pueden activarse hasta completar todos sus campos.</small>
+            </div>
+          </div>`;
+        }
+        if (validosCount > 0) {
+          summaryHtml += `<div class="alert alert-success py-2 mb-2">
+            <i class="bi bi-check-circle-fill me-1"></i> <strong>${validosCount} registro(s) válido(s)</strong> listos para importar.
+          </div>`;
+        }
+
+        // Inyectar el resumen encima de la tabla
+        const previewContainerEl = document.getElementById("importRecursosPreviewContainer");
+        let summaryEl = document.getElementById('importPreviewSummary');
+        if (!summaryEl) {
+          summaryEl = document.createElement('div');
+          summaryEl.id = 'importPreviewSummary';
+          previewContainerEl?.insertBefore(summaryEl, previewContainerEl.firstChild);
+        }
+        summaryEl.innerHTML = summaryHtml;
+
+        previewBody.innerHTML = data.data.map(row => {
+          const rowClass = row.incomplete ? 'table-warning' : '';
+          const faltantes = row.camposFaltantes || [];
+          const renderCell = (val, campo) => {
+            const isEmpty = faltantes.includes(campo);
+            if (isEmpty) return `<span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Nulo</span>`;
+            return `<span>${escapeHtml(String(val))}</span>`;
+          };
+          const renderNumCell = (val, campo) => {
+            const isEmpty = faltantes.includes(campo);
+            if (isEmpty || Number(val) <= 0) return `<span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Nulo</span>`;
+            return `<span>$${Number(val).toLocaleString('es-CO')}</span>`;
+          };
+          return `
+            <tr class="${rowClass}">
+              <td>${renderCell(row.codigo, 'C\u00d3DIGO')}</td>
+              <td>${renderCell(row.nombre, 'NOMBRE')}</td>
+              <td>${renderCell(row.tipo, 'TIPO')}</td>
+              <td>${renderCell(row.unidad, 'UNIDAD')}</td>
+              <td>${renderNumCell(row.precio, 'PRECIO')}</td>
+              <td><small>${escapeHtml(String(row.minimoComercial || 1.0))}</small></td>
+              <td><small>${escapeHtml(row.presentacion || '-')}</small></td>
+              <td class="text-center">
+                ${row.valido 
+                  ? '<span class="badge bg-success"><i class="bi bi-check-circle"></i> V\u00e1lido</span>' 
+                  : `<span class="badge bg-warning text-dark" 
+                       title="${escapeHtml(row.motivoIncompleto)}">
+                       <i class="bi bi-clock"></i> Incompleto
+                     </span>`}
+              </td>
+            </tr>
+          `;
+        }).join('');
       }
 
       if (previewContainer) previewContainer.classList.remove("d-none");
@@ -285,7 +334,27 @@ const ItemsUI = (() => {
       if (resultEl) {
         const inserted = Number(data.inserted || 0);
         const skipped = Number(data.skipped || 0);
-        resultEl.innerHTML = `<div class="alert alert-success mb-0">Importación finalizada. Insertados: <strong>${inserted}</strong>. Omitidos: <strong>${skipped}</strong>.</div>`;
+        const incomplete = Number(data.incomplete || 0);
+        const incompleteDetails = data.incompleteDetails || [];
+
+        let html = `<div class="alert alert-success mb-2">
+          <i class="bi bi-check-circle-fill me-1"></i>
+          Importación finalizada. • <strong>${inserted}</strong> insertado(s). • <strong>${skipped}</strong> omitido(s) (ya existían).
+        </div>`;
+
+        if (incomplete > 0) {
+          let detailRows = incompleteDetails.map(d => 
+            `<li><strong>${escapeHtml(d.codigo)}</strong> – ${escapeHtml(d.nombre)} <span class="text-danger">(Nulos: ${d.camposFaltantes.join(', ')})</span></li>`
+          ).join('');
+          html += `<div class="alert alert-warning mb-0">
+            <strong><i class="bi bi-exclamation-triangle-fill me-1"></i>${incomplete} recurso(s) importado(s) como Inactivo</strong> por datos nulos:
+            <ul class="mb-1 mt-1 ps-3" style="max-height:120px;overflow-y:auto;font-size:0.85rem">${detailRows}</ul>
+            <small>✅ Corrige el Excel con los campos faltantes y vuelve a importar. Los registros ya existentes se omitirán automáticamente (sin duplicados).
+            <br>⚠️ Estos recursos <strong>no pueden activarse</strong> hasta completar todos sus campos obligatorios.</small>
+          </div>`;
+        }
+
+        resultEl.innerHTML = html;
       }
 
       await fetchMateriales(true);
@@ -780,6 +849,28 @@ const ItemsUI = (() => {
   }
 
   async function toggleMaterial(id) {
+    // Buscar el material en el estado local para verificar si tiene datos incompletos
+    const material = state.materiales.find(m => m.id_material == id);
+    const estaActivo = material && Number(material.idestado) === 1;
+
+    // Si intenta ACTIVAR (actualmente inactivo), verificar datos completos
+    if (!estaActivo) {
+      const tieneError = !material?.id_tipo_material || !material?.idunidad || !material?.precio_actual;
+      if (tieneError) {
+        const camposFaltantes = [];
+        if (!material?.id_tipo_material) camposFaltantes.push('TIPO');
+        if (!material?.idunidad) camposFaltantes.push('UNIDAD');
+        if (!material?.precio_actual) camposFaltantes.push('PRECIO');
+        alert(
+          `⚠️ No se puede activar este recurso.\n\n` +
+          `Campos obligatorios pendientes: ${camposFaltantes.join(', ')}.\n\n` +
+          `Por favor, corrija el archivo Excel con los datos faltantes y reimpórtelo, ` +
+          `o edite manualmente el recurso para completar los campos.`
+        );
+        return;
+      }
+    }
+
     try {
       const response = await fetch(`${API_ITEMS}?action=toggleMaterial&id_material=${id}`);
       const result = await response.json();

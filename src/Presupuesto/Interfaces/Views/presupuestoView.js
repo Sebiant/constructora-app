@@ -1,4 +1,4 @@
-﻿const API_PRESUPUESTOS_CRUD = '/sgigescon/src/Presupuesto/Interfaces/PresupuestoController.php';
+const API_PRESUPUESTOS_CRUD = '/sgigescon/src/Presupuesto/Interfaces/PresupuestoController.php';
 let dataTablePresupuestos = null;
 
 function initPresupuestoCRUD() {
@@ -71,7 +71,7 @@ function cargarPresupuestosCRUD(proyectoId) {
     });
 }
 
-function mostrarModalCrearPresupuesto() {
+function mostrarModalPresupuestoCRUD() {
     const modal = $("#modalPresupuestoCRUD");
     $("#formPresupuestoCRUD")[0].reset();
     $("#id_presupuesto_crud").val("");

@@ -1,8 +1,8 @@
 <?php
 /**
  * Generador dinámico de plantilla Excel para importación masiva de recursos
- * Este archivo genera un archivo Excel con el formato correcto usando PhpSpreadsheet
- * Incluye hoja de valores válidos para TIPO y UNIDAD (listas desplegables)
+ * Incluye listas desplegables (Data Validation) para TIPO y UNIDAD
+ * Los valores se cargan dinámicamente desde la base de datos.
  */
 
 require __DIR__ . '/../../../vendor/autoload.php';
@@ -13,93 +13,124 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 
 try {
     $db = new \Database();
     $connection = $db->getConnection();
 
-    // Obtener valores válidos para dropdowns
+    // Obtener valores válidos para dropdowns desde la BD
     $tiposStmt = $connection->query("SELECT desc_tipo FROM tipo_material WHERE estado = 1 ORDER BY desc_tipo");
     $tipos = $tiposStmt->fetchAll(PDO::FETCH_COLUMN);
-    
+
     $unidadesStmt = $connection->query("SELECT unidesc FROM gr_unidad WHERE id_estado = 1 ORDER BY unidesc");
     $unidades = $unidadesStmt->fetchAll(PDO::FETCH_COLUMN);
 
+    $numTipos    = count($tipos);
+    $numUnidades = count($unidades);
+
     $spreadsheet = new Spreadsheet();
+
+    // ─── Hoja principal: Importar Recursos ───────────────────────────────────
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->setTitle('Importar Recursos');
 
     $spreadsheet->getProperties()
         ->setCreator('Sistema de Gestión')
         ->setTitle('Formato de Importación Masiva de Recursos')
-        ->setDescription('Plantilla para importar recursos masivamente. Use valores válidos según la hoja "Valores Válidos".');
+        ->setDescription('Use las listas desplegables en TIPO y UNIDAD (columnas amarillas).');
 
-    // Cabeceras sin IDs ni ESTADO
-    $headers = [
-        'CODIGO',
-        'NOMBRE',
-        'TIPO',           // Antes ID_TIPO_MATERIAL
-        'UNIDAD',         // Antes IDUNIDAD
-        'PRECIO',
-        'MINIMO_COMERCIAL',
-        'PRESENTACION_COMERCIAL'
+    // Cabeceras
+    $sheet->fromArray(['CODIGO', 'NOMBRE', 'TIPO', 'UNIDAD', 'PRECIO', 'MINIMO_COMERCIAL', 'PRESENTACION_COMERCIAL'], null, 'A1');
+
+    // Estilo cabecera
+    $sheet->getStyle('A1:G1')->applyFromArray([
+        'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 12],
+        'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4472C4']],
+        'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]],
+        'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+    ]);
+    $sheet->getRowDimension(1)->setRowHeight(25);
+
+    // Fondo amarillo SOLO en columna TIPO (C) — UNIDAD es texto libre
+    $maxDataRow = 500;
+    $dropdownFill = [
+        'fill'    => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF2CC']],
+        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'CCCCCC']]],
     ];
-    $sheet->fromArray($headers, null, 'A1');
-
-    // Hoja de valores válidos
-    $validSheet = $spreadsheet->createSheet();
-    $validSheet->setTitle('Valores Válidos');
-    
-    // Escribir tipos
-    $validSheet->setCellValue('A1', 'TIPOS VÁLIDOS (copie y pegue)');
-    $validSheet->fromArray(array_map(fn($t) => [$t], $tipos), null, 'A2');
-    
-    // Escribir unidades
-    $validSheet->setCellValue('C1', 'UNIDADES VÁLIDAS (copie y pegue)');
-    $validSheet->fromArray(array_map(fn($u) => [$u], $unidades), null, 'C2');
-
-    // Estilos cabecera
-    $headerStyle = [
-        'font' => [
-            'bold' => true,
-            'color' => ['rgb' => 'FFFFFF'],
-            'size' => 12
-        ],
-        'fill' => [
-            'fillType' => Fill::FILL_SOLID,
-            'startColor' => ['rgb' => '4472C4']
-        ],
-        'borders' => [
-            'allBorders' => [
-                'borderStyle' => Border::BORDER_THIN,
-                'color' => ['rgb' => '000000']
-            ]
-        ],
-        'alignment' => [
-            'horizontal' => Alignment::HORIZONTAL_CENTER,
-            'vertical' => Alignment::VERTICAL_CENTER
-        ]
-    ];
-
-    $sheet->getStyle('A1:G1')->applyFromArray($headerStyle);
-    $validSheet->getStyle('A1:C1')->applyFromArray($headerStyle);
+    $sheet->getStyle("C2:C{$maxDataRow}")->applyFromArray($dropdownFill);
 
     // Anchos de columnas
     $sheet->getColumnDimension('A')->setWidth(18);
     $sheet->getColumnDimension('B')->setWidth(40);
     $sheet->getColumnDimension('C')->setWidth(20);
-    $sheet->getColumnDimension('D')->setWidth(12);
+    $sheet->getColumnDimension('D')->setWidth(14);
     $sheet->getColumnDimension('E')->setWidth(14);
     $sheet->getColumnDimension('F')->setWidth(18);
     $sheet->getColumnDimension('G')->setWidth(28);
-    $sheet->getColumnDimension('H')->setWidth(10);
-    $sheet->getRowDimension(1)->setRowHeight(25);
 
-    $validSheet->getColumnDimension('A')->setWidth(30);
-    $validSheet->getColumnDimension('C')->setWidth(30);
-    $validSheet->getRowDimension(1)->setRowHeight(25);
+    // ─── Hoja auxiliar: Valores Válidos ──────────────────────────────────────
+    $validSheet = $spreadsheet->createSheet();
+    $validSheet->setTitle('Valores Válidos');
 
-    // Ajustar zoom y seleccionar hoja principal
+    // Títulos
+    $validSheet->setCellValue('A1', 'TIPOS VÁLIDOS');
+    $validSheet->setCellValue('C1', 'UNIDADES VÁLIDAS');
+
+    $headerStyleValid = [
+        'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+        'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '2E75B6']],
+        'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+        'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'AAAAAA']]],
+    ];
+    $validSheet->getStyle('A1')->applyFromArray($headerStyleValid);
+    $validSheet->getStyle('C1')->applyFromArray($headerStyleValid);
+
+    // Escribir tipos
+    $tipoFill = ['fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'DEEAF1']]];
+    foreach ($tipos as $i => $tipo) {
+        $r = $i + 2;
+        $validSheet->setCellValue("A{$r}", $tipo);
+        $validSheet->getStyle("A{$r}")->applyFromArray($tipoFill);
+    }
+
+    // Escribir unidades
+    $unidadFill = ['fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E2EFDA']]];
+    foreach ($unidades as $i => $unidad) {
+        $r = $i + 2;
+        $validSheet->setCellValue("C{$r}", $unidad);
+        $validSheet->getStyle("C{$r}")->applyFromArray($unidadFill);
+    }
+
+    $validSheet->getColumnDimension('A')->setWidth(28);
+    $validSheet->getColumnDimension('B')->setWidth(4);
+    $validSheet->getColumnDimension('C')->setWidth(20);
+    $validSheet->getRowDimension(1)->setRowHeight(22);
+
+    // ─── Data Validation: Dropdown SOLO en TIPO ─────────────────────────────
+    // Se usa lista incrustada directamente como string para evitar el error
+    // de referencia a ruta externa (C:\Users\...\Valores Válidos) que genera
+    // PhpSpreadsheet al referenciar otra hoja del mismo libro.
+    $tiposInline = '"' . implode(',', array_map('trim', $tipos)) . '"';
+
+    for ($row = 2; $row <= $maxDataRow; $row++) {
+        // Dropdown TIPO — columna C
+        $dv = $sheet->getCell("C{$row}")->getDataValidation();
+        $dv->setType(DataValidation::TYPE_LIST);
+        $dv->setErrorStyle(DataValidation::STYLE_STOP);
+        $dv->setAllowBlank(true);
+        $dv->setShowDropDown(true);
+        $dv->setShowInputMessage(true);
+        $dv->setShowErrorMessage(true);
+        $dv->setPromptTitle('Tipo de recurso');
+        $dv->setPrompt('Seleccione: ' . implode(', ', $tipos));
+        $dv->setErrorTitle('Valor inv\u00e1lido');
+        $dv->setError('Valores permitidos: ' . implode(', ', $tipos));
+        $dv->setFormula1($tiposInline);
+        // UNIDAD (columna D) — sin restricci\u00f3n, texto libre
+    }
+
+    // ─── Activar hoja principal y enviar ─────────────────────────────────────
     $spreadsheet->setActiveSheetIndex(0);
     $sheet->setSelectedCell('A2');
 

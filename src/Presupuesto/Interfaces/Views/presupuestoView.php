@@ -43,7 +43,7 @@ if (!IS_COMPONENT): ?>
                     <button 
                         type="button" 
                         class="btn btn-info text-white w-100" 
-                        onclick="mostrarModalCrearPresupuesto()">
+                        onclick="mostrarModalPresupuestoCRUD()">
                         <i class="bi bi-plus-circle"></i> Nuevo Presupuesto
                     </button>
                 </div>

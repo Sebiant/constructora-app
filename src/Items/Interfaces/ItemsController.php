@@ -108,14 +108,25 @@ try {
                     continue;
                 }
 
-                // Marcar como incompleto si faltan datos críticos o están vacíos
-                $isEmpty = ($codigo === '' || $nombre === '' || $tipo === '' || $unidad === '' || $precio <= 0);
-                $incomplete = $isEmpty || ($codigo === '' || $nombre === '' || $tipo === '' || $unidad === '' || $precio <= 0);
-                $valido = !$incomplete;
-                // Si está incompleto o vacío, dejar inactivo hasta completar
-                if ($incomplete) {
+                // Identificar exactamente qué campos faltan
+                $camposFaltantes = [];
+                if ($codigo === '') $camposFaltantes[] = 'CÓDIGO';
+                if ($nombre === '') $camposFaltantes[] = 'NOMBRE';
+                if ($tipo === '') $camposFaltantes[] = 'TIPO';
+                if ($unidad === '') $camposFaltantes[] = 'UNIDAD';
+                if ($precio <= 0) $camposFaltantes[] = 'PRECIO';
+
+                $isIncomplete = !empty($camposFaltantes);
+                $valido = !$isIncomplete;
+
+                // Si está incompleto, dejar inactivo hasta completar
+                if ($isIncomplete) {
                     $estado = 0;
                 }
+
+                $motivoIncompleto = $isIncomplete
+                    ? 'Campos nulos o inválidos: ' . implode(', ', $camposFaltantes)
+                    : '';
 
                 $previewData[] = [
                     'codigo' => $codigo,
@@ -127,10 +138,9 @@ try {
                     'presentacion' => $presentacion,
                     'estado' => $estado,
                     'valido' => $valido,
-                    'incomplete' => $incomplete,
-                    'motivoIncompleto' => $incomplete 
-                        ? ($isEmpty ? 'Datos incompletos: campos vacíos' : 'Datos incompletos: código, nombre, tipo, unidad o precio faltantes') 
-                        : ''
+                    'incomplete' => $isIncomplete,
+                    'camposFaltantes' => $camposFaltantes,
+                    'motivoIncompleto' => $motivoIncompleto
                 ];
             }
 
@@ -173,12 +183,25 @@ try {
             $inserted = 0;
             $skipped = 0;
             $incomplete = 0;
+            $incompleteDetails = []; // Detalles de registros incompletos
 
-            $stmtInsertMaterial = $connection->prepare(
-                "INSERT INTO materiales 
-                    (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate, minimo_comercial, presentacion_comercial)
-                 VALUES (?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?)"
-            );
+            // Verificar si la columna notas_importacion existe
+            $colCheck = $connection->query("SHOW COLUMNS FROM materiales LIKE 'notas_importacion'");
+            $hasNotasCol = $colCheck && $colCheck->rowCount() > 0;
+
+            if ($hasNotasCol) {
+                $stmtInsertMaterial = $connection->prepare(
+                    "INSERT INTO materiales 
+                        (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate, minimo_comercial, presentacion_comercial, notas_importacion)
+                     VALUES (?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?)"
+                );
+            } else {
+                $stmtInsertMaterial = $connection->prepare(
+                    "INSERT INTO materiales 
+                        (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate, minimo_comercial, presentacion_comercial)
+                     VALUES (?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?)"
+                );
+            }
 
             $stmtInsertPrecio = $connection->prepare(
                 "INSERT INTO material_precio (id_material, valor, fecha, estado, idusuario, fechareg, fechaupdate)
@@ -209,14 +232,28 @@ try {
                     continue;
                 }
 
+                // Identificar exactamente qué campos faltan
+                $camposFaltantes = [];
+                if ($codigo === '') $camposFaltantes[] = 'CÓDIGO';
+                if ($nombre === '') $camposFaltantes[] = 'NOMBRE';
+                if ($tipo === '') $camposFaltantes[] = 'TIPO';
+                if ($unidad === '') $camposFaltantes[] = 'UNIDAD';
+                if ($precio <= 0) $camposFaltantes[] = 'PRECIO';
+
+                $isIncomplete = !empty($camposFaltantes);
+
                 // Si faltan datos críticos, marcar como incompleto (estado=0) y permitir importar
-                $isIncomplete = ($codigo === '' || $nombre === '' || $tipo === '' || $unidad === '' || $precio <= 0);
                 if ($isIncomplete) {
-                    $estado = 0; // Incompleto
+                    $estado = 0; // Incompleto - pendiente de completar
                     $incomplete++;
+                    $incompleteDetails[] = [
+                        'codigo' => $codigo ?: '(sin código)',
+                        'nombre' => $nombre ?: '(sin nombre)',
+                        'camposFaltantes' => $camposFaltantes
+                    ];
                 }
 
-                if (isset($existingCodes[$codigo])) {
+                if ($codigo !== '' && isset($existingCodes[$codigo])) {
                     $skipped++;
                     continue;
                 }
@@ -229,24 +266,45 @@ try {
                     $minimoComercial = 1.0;
                 }
 
+                // Nota de importación para registros incompletos
+                $notasImportacion = $isIncomplete
+                    ? 'Importado con campos pendientes: ' . implode(', ', $camposFaltantes) . '. Favor completar desde el Excel y reimportar.'
+                    : null;
+
                 $usuarioId = 1;
-                $stmtInsertMaterial->execute([
-                    $codigo,
-                    $nombre,
-                    $tipoId,
-                    $unidadId,
-                    $usuarioId,
-                    $estado,
-                    $minimoComercial,
-                    $presentacion
-                ]);
+                if ($hasNotasCol) {
+                    $stmtInsertMaterial->execute([
+                        $codigo,
+                        $nombre,
+                        $tipoId,
+                        $unidadId,
+                        $usuarioId,
+                        $estado,
+                        $minimoComercial,
+                        $presentacion,
+                        $notasImportacion
+                    ]);
+                } else {
+                    $stmtInsertMaterial->execute([
+                        $codigo,
+                        $nombre,
+                        $tipoId,
+                        $unidadId,
+                        $usuarioId,
+                        $estado,
+                        $minimoComercial,
+                        $presentacion
+                    ]);
+                }
 
                 $materialId = (int)$connection->lastInsertId();
                 if ($precio > 0) {
                     $stmtInsertPrecio->execute([$materialId, $precio, $usuarioId]);
                 }
 
-                $existingCodes[$codigo] = true;
+                if ($codigo !== '') {
+                    $existingCodes[$codigo] = true;
+                }
                 $inserted++;
             }
 
@@ -256,7 +314,8 @@ try {
                 'success' => true,
                 'inserted' => $inserted,
                 'skipped' => $skipped,
-                'incomplete' => $incomplete
+                'incomplete' => $incomplete,
+                'incompleteDetails' => $incompleteDetails
             ]);
             break;
 
@@ -370,19 +429,44 @@ try {
                 throw new Exception('ID de material requerido');
             }
 
-            // Obtener estado actual
-            $stmt = $connection->prepare("SELECT idestado FROM materiales WHERE id_material = ?");
-            $stmt->execute([$id]);
-            $estadoActual = $stmt->fetchColumn();
+            // Obtener estado actual y datos del material
+            $stmtMat = $connection->prepare(
+                "SELECT m.idestado, m.id_tipo_material, m.idunidad,
+                        (SELECT COUNT(*) FROM material_precio mp WHERE mp.id_material = m.id_material AND mp.estado = 1) AS tiene_precio
+                 FROM materiales m WHERE m.id_material = ?"
+            );
+            $stmtMat->execute([$id]);
+            $matRow = $stmtMat->fetch(PDO::FETCH_ASSOC);
 
-            // Cambiar estado
-            $nuevoEstado = $estadoActual == 1 ? 0 : 1;
+            if (!$matRow) {
+                throw new Exception('Material no encontrado');
+            }
+
+            $estadoActual = (int)$matRow['idestado'];
+            $nuevoEstado = $estadoActual === 1 ? 0 : 1;
+
+            // Si intenta ACTIVAR, verificar que los datos estén completos
+            if ($nuevoEstado === 1) {
+                $camposFaltantes = [];
+                if (empty($matRow['id_tipo_material'])) $camposFaltantes[] = 'TIPO';
+                if (empty($matRow['idunidad']))          $camposFaltantes[] = 'UNIDAD';
+                if ((int)$matRow['tiene_precio'] === 0)  $camposFaltantes[] = 'PRECIO';
+
+                if (!empty($camposFaltantes)) {
+                    throw new Exception(
+                        'No se puede activar este recurso. Campos obligatorios pendientes: ' .
+                        implode(', ', $camposFaltantes) .
+                        '. Complete los datos desde el Excel y reimporte, o edite el recurso manualmente.'
+                    );
+                }
+            }
+
             $stmt = $connection->prepare("UPDATE materiales SET idestado = ? WHERE id_material = ?");
             $stmt->execute([$nuevoEstado, $id]);
 
             echo json_encode([
                 'success' => true,
-                'message' => $nuevoEstado == 1 ? 'Material activado correctamente' : 'Material desactivado correctamente',
+                'message' => $nuevoEstado === 1 ? 'Material activado correctamente' : 'Material desactivado correctamente',
                 'nuevo_estado' => $nuevoEstado
             ]);
             break;

@@ -14,180 +14,6 @@ $(document).ready(function () {
   cargarMultiplicadores();
 });
 
-function mostrarModalCrearPresupuesto() {
-  console.log("Abriendo modal de crear presupuesto...");
-
-  // Esperar a que el DOM esté completamente cargado
-  setTimeout(() => {
-    console.log("Verificando elementos en el DOM...");
-
-    // Verificar que el formulario exista
-    const formulario = $("#formCrearPresupuesto");
-    console.log("Formulario encontrado:", formulario.length > 0, formulario);
-
-    if (formulario.length === 0) {
-      console.error("Formulario no encontrado en el DOM");
-      console.log("Buscando todos los formularios:", $("form").length);
-      console.log("IDs de formularios:", $("form").map((i, el) => $(el).attr('id')).get());
-      alert("Error: No se encontró el formulario. Recargue la página.");
-      return;
-    }
-
-    // Limpiar formulario
-    formulario[0].reset();
-    console.log("Formulario reseteado");
-
-
-    // Establecer fecha actual por defecto
-    const hoy = new Date().toISOString().split('T')[0];
-    $("#fecha_creacion").val(hoy);
-    console.log("Fecha establecida:", hoy);
-
-    // Generar código sugerido
-    const proyectoId = $("#id_proyecto").val();
-    if (proyectoId) {
-      const año = new Date().getFullYear();
-      const codigoSugerido = `PRES-${año}-${proyectoId}`;
-      $("#codigo_presupuesto").val(codigoSugerido);
-      console.log("Código sugerido:", codigoSugerido);
-    }
-
-    // Verificar que el modal exista
-    const modal = $("#modalCrearPresupuesto");
-    console.log("Modal encontrado:", modal.length > 0, modal);
-
-    if (modal.length === 0) {
-      console.error("Modal no encontrado en el DOM");
-      console.log("Buscando todos los modales:", $(".modal").length);
-      console.log("IDs de modales:", $(".modal").map((i, el) => $(el).attr('id')).get());
-      alert("Error: No se encontró el modal. Recargue la página.");
-      return;
-    }
-
-    console.log("Modal encontrado, abriendo...");
-
-    // Mostrar modal
-    try {
-      modal.modal("show");
-      console.log("Modal abierto correctamente");
-    } catch (error) {
-      console.error("Error al abrir modal:", error);
-      alert("Error al abrir el modal: " + error.message);
-    }
-  }, 100); // Pequeño retraso para asegurar que el DOM esté listo
-}
-
-function crearNuevoPresupuesto() {
-  const proyectoId = $("#id_proyecto").val();
-  const codigoPresupuesto = $("#codigo_presupuesto").val();
-  const nombrePresupuesto = $("#nombre_presupuesto").val();
-  const fechaCreacion = $("#fecha_creacion").val();
-  const montoTotal = $("#monto_total").val();
-  const observaciones = $("#observaciones").val();
-
-  // Validaciones
-  if (!proyectoId) {
-    alert("Debe seleccionar un proyecto primero");
-    return;
-  }
-
-  if (!codigoPresupuesto) {
-    alert("El código del presupuesto es requerido");
-    return;
-  }
-
-  if (!nombrePresupuesto) {
-    alert("El nombre del presupuesto es requerido");
-    return;
-  }
-
-  if (!fechaCreacion) {
-    alert("La fecha de creación es requerida");
-    return;
-  }
-
-  if (!montoTotal || montoTotal <= 0) {
-    alert("El monto total debe ser mayor a 0");
-    return;
-  }
-
-  const datos = {
-    id_proyecto: parseInt(proyectoId),
-    codigo: codigoPresupuesto.trim(),
-    nombre: nombrePresupuesto.trim(),
-    fecha_creacion: fechaCreacion,
-    monto_total: parseFloat(montoTotal),
-    observaciones: observaciones
-  };
-
-  // Deshabilitar botón y mostrar loading
-  const btn = $("#btnGuardarPresupuesto");
-  const textoOriginal = btn.html();
-  btn.prop("disabled", true).html('<span class="spinner-border spinner-border-sm" role="status"></span> Creando...');
-
-  console.log("Enviando datos para crear presupuesto:", datos);
-
-  $.ajax({
-    url: API_PRESUPUESTOS + "?action=create",
-    method: "POST",
-    data: JSON.stringify(datos),
-    contentType: "application/json",
-    dataType: "json",
-    success: function (res) {
-      console.log("Respuesta crear presupuesto:", res);
-      if (res.success) {
-        alert("Presupuesto creado correctamente");
-
-        // Cerrar modal
-        $("#modalCrearPresupuesto").modal("hide");
-
-        // Recargar presupuestos del proyecto
-        cargarPresupuestosPorProyecto(proyectoId);
-
-        // Seleccionar automáticamente el nuevo presupuesto
-        setTimeout(() => {
-          if (res.presupuesto && res.presupuesto.id_presupuesto) {
-            $("#id_presupuesto").val(res.presupuesto.id_presupuesto);
-            cargarCapitulosDelPresupuesto(res.presupuesto.id_presupuesto);
-          }
-        }, 500);
-
-      } else {
-        const errorMsg = res.error || "Error desconocido";
-        const details = res.details ? "\n\nDetalles: " + res.details : "";
-        alert("Error al crear presupuesto: " + errorMsg + details);
-        console.error("Error del servidor:", res);
-      }
-    },
-    error: function (xhr, status, error) {
-      console.error("Error al crear presupuesto:", error);
-      console.error("Status:", status);
-      console.error("Response:", xhr.responseText);
-
-      let errorMessage = "Error al crear presupuesto";
-
-      try {
-        // Intentar parsear la respuesta JSON del servidor
-        const response = JSON.parse(xhr.responseText);
-        if (response.error) {
-          errorMessage = response.error;
-        }
-        if (response.details) {
-          errorMessage += "\n\nDetalles: " + response.details;
-        }
-      } catch (e) {
-        // Si no es JSON, usar el texto de respuesta o el error
-        errorMessage = xhr.responseText || error || "Error desconocido";
-      }
-
-      alert("ERROR: " + errorMessage);
-    },
-    complete: function () {
-      // Restaurar botón
-      btn.prop("disabled", false).html(textoOriginal);
-    }
-  });
-}
 
 function cargarProyectos() {
   const selectProyecto = $("#id_proyecto");
@@ -236,7 +62,6 @@ function cargarProyectos() {
 
 function cargarPresupuestosPorProyecto(proyectoId) {
   const selectPresupuesto = $("#id_presupuesto");
-  const btnCrearNuevo = $("#btnCrearNuevoPresupuesto");
 
   console.log(" Cargando presupuestos para proyecto:", proyectoId);
 
@@ -245,13 +70,11 @@ function cargarPresupuestosPorProyecto(proyectoId) {
       '<option value="">Primero seleccione un proyecto</option>'
     );
     selectPresupuesto.prop("disabled", true);
-    btnCrearNuevo.prop("disabled", true);
     return;
   }
 
   selectPresupuesto.html('<option value="">Cargando presupuestos...</option>');
   selectPresupuesto.prop("disabled", true);
-  btnCrearNuevo.prop("disabled", false); // Habilitar botón de crear
 
   const formData = new FormData();
   formData.append("proyecto_id", proyectoId);
@@ -311,7 +134,6 @@ function cargarPresupuestosPorProyecto(proyectoId) {
         '<option value="">Error al cargar presupuestos</option>'
       );
       selectPresupuesto.prop("disabled", false);
-      btnCrearNuevo.prop("disabled", false); // Mantener botón habilitado incluso si hay error
     },
   });
 }
