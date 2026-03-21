@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 include_once __DIR__ . '/../../../Shared/Components/header.php';
 ?>
 
@@ -180,6 +180,9 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                             <div class="d-flex flex-wrap gap-2">
                                 <input type="text" class="form-control form-control-sm" placeholder="Buscar..."
                                     id="searchItems" oninput="ItemsUI.filterItems()">
+                                <button class="btn btn-sm btn-outline-success" type="button" id="btnImportarAPUMasivo">
+                                    <i class="bi bi-file-earmark-spreadsheet"></i> Importar APUs
+                                </button>
                                 <button class="btn btn-sm btn-outline-secondary" onclick="ItemsUI.fetchItems(true)">
                                     <i class="bi bi-arrow-repeat"></i>
                                 </button>
@@ -400,7 +403,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                 <div class="card-body">
                                     <div class="row g-3">
                                         <!-- Columna 1: Materiales -->
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
                                             <div class="border rounded p-3 h-100 bg-light">
                                                 <h6 class="text-primary mb-2">
                                                     <i class="bi bi-box-seam"></i> Materiales
@@ -415,7 +418,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                         </div>
                                         
                                         <!-- Columna 2: Mano de Obra -->
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
                                             <div class="border rounded p-3 h-100 bg-light">
                                                 <h6 class="text-success mb-2">
                                                     <i class="bi bi-people-fill"></i> Mano de Obra
@@ -430,7 +433,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                         </div>
                                         
                                         <!-- Columna 3: Maquinaria/Equipos -->
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
                                             <div class="border rounded p-3 h-100 bg-light">
                                                 <h6 class="text-warning mb-2">
                                                     <i class="bi bi-gear-fill"></i> Maquinaria/Equipos
@@ -439,6 +442,21 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                                     <option value="">Seleccionar equipo...</option>
                                                 </select>
                                                 <button type="button" class="btn btn-warning btn-sm w-100" id="addMaquinariaFromSelectBtn">
+                                                    <i class="bi bi-plus-circle"></i> Agregar
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Columna 4: Transporte -->
+                                        <div class="col-md-3">
+                                            <div class="border rounded p-3 h-100 bg-light">
+                                                <h6 class="text-info mb-2 text-primary">
+                                                    <i class="bi bi-truck"></i> Transporte
+                                                </h6>
+                                                <select class="form-select form-select-sm mb-2" id="draftTransporteSelect">
+                                                    <option value="">Seleccionar transporte...</option>
+                                                </select>
+                                                <button type="button" class="btn btn-info btn-sm w-100 text-white" id="addTransporteFromSelectBtn">
                                                     <i class="bi bi-plus-circle"></i> Agregar
                                                 </button>
                                             </div>
@@ -461,7 +479,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                     <h6 class="mb-3">Componentes agregados al ítem</h6>
                                     <div class="row g-3">
                                         <!-- Columna 1: Materiales -->
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
                                             <div class="border rounded p-2 bg-light">
                                                 <h6 class="text-primary mb-2 small">
                                                     <i class="bi bi-box-seam"></i> Materiales
@@ -475,7 +493,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                         </div>
                                         
                                         <!-- Columna 2: Mano de Obra -->
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
                                             <div class="border rounded p-2 bg-light">
                                                 <h6 class="text-success mb-2 small">
                                                     <i class="bi bi-people-fill"></i> Mano de Obra
@@ -489,7 +507,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                         </div>
                                         
                                         <!-- Columna 3: Maquinaria/Equipos -->
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
                                             <div class="border rounded p-2 bg-light">
                                                 <h6 class="text-warning mb-2 small">
                                                     <i class="bi bi-gear-fill"></i> Maquinaria/Equipos
@@ -497,6 +515,20 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                                 <div id="componentesMaquinariaContainer" style="max-height: 400px; overflow-y: auto;">
                                                     <div class="text-muted small text-center py-3">
                                                         No hay equipos agregados
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Columna 4: Transporte -->
+                                        <div class="col-md-3">
+                                            <div class="border rounded p-2 bg-light">
+                                                <h6 class="text-info mb-2 small text-primary">
+                                                    <i class="bi bi-truck"></i> Transporte
+                                                </h6>
+                                                <div id="componentesTransporteContainer" style="max-height: 400px; overflow-y: auto;">
+                                                    <div class="text-muted small text-center py-3">
+                                                        No hay transporte agregado
                                                     </div>
                                                 </div>
                                             </div>
@@ -919,6 +951,68 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                         <i class="bi bi-eye"></i> Leer Excel
                     </button>
                     <button type="submit" class="btn btn-primary d-none" id="btnSubmitImportRecursos">
+                        <i class="bi bi-upload"></i> Confirmar Importación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Importar APUs -->
+<div class="modal fade" id="modalImportAPU" tabindex="-1" aria-labelledby="modalImportAPULabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold" id="modalImportAPULabel">
+                    <i class="bi bi-diagram-2-fill me-2"></i> Importación masiva de APUs
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="formImportAPU" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="archivo_excel_apu" class="form-label fw-semibold">Archivo Excel de Reporte APU (.xlsx)</label>
+                        <input type="file" name="archivo_excel" id="archivo_excel_apu" class="form-control" accept=".xlsx" required>
+                        <div class="form-text">
+                            Suba el archivo <code>importe_items.xlsx</code> o el reporte de APUs exportado. 
+                            El sistema procesará automáticamente los ítems, recursos y transportes.
+                        </div>
+                    </div>
+
+                    <a href="/sgigescon/src/Items/Interfaces/downloadExcelTemplateAPU.php" class="btn btn-sm btn-outline-primary mb-3">
+                        <i class="bi bi-download me-1"></i> Descargar formato de plantilla APU
+                    </a>
+
+                    <div id="importAPUPreviewContainer" class="d-none">
+                        <h6 class="border-bottom pb-2">Vista previa de APUs y composición detectada</h6>
+                        <div class="table-responsive" style="max-height: 400px;">
+                            <table class="table table-sm table-bordered table-striped" style="font-size: 0.85rem;" id="tablaPreviewAPU">
+                                <thead class="table-light position-sticky top-0 shadow-sm">
+                                    <tr>
+                                        <th>Nombre del Ítem</th>
+                                        <th class="text-center">UND</th>
+                                        <th class="text-center">Resumen</th>
+                                        <th class="text-end">Total Unitario</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="importAPUPreviewBody">
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-2 text-end">
+                            <span class="badge bg-primary px-3 py-2" id="importAPUCount">0 ítems detectados</span>
+                        </div>
+                    </div>
+
+                    <div id="importAPUResultado" class="alert d-none mt-3"></div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-info text-white shadow-sm" id="btnPreviewImportAPU">
+                        <i class="bi bi-eye"></i> Leer y Analizar APU
+                    </button>
+                    <button type="submit" class="btn btn-primary d-none shadow-sm" id="btnSubmitImportAPU">
                         <i class="bi bi-upload"></i> Confirmar Importación
                     </button>
                 </div>

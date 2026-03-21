@@ -1301,6 +1301,202 @@ try {
             ]);
             break;
 
+        case 'previewImportAPUProyecte':
+        case 'saveImportAPUProyecte':
+            // IMPORTANTE: Aumentar límites para archivos grandes (9MB+)
+            @ini_set('memory_limit', '512M');
+            @ini_set('max_execution_time', '300'); // 5 minutos
+            @ini_set('upload_max_filesize', '20M');
+            @ini_set('post_max_size', '20M');
+
+            if (!isset($_FILES['archivo_excel']) || $_FILES['archivo_excel']['error'] !== UPLOAD_ERR_OK) {
+                $errCode = $_FILES['archivo_excel']['error'] ?? 'N/A';
+                throw new Exception("Error al recibir archivo: Código $errCode. Verifique el tamaño permitido en el servidor.");
+            }
+
+            $rutaTmp = $_FILES['archivo_excel']['tmp_name'];
+            $isSave = ($action === 'saveImportAPUProyecte');
+
+            // Optimización de carga XML
+            if (defined('LIBXML_COMPACT')) {
+                \PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions(LIBXML_COMPACT | LIBXML_PARSEHUGE);
+            }
+
+            try {
+                // Configurar lector para archivos grandes
+            $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader('Xlsx');
+            $reader->setReadDataOnly(true);
+            $reader->setReadEmptyCells(false);
+            
+            $spreadsheet = $reader->load($rutaTmp);
+            $hoja = $spreadsheet->getActiveSheet();
+            
+            $items = [];
+            $currentItem = null;
+            $currentCategory = null;
+
+            // Mapeo flexible de categorías
+            $catMap = [
+                'MATERIALES' => 'material',
+                'MANO DE OBRA' => 'mano_obra',
+                'EQUIPO' => 'equipo',
+                'EQUIPOS' => 'equipo',
+                'TRANSPORTE' => 'transporte',
+                'TRANSPORTES' => 'transporte'
+            ];
+
+            // Iterar fila por fila (Mucho más eficiente que toArray para 9MB)
+            foreach ($hoja->getRowIterator() as $rowObj) {
+                $cellIterator = $rowObj->getCellIterator();
+                $cellIterator->setIterateOnlyExistingCells(false);
+                
+                $row = [];
+                foreach ($cellIterator as $cell) {
+                    $row[$cell->getColumn()] = $cell->getValue();
+                }
+
+                $colA = trim((string)($row['A'] ?? ''));
+                $colB = trim((string)($row['B'] ?? ''));
+                $colG = trim((string)($row['G'] ?? ''));
+                
+                if (empty($colA) && empty($colB) && empty($colG)) continue;
+
+                $upperB = strtoupper($colB);
+
+                // 1. Detectar Nueva Categoría
+                if (isset($catMap[$upperB])) {
+                    $currentCategory = $catMap[$upperB];
+                    continue;
+                }
+
+                // 2. Detectar Nuevo Ítem
+                if (!empty($colB) && empty($colA) && empty($colG)) {
+                    if ($currentItem && !empty($currentItem['componentes'])) {
+                        $items[] = $currentItem;
+                    }
+                    
+                    $currentItem = [
+                        'nombre' => $colB,
+                        'unidad' => trim((string)($row['F'] ?? 'UND')),
+                        'componentes' => [],
+                        'total' => 0,
+                        'resumen' => ['materiales' => 0, 'mano_obra' => 0, 'equipos' => 0, 'transporte' => 0]
+                    ];
+                    $currentCategory = null;
+                    continue;
+                }
+
+                // 3. Detectar Componente
+                if ($currentItem && !empty($colA) && !empty($colB)) {
+                    $valTotalClean = str_replace(['$', ',', ' '], '', (string)$colG);
+                    $valTotalTotal = (float)$valTotalClean;
+                    
+                    if ($valTotalTotal > 0) {
+                        $tipo = $currentCategory ?? 'material';
+                        $price = 0;
+                        $qty = 0;
+                        $waste = 0;
+
+                        if ($tipo === 'mano_obra') {
+                            $price = (float)str_replace(['$', ',', ' '], '', (string)($row['E'] ?? 0));
+                            $qty = ($price > 0) ? $valTotalTotal / $price : 0;
+                        } else {
+                            $price = (float)str_replace(['$', ',', ' '], '', (string)($row['F'] ?? 0));
+                            $qty = (float)($row['D'] ?? 0);
+                            $waste = (float)($row['E'] ?? 0);
+                        }
+
+                        $currentItem['componentes'][] = [
+                            'codigo' => $colA,
+                            'nombre' => $colB,
+                            'unidad' => trim((string)($row['C'] ?? '')),
+                            'tipo' => $tipo,
+                            'cantidad' => $qty,
+                            'precio' => $price,
+                            'desperdicio' => $waste,
+                            'total' => $valTotalTotal
+                        ];
+                        
+                        $currentItem['total'] += $valTotalTotal;
+                        $resKey = ($tipo === 'material') ? 'materiales' : (($tipo === 'mano_obra') ? 'mano_obra' : (($tipo === 'equipo') ? 'equipos' : 'transporte'));
+                        $currentItem['resumen'][$resKey]++;
+                    }
+                }
+            }
+
+            // Guardar el último
+            if ($currentItem && !empty($currentItem['componentes'])) {
+                $items[] = $currentItem;
+            }
+
+            if ($isSave) {
+                $connection->beginTransaction();
+                $count = 0;
+                foreach ($items as $itemData) {
+                    // 1. Crear o buscar el Ítem Padre
+                    $stmt = $connection->prepare("SELECT id_item FROM items WHERE nombre_item = ? LIMIT 1");
+                    $stmt->execute([$itemData['nombre']]);
+                    $idItem = $stmt->fetchColumn();
+
+                    if (!$idItem) {
+                        $stmt = $connection->prepare("INSERT INTO items (nombre_item, id_unidad, idestado, es_compuesto, es_apu, fechareg) VALUES (?, (SELECT idunidad FROM gr_unidad WHERE unidesc = ? LIMIT 1), 1, 1, 1, NOW())");
+                        $unit = !empty($itemData['unidad']) ? $itemData['unidad'] : 'UND';
+                        $stmt->execute([$itemData['nombre'], $unit]);
+                        $idItem = $connection->lastInsertId();
+                    }
+
+                    // 2. Procesar Componentes
+                    foreach ($itemData['componentes'] as $comp) {
+                        $stmt = $connection->prepare("SELECT id_material FROM materiales WHERE cod_material = ? OR nombremat = ? LIMIT 1");
+                        $stmt->execute([$comp['codigo'], $comp['nombre']]);
+                        $idMaterial = $stmt->fetchColumn();
+
+                        if (!$idMaterial) {
+                            $idTipo = 1;
+                            if ($comp['tipo'] === 'mano_obra') $idTipo = 2;
+                            elseif ($comp['tipo'] === 'equipo') $idTipo = 3;
+                            elseif ($comp['tipo'] === 'transporte') $idTipo = 4;
+
+                            $stmt = $connection->prepare("INSERT INTO materiales (cod_material, nombremat, id_tipo_material, idunidad, idestado, fechareg) VALUES (?, ?, ?, (SELECT idunidad FROM gr_unidad WHERE unidesc = ? LIMIT 1), 1, NOW())");
+                            $unitComp = !empty($comp['unidad']) ? $comp['unidad'] : 'UND';
+                            $stmt->execute([$comp['codigo'], $comp['nombre'], $idTipo, $unitComp]);
+                            $idMaterial = $connection->lastInsertId();
+
+                            if ($comp['precio'] > 0) {
+                                $stmt = $connection->prepare("INSERT INTO material_precio (id_material, valor, fecha, estado, fechareg) VALUES (?, ?, CURDATE(), 1, NOW())");
+                                $stmt->execute([$idMaterial, $comp['precio']]);
+                            }
+                        }
+
+                        // 3. Vincular
+                        $stmt = $connection->prepare("SELECT id_item_id_material FROM item_id_material WHERE id_item = ? AND id_material = ? LIMIT 1");
+                        $stmt->execute([$idItem, $idMaterial]);
+                        if (!$stmt->fetchColumn()) {
+                            $stmt = $connection->prepare("INSERT INTO item_id_material (id_item, id_material, cantidad, porcentaje_desperdicio, estado, fechareg) VALUES (?, ?, ?, ?, 1, NOW())");
+                            $stmt->execute([$idItem, $idMaterial, $comp['cantidad'], $comp['desperdicio']]);
+                        }
+                    }
+
+                    // 4. Precio
+                    if ($itemData['total'] > 0) {
+                        $connection->prepare("UPDATE item_precio SET estado = 0 WHERE id_item = ?")->execute([$idItem]);
+                        $stmt = $connection->prepare("INSERT INTO item_precio (id_item, valor, fecha, estado, fechareg) VALUES (?, ?, CURDATE(), 1, NOW())");
+                        $stmt->execute([$idItem, $itemData['total']]);
+                    }
+                    $count++;
+                }
+                $connection->commit();
+                echo json_encode(['success' => true, 'count' => $count]);
+            } else {
+                echo json_encode(['success' => true, 'data' => $items]);
+            }
+            } catch (Exception $e) {
+                if (isset($connection) && $connection->inTransaction()) $connection->rollBack();
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
         default:
             http_response_code(404);
             echo json_encode([

@@ -1,5 +1,7 @@
-const ItemsUI = (() => {
+// Definición del módulo
+const ItemsUIModule = (() => {
   const state = {
+    // ... (Mantener todo el estado interno)
     materiales: [],
     materialesFiltrados: [],
     items: [],
@@ -13,9 +15,9 @@ const ItemsUI = (() => {
     lastMaterialImpact: { materialId: null, delta: 0, items: [] },
     currentItemTotal: 0,
     draftComponents: [],
-    draftComposition: [], // Items anidados (items dentro de items)
+    draftComposition: [], 
     removedComponentIds: new Set(),
-    removedCompositionIds: new Set(), // IDs de composiciones eliminadas
+    removedCompositionIds: new Set(),
     loadingDraftComponents: false,
     loadingDraftComposition: false,
     currentItemId: null,
@@ -24,18 +26,9 @@ const ItemsUI = (() => {
     childItemBreakdownLoading: new Set(),
     loadingChildItems: false,
     childItemsError: null,
-    // Estado de paginación
     pagination: {
-      materiales: {
-        currentPage: 1,
-        perPage: 25,
-        totalPages: 1,
-      },
-      items: {
-        currentPage: 1,
-        perPage: 25,
-        totalPages: 1,
-      },
+      materiales: { currentPage: 1, perPage: 25, totalPages: 1 },
+      items: { currentPage: 1, perPage: 25, totalPages: 1 },
     },
   };
 
@@ -67,6 +60,30 @@ const ItemsUI = (() => {
     // Evitar error del navegador: "An invalid form control ... is not focusable"
     // Los inputs required dentro de collapses/sections ocultas deben deshabilitarse.
     wireItemPriceFooterValidation();
+    const importAPUBtn = document.getElementById("btnImportarAPUMasivo");
+    if (importAPUBtn) {
+      importAPUBtn.addEventListener("click", () => openImportAPUModal());
+    }
+
+    const importAPUForm = document.getElementById("formImportAPU");
+    if (importAPUForm) {
+      importAPUForm.addEventListener("submit", (e) => submitImportAPU(e));
+    }
+
+    const btnPreviewAPU = document.getElementById("btnPreviewImportAPU");
+    if (btnPreviewAPU) {
+      btnPreviewAPU.addEventListener("click", () => previewImportAPU());
+    }
+
+    const fileInputAPU = document.getElementById("archivo_excel_apu");
+    if (fileInputAPU) {
+      fileInputAPU.addEventListener("change", () => {
+        document.getElementById("importAPUPreviewContainer")?.classList.add("d-none");
+        document.getElementById("btnSubmitImportAPU")?.classList.add("d-none");
+        document.getElementById("btnPreviewImportAPU")?.classList.remove("d-none");
+        document.getElementById("importAPUResultado")?.classList.add("d-none");
+      });
+    }
 
     const importRecursosBtn = document.getElementById("btnImportarRecursosMasivo");
     if (importRecursosBtn) {
@@ -97,6 +114,7 @@ const ItemsUI = (() => {
     document.getElementById("addMaterialFromSelectBtn")?.addEventListener("click", () => addResourceFromSelect('material'));
     document.getElementById("addManoObraFromSelectBtn")?.addEventListener("click", () => addResourceFromSelect('mano_obra'));
     document.getElementById("addMaquinariaFromSelectBtn")?.addEventListener("click", () => addResourceFromSelect('equipo'));
+    document.getElementById("addTransporteFromSelectBtn")?.addEventListener("click", () => addResourceFromSelect('transporte'));
 
     // Event listener para cuando el modal de ítem se muestra completamente
     const modalItemElement = document.querySelector(selectors.modalItem);
@@ -287,12 +305,165 @@ const ItemsUI = (() => {
       if (resultEl) resultEl.classList.add("d-none");
 
     } catch (error) {
+      console.error(error);
       if (resultEl) {
         resultEl.classList.remove("d-none");
-        resultEl.innerHTML = `<div class="alert alert-danger mb-0">Error: ${escapeHtml(error.message)}</div>`;
+        resultEl.innerHTML = `<div class="text-danger mt-2">Error: ${error.message}</div>`;
       }
     } finally {
       if (btnPreview) btnPreview.disabled = false;
+    }
+  }
+
+  function openImportAPUModal() {
+    const modalEl = document.getElementById("modalImportAPU");
+    if (!modalEl) return;
+
+    const resultEl = document.getElementById("importAPUResultado");
+    if (resultEl) {
+      resultEl.classList.add("d-none");
+      resultEl.innerHTML = "";
+    }
+
+    document.getElementById("importAPUPreviewContainer")?.classList.add("d-none");
+    document.getElementById("btnSubmitImportAPU")?.classList.add("d-none");
+    document.getElementById("btnPreviewImportAPU")?.classList.remove("d-none");
+
+    const fileInput = document.getElementById("archivo_excel_apu");
+    if (fileInput) fileInput.value = "";
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+  }
+
+  async function previewImportAPU() {
+    const fileInput = document.getElementById("archivo_excel_apu");
+    const resultEl = document.getElementById("importAPUResultado");
+    const previewContainer = document.getElementById("importAPUPreviewContainer");
+    const previewBody = document.getElementById("importAPUPreviewBody");
+    const btnPreview = document.getElementById("btnPreviewImportAPU");
+    const btnSubmit = document.getElementById("btnSubmitImportAPU");
+    const countText = document.getElementById("importAPUCount");
+
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      alert("Por favor selecciona el archivo Excel de reporte de APUs.");
+      return;
+    }
+
+    if (btnPreview) btnPreview.disabled = true;
+    if (resultEl) {
+      resultEl.classList.remove("alert-danger", "alert-success");
+      resultEl.classList.add("alert-info", "d-block");
+      resultEl.innerHTML = '<i class="bi bi-hourglass-split me-2"></i> Procesando archivo pesado... Esto puede tardar hasta 30 segundos.';
+    }
+
+    const formData = new FormData();
+    formData.append("archivo_excel", file);
+
+    console.log("=== APU IMPORT DEBUG ===");
+    console.log("Archivo seleccionado:", file.name, file.size, "bytes");
+    console.log("Iniciando envío a:", `${API_ITEMS}?action=previewImportAPUProyecte`);
+
+    try {
+      const response = await fetch(`${API_ITEMS}?action=previewImportAPUProyecte`, {
+        method: "POST",
+        body: formData,
+      });
+
+      console.log("Respuesta recibida (status):", response.status);
+      const result = await response.json();
+      console.log("Resultado JSON parseado:", result);
+
+      if (!result.success) throw new Error(result.error || "Error al leer el archivo");
+
+      const items = result.data || [];
+      console.log("Ítems detectados:", items.length);
+      
+      if (items.length === 0) {
+        console.warn("ADVERTENCIA: No se detectaron ítems en el Excel. Verifica que el archivo no esté vacío y que tenga el formato de reporte esperado.");
+      }
+
+      if (previewBody) {
+        previewBody.innerHTML = items.map(item => `
+          <tr>
+            <td class="fw-semibold text-dark">${item.nombre}</td>
+            <td class="text-center"><span class="badge bg-light text-dark border">${item.unidad}</span></td>
+            <td class="text-center text-muted">
+              ${item.resumen.materiales} mat, ${item.resumen.mano_obra} mo, ${item.resumen.equipos} eq
+            </td>
+            <td class="text-end fw-bold text-primary">
+              ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(item.total)}
+            </td>
+          </tr>
+        `).join("");
+      }
+
+      if (countText) countText.textContent = `${items.length} ítems detectados en el archivo`;
+      if (previewContainer) previewContainer.classList.remove("d-none");
+      if (btnSubmit) btnSubmit.classList.remove("d-none");
+      if (btnPreview) btnPreview.classList.add("d-none");
+      if (resultEl) resultEl.classList.add("d-none");
+
+    } catch (error) {
+      console.error(error);
+      if (resultEl) {
+        resultEl.classList.remove("alert-info");
+        resultEl.classList.add("alert-danger");
+        resultEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i> Error: ${error.message}`;
+      }
+    } finally {
+      if (btnPreview) btnPreview.disabled = false;
+    }
+  }
+
+  async function submitImportAPU(e) {
+    e.preventDefault();
+    const btnSubmit = document.getElementById("btnSubmitImportAPU");
+    const resultEl = document.getElementById("importAPUResultado");
+    const fileInput = document.getElementById("archivo_excel_apu");
+
+    if (!confirm("¿Confirma la importación de todos estos ítems? Se crearán recursos nuevos si no existen.")) return;
+
+    if (btnSubmit) btnSubmit.disabled = true;
+    if (resultEl) {
+      resultEl.classList.remove("d-none", "alert-danger", "alert-success");
+      resultEl.classList.add("alert-warning", "d-block");
+      resultEl.innerHTML = '<i class="bi bi-cloud-upload-fill me-2"></i> Importando datos a la base de datos... Por favor no cierre la ventana.';
+    }
+
+    const formData = new FormData(e.target);
+
+    try {
+      const response = await fetch(`${API_ITEMS}?action=saveImportAPUProyecte`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || "Error al guardar los datos");
+
+      if (resultEl) {
+        resultEl.classList.remove("alert-warning");
+        resultEl.classList.add("alert-success");
+        resultEl.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> ¡Éxito! Se han importado ${result.count} ítems correctamente.`;
+      }
+
+      if (btnSubmit) btnSubmit.classList.add("d-none");
+      
+      // Recargar tablas
+      fetchItems();
+      fetchMateriales();
+
+    } catch (error) {
+      console.error(error);
+      if (resultEl) {
+        resultEl.classList.remove("alert-warning");
+        resultEl.classList.add("alert-danger");
+        resultEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i> Error al importar: ${error.message}`;
+      }
+    } finally {
+      if (btnSubmit) btnSubmit.disabled = false;
     }
   }
 
@@ -349,8 +520,8 @@ const ItemsUI = (() => {
           html += `<div class="alert alert-warning mb-0">
             <strong><i class="bi bi-exclamation-triangle-fill me-1"></i>${incomplete} recurso(s) importado(s) como Inactivo</strong> por datos nulos:
             <ul class="mb-1 mt-1 ps-3" style="max-height:120px;overflow-y:auto;font-size:0.85rem">${detailRows}</ul>
-            <small>✅ Corrige el Excel con los campos faltantes y vuelve a importar. Los registros ya existentes se omitirán automáticamente (sin duplicados).
-            <br>⚠️ Estos recursos <strong>no pueden activarse</strong> hasta completar todos sus campos obligatorios.</small>
+            <small>Corrige el Excel con los campos faltantes y vuelve a importar. Los registros ya existentes se omitirán automáticamente (sin duplicados).
+            <br>Estos recursos <strong>no pueden activarse</strong> hasta completar todos sus campos obligatorios.</small>
           </div>`;
         }
 
@@ -485,12 +656,6 @@ const ItemsUI = (() => {
       const response = await fetch(`${API_ITEMS}?action=getMateriales`);
       const result = await response.json();
 
-      // Depuración: Imprimir respuesta completa del endpoint
-      console.log("=== RESPUESTA DEL ENDPOINT getAllMateriales ===");
-      console.log("Success:", result.success);
-      console.log("Data length:", result.data?.length);
-      console.log("Data completa:", result.data);
-
       if (!result.success) throw new Error(result.error || "No se pudieron cargar los materiales");
 
       state.materiales = result.data || [];
@@ -540,23 +705,14 @@ const ItemsUI = (() => {
       return;
     }
 
-    // Depuración: Imprimir datos de materiales
-    console.log("=== DEPURACIÓN DE MATERIALES ===");
-    console.log("Total materiales:", data.length);
-    data.forEach(material => {
-      console.log(`Material: ${material.cod_material}, idestado: ${material.idestado}, debería mostrar: ${material.idestado ? 'Desactivar' : 'Activar'}`);
-    });
-
     tbody.innerHTML = data
       .map(
         (material) => {
-          // Depuración: Verificar lógica del botón
-          const botonColor = material.idestado ? 'danger' : 'success';
-          const botonTexto = material.idestado ? 'Desactivar' : 'Activar';
-          const botonIcono = material.idestado ? 'toggle-off' : 'toggle-on';
-          const botonTitle = material.idestado ? 'Desactivar' : 'Activar';
-
-          console.log(`Botón para ${material.cod_material}: color=${botonColor}, texto=${botonTexto}, icono=${botonIcono}`);
+          const isActive = Number(material.idestado) === 1;
+          const botonColor = isActive ? 'danger' : 'success';
+          const botonTexto = isActive ? 'Desactivar' : 'Activar';
+          const botonIcono = isActive ? 'toggle-off' : 'toggle-on';
+          const botonTitle = isActive ? 'Desactivar' : 'Activar';
 
           return `
         <tr>
@@ -604,14 +760,15 @@ const ItemsUI = (() => {
 
     tbody.innerHTML = data
       .map((item) => {
+        const isActive = Number(item.idestado) === 1;
         return `
         <tr>
           <td class="fw-semibold">${item.codigo_item}</td>
           <td>${item.nombre_item}</td>
           <td>${item.unidad}</td>
           <td>
-            <span class="badge ${item.idestado ? "bg-success" : "bg-danger"}">
-              ${item.idestado ? "Activo" : "Inactivo"}
+            <span class="badge ${isActive ? "bg-success" : "bg-danger"}">
+              ${isActive ? "Activo" : "Inactivo"}
             </span>
           </td>
           <td>${formatDate(item.fecha_creacion)}</td>
@@ -621,11 +778,11 @@ const ItemsUI = (() => {
                 onclick="ItemsUI.editItemById(${item.id_item})">
                 Editar
               </button>
-              <button class="btn btn-outline-${item.idestado ? 'danger' : 'success'}" 
-                      title="${item.idestado ? 'Desactivar' : 'Activar'}"
+              <button class="btn btn-outline-${isActive ? 'danger' : 'success'}" 
+                      title="${isActive ? 'Desactivar' : 'Activar'}"
                       onclick="ItemsUI.toggleItem(${item.id_item})">
-                <i class="bi bi-${item.idestado ? 'toggle-off' : 'toggle-on'}"></i>
-                ${item.idestado ? 'Desactivar' : 'Activar'}
+                <i class="bi bi-${isActive ? 'toggle-off' : 'toggle-on'}"></i>
+                ${isActive ? 'Desactivar' : 'Activar'}
               </button>
             </div>
           </td>
@@ -862,7 +1019,7 @@ const ItemsUI = (() => {
         if (!material?.idunidad) camposFaltantes.push('UNIDAD');
         if (!material?.precio_actual) camposFaltantes.push('PRECIO');
         alert(
-          `⚠️ No se puede activar este recurso.\n\n` +
+          `No se puede activar este recurso.\n\n` +
           `Campos obligatorios pendientes: ${camposFaltantes.join(', ')}.\n\n` +
           `Por favor, corrija el archivo Excel con los datos faltantes y reimpórtelo, ` +
           `o edite manualmente el recurso para completar los campos.`
@@ -895,12 +1052,8 @@ const ItemsUI = (() => {
     const form = document.getElementById("formItem");
     if (!form) return;
 
-    console.log('[prepareItemModal] before reset, #itemId.value:', document.getElementById("itemId").value);
     form.reset();
-    console.log('[prepareItemModal] after reset, #itemId.value:', document.getElementById("itemId").value);
-    console.log('[prepareItemModal] item:', item);
     document.getElementById("itemId").value = item?.id_item ?? "";
-    console.log('[prepareItemModal] after setting, #itemId.value:', document.getElementById("itemId").value);
     document.getElementById("modalItemLabel").textContent = item ? "Editar Ítem" : "Nuevo Ítem";
 
     if (item) {
@@ -976,25 +1129,18 @@ const ItemsUI = (() => {
   function editItem(item) {
     prepareItemModal(item);
     state.itemModal.show();
-    console.log('[editItem] after modal.show(), #itemId.value:', document.getElementById("itemId").value);
   }
 
   async function submitItem(event) {
     event.preventDefault();
-    console.log('[submitItem] at start, #itemId.value:', document.getElementById("itemId").value);
     const formData = new FormData(event.target);
     const payload = Object.fromEntries(formData.entries());
-    console.log('[submitItem] payload from FormData:', payload);
-    console.log('[submitItem] payload.id_item_main:', payload.id_item_main);
 
     payload.idestado = Number(payload.idestado ?? 1);
 
     const isEdit = Boolean(payload.id_item_main);
     let endpoint = isEdit ? "updateItem" : "createItem";
     let requestBody = payload;
-
-    // Debug: log endpoint, isEdit, and payload.id_item_main
-    console.log('[submitItem] isEdit:', isEdit, 'endpoint:', endpoint, 'payload.id_item_main:', payload.id_item_main);
 
     if (!isEdit && (state.draftComponents.length || state.draftComposition.length)) {
       endpoint = "createItemWithRelations";
@@ -1014,8 +1160,6 @@ const ItemsUI = (() => {
         removed_component_ids: Array.from(state.removedComponentIds),
         removed_composition_ids: Array.from(state.removedCompositionIds),
       };
-      console.log('[submitItem] requestBody for edit:', requestBody);
-      console.log('[submitItem] removed_component_ids being sent:', Array.from(state.removedComponentIds));
     }
 
     try {
@@ -1928,7 +2072,8 @@ const ItemsUI = (() => {
     const materialesPorTipo = {
       material: state.materiales.filter(m => tipoMaterialMap[m.id_tipo_material] === 'material' && m.idestado == 1),
       mano_obra: state.materiales.filter(m => tipoMaterialMap[m.id_tipo_material] === 'mano_obra' && m.idestado == 1),
-      equipo: state.materiales.filter(m => tipoMaterialMap[m.id_tipo_material] === 'equipo' && m.idestado == 1)
+      equipo: state.materiales.filter(m => tipoMaterialMap[m.id_tipo_material] === 'equipo' && m.idestado == 1),
+      transporte: state.materiales.filter(m => tipoMaterialMap[m.id_tipo_material] === 'transporte' && m.idestado == 1)
     };
 
     // Destruir instancias anteriores de Select2 si existen
@@ -1941,6 +2086,9 @@ const ItemsUI = (() => {
       }
       if ($('#draftMaquinariaSelect').data('select2')) {
         $('#draftMaquinariaSelect').select2('destroy');
+      }
+      if ($('#draftTransporteSelect').data('select2')) {
+        $('#draftTransporteSelect').select2('destroy');
       }
     } catch (error) {
       // Silenciar errores de destrucción
@@ -2043,9 +2191,41 @@ const ItemsUI = (() => {
             }
           }
         });
-      } catch (error) {
+      } catch (e) {
         // Silenciar errores de inicialización
       }
+    }
+
+    // Llenar selector de transporte
+    const selectTransporte = document.getElementById('draftTransporteSelect');
+    if (selectTransporte) {
+      selectTransporte.innerHTML = '<option value="">Seleccionar transporte...</option>';
+      materialesPorTipo.transporte.forEach(mat => {
+        const option = document.createElement('option');
+        option.value = mat.id_material;
+        option.textContent = `${mat.cod_material} - ${mat.nombre_material} ($${formatCurrency(mat.precio_actual)})`;
+        option.dataset.material = JSON.stringify(mat);
+        selectTransporte.appendChild(option);
+      });
+
+      // Inicializar Select2
+      try {
+        $('#draftTransporteSelect').select2({
+          theme: 'bootstrap-5',
+          placeholder: 'Buscar transporte...',
+          allowClear: true,
+          width: '100%',
+          dropdownParent: getSelect2DropdownParent(),
+          language: {
+            noResults: function () {
+              return "No se encontraron transportes";
+            },
+            searching: function () {
+              return "Buscando...";
+            }
+          }
+        });
+      } catch (e) {}
     }
   }
 
@@ -2060,6 +2240,9 @@ const ItemsUI = (() => {
         break;
       case 'equipo':
         selectId = 'draftMaquinariaSelect';
+        break;
+      case 'transporte':
+        selectId = 'draftTransporteSelect';
         break;
       default:
         console.error('Tipo de componente no válido:', tipoComponente);
@@ -2098,8 +2281,6 @@ const ItemsUI = (() => {
 
     // Resetear selector
     select.selectedIndex = 0;
-
-    console.log('Recurso agregado:', newComponent);
   }
 
   function renderDraftComponents() {
@@ -2107,7 +2288,8 @@ const ItemsUI = (() => {
     const componentesPorTipo = {
       material: state.draftComponents.filter(c => c.tipo_componente === 'material'),
       mano_obra: state.draftComponents.filter(c => c.tipo_componente === 'mano_obra'),
-      equipo: state.draftComponents.filter(c => c.tipo_componente === 'equipo')
+      equipo: state.draftComponents.filter(c => c.tipo_componente === 'equipo'),
+      transporte: state.draftComponents.filter(c => c.tipo_componente === 'transporte')
     };
 
     // Renderizar Materiales
@@ -2256,6 +2438,53 @@ const ItemsUI = (() => {
       }
     }
 
+    // Renderizar Transporte
+    const containerTransporte = document.getElementById('componentesTransporteContainer');
+    if (containerTransporte) {
+      if (componentesPorTipo.transporte.length === 0) {
+        containerTransporte.innerHTML = '<div class="text-muted small text-center py-3">No hay transporte agregado</div>';
+      } else {
+        containerTransporte.innerHTML = componentesPorTipo.transporte.map((comp) => {
+          const idx = state.draftComponents.indexOf(comp);
+          const subtotal = comp.cantidad * comp.precio_unitario;
+          return `
+            <div class="card mb-2 shadow-sm border-info" style="border-left-width: 4px;">
+              <div class="card-body p-2">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                  <small class="fw-bold text-info">${comp.cod_material || ''}</small>
+                  <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="ItemsUI.removeDraftComponent(${idx})" title="Eliminar">
+                    <i class="bi bi-x"></i>
+                  </button>
+                </div>
+                <div class="small mb-1">${comp.descripcion}</div>
+                <div class="row g-1 small mb-2">
+                  <div class="col-6">
+                    <label class="form-label mb-0" style="font-size: 0.7rem;">Unidad</label>
+                    <input type="text" class="form-control form-control-sm bg-light text-muted" value="${comp.unidad}" readonly style="cursor: not-allowed;">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label mb-0" style="font-size: 0.7rem;">P. Unit</label>
+                    <input type="number" class="form-control form-control-sm bg-light text-muted" value="${comp.precio_unitario}" readonly style="cursor: not-allowed;">
+                  </div>
+                </div>
+                <div class="row g-1 small">
+                  <div class="col-12">
+                    <label class="form-label mb-0 fw-bold" style="font-size: 0.7rem;">Cantidad</label>
+                    <input type="number" class="form-control form-control-sm border-success" value="${comp.cantidad}" 
+                           onchange="ItemsUI.updateDraftComponent(${idx}, 'cantidad', this.value)" step="0.01" min="0.01" style="border-width: 2px;">
+                  </div>
+                </div>
+                <div class="mt-1 text-end">
+                  <small class="text-muted">Subtotal:</small>
+                  <strong class="text-info">$${formatCurrency(subtotal)}</strong>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
     // Actualizar badge de total de componentes
     const totalComponentes = state.draftComponents.length;
     const badge = document.getElementById('itemComponentsDraftBadge');
@@ -2273,13 +2502,10 @@ const ItemsUI = (() => {
 
   function removeDraftComponent(index) {
     const component = state.draftComponents[index];
-    console.log('[removeDraftComponent] component:', component);
     if (!component) return;
     if (confirm('¿Eliminar este componente?')) {
       if (component.persisted && component.id_componente) {
-        console.log('[removeDraftComponent] Adding to removedComponentIds:', component.id_componente);
         state.removedComponentIds.add(Number(component.id_componente));
-        console.log('[removeDraftComponent] removedComponentIds now:', Array.from(state.removedComponentIds));
       }
       state.draftComponents.splice(index, 1);
       renderDraftComponents();
@@ -2463,7 +2689,7 @@ const ItemsUI = (() => {
 
     const currentItemId = state.currentItemId;
     const availableItems = state.items.filter(item =>
-      item.idestado === 1 && item.id_item !== currentItemId
+      Number(item.idestado) === 1 && item.id_item !== currentItemId
     );
 
     select.innerHTML = '<option value="">Seleccionar ítem...</option>';
@@ -2704,4 +2930,14 @@ const ItemsUI = (() => {
 })();
 
 // Exponer el módulo globalmente
-window.ItemsUI = ItemsUI;
+window.ItemsUI = ItemsUIModule;
+
+// Inicialización automática (solo si no se ha llamado init externamente)
+if (!window.ItemsUI._initialized) {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => window.ItemsUI.init());
+  } else {
+    window.ItemsUI.init();
+  }
+  window.ItemsUI._initialized = true;
+}
