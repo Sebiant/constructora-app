@@ -13,7 +13,8 @@
         'ordenesCompra': '/sgigescon/componentes/ordenesCompraComponent.php',
         'compras': '/sgigescon/componentes/comprasComponent.php',
         'pedido': '/sgigescon/componentes/pedidoComponent.php',
-        'importMasiva': '/sgigescon/componentes/ImportMasiveBtnComponent.php'
+        'importMasiva': '/sgigescon/componentes/ImportMasiveBtnComponent.php',
+        'usuarios': '/sgigescon/componentes/usuariosComponent.php'
     };
 
     // Component titles
@@ -27,7 +28,8 @@
         'ordenesCompra': 'Órdenes de Compra',
         'compras': 'Compras',
         'pedido': 'Pedidos del Proyecto',
-        'importMasiva': 'Importación Masiva'
+        'importMasiva': 'Importación Masiva',
+        'usuarios': 'Gestión de Usuarios'
     };
 
     // Current project state
@@ -418,6 +420,12 @@
                 }, 200);
                 break;
 
+
+            case 'usuarios':
+                setTimeout(() => {
+                    if (typeof initUsuariosDataTable === 'function') initUsuariosDataTable();
+                }, 200);
+                break;
 
             default:
                 console.warn(`[Layout] No initialization logic for component: ${componentName}`);

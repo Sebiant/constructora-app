@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 if (!isset($_SESSION['seguridad'])) {
     header("Location: /sgigescon/src/Auth/Interfaces/Views/loginView.php");
@@ -91,6 +91,19 @@ $userRole = (isset($userSession['u_perfil']) && $userSession['u_perfil'] == 1) ?
                             <span class="nav-text">Compras</span>
                         </a>
                     </div>
+                    <?php if (isset($userSession['u_perfil']) && $userSession['u_perfil'] == 1): ?>
+                    <div class="nav-divider"></div>
+                    <div class="nav-section">
+                        <div class="nav-section-title">
+                            <i class="bi bi-dash-lg"></i>
+                            <span>Administración</span>
+                        </div>
+                        <a href="#" class="nav-item" data-component="usuarios">
+                            <i class="bi bi-person-gear"></i>
+                            <span class="nav-text">Usuarios</span>
+                        </a>
+                    </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Project Inspection Navigation (Hidden by default) -->

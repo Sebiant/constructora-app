@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 include_once __DIR__ . '/../../../Shared/Components/header.php';
 ?>
 
@@ -318,5 +318,5 @@ window.addEventListener('focus', function() {
 });
 </script>
 
-<script src="<?php echo __DIR__; ?>/ordenesCompraView.js"></script>
+<!-- Script included via component wrapper -->
 <?php include_once __DIR__ . '/../../../Shared/Components/footer.php'; ?>

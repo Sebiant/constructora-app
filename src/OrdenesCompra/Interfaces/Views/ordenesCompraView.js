@@ -1,4 +1,4 @@
-﻿const OrdenesCompraUI = (() => {
+const OrdenesCompraUI = (() => {
   const state = {
     ordenes: [],
     ordenesFiltradas: [],
@@ -29,50 +29,65 @@
 
   // Inicialización
   async function init() {
-    state.modalOrden = new bootstrap.Modal(document.querySelector(selectores.modalOrden));
-    state.modalDetalle = new bootstrap.Modal(document.querySelector(selectores.modalDetalle));
-
-    // Event listeners
-    document.getElementById('btnRefrescar')?.addEventListener('click', cargarOrdenes);
-    document.getElementById('btnNuevaOrden')?.addEventListener('click', mostrarModalNuevaOrden);
-    document.getElementById('btnBuscar')?.addEventListener('click', filtrarOrdenes);
-    document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
-      if (e.key === 'Enter') filtrarOrdenes();
-    });
-
-    // Filtros
-    document.getElementById('filterEstado')?.addEventListener('change', filtrarOrdenes);
-    document.getElementById('filterProveedor')?.addEventListener('change', filtrarOrdenes);
-    document.getElementById('fechaDesde')?.addEventListener('change', filtrarOrdenes);
-    document.getElementById('fechaHasta')?.addEventListener('change', filtrarOrdenes);
-
-    // Vista toggle
-    document.querySelectorAll('[data-view]').forEach(btn => {
-      btn.addEventListener('click', (e) => cambiarVista(e.target.dataset.view));
-    });
-
-    // Formulario
-    document.getElementById('idPedido')?.addEventListener('change', cargarProductosPedido);
-    document.getElementById('btnGuardarOrden')?.addEventListener('click', guardarOrden);
-    document.getElementById('selectAll')?.addEventListener('change', seleccionarTodosProductos);
-
-    // Event listener para recargar proveedores cuando se cierra el modal de agregar proveedor
-    const modalProveedor = document.getElementById('modalAgregarProveedor');
-    if (modalProveedor) {
-      modalProveedor.addEventListener('hidden.bs.modal', function () {
-        console.log('Modal de proveedor cerrado, recargando lista de proveedores...');
-        cargarProveedores();
-      });
+    if (state.inicializado) {
+      console.log('ℹ️ OrdenesCompraUI ya estaba inicializado.');
+      return;
     }
+    console.log('🚀 Inicializando OrdenesCompraUI...');
+    try {
+      const modalOrdenEl = document.querySelector(selectores.modalOrden);
+      const modalDetalleEl = document.querySelector(selectores.modalDetalle);
+      
+      if (modalOrdenEl) state.modalOrden = new bootstrap.Modal(modalOrdenEl);
+      if (modalDetalleEl) state.modalDetalle = new bootstrap.Modal(modalDetalleEl);
+      
+      console.log('✅ Modales inicializados');
 
-    await Promise.all([
-      cargarProveedores(),
-      cargarPedidos(),
-      cargarOrdenes()
-    ]);
+      // Event listeners
+      document.getElementById('btnRefrescar')?.addEventListener('click', cargarOrdenes);
+      document.getElementById('btnNuevaOrden')?.addEventListener('click', mostrarModalNuevaOrden);
+      document.getElementById('btnBuscar')?.addEventListener('click', filtrarOrdenes);
+      document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') filtrarOrdenes();
+      });
 
-    // Marcar inicialización completa
-    state.inicializado = true;
+      // Filtros
+      document.getElementById('filterEstado')?.addEventListener('change', filtrarOrdenes);
+      document.getElementById('filterProveedor')?.addEventListener('change', filtrarOrdenes);
+      document.getElementById('fechaDesde')?.addEventListener('change', filtrarOrdenes);
+      document.getElementById('fechaHasta')?.addEventListener('change', filtrarOrdenes);
+
+      // Vista toggle
+      document.querySelectorAll('[data-view]').forEach(btn => {
+        btn.addEventListener('click', (e) => cambiarVista(e.target.dataset.view));
+      });
+
+      // Formulario
+      document.getElementById('idPedido')?.addEventListener('change', cargarProductosPedido);
+      document.getElementById('btnGuardarOrden')?.addEventListener('click', guardarOrden);
+      document.getElementById('selectAll')?.addEventListener('change', seleccionarTodosProductos);
+
+      // Event listener para recargar proveedores cuando se cierra el modal de agregar proveedor
+      const modalProveedor = document.getElementById('modalAgregarProveedor');
+      if (modalProveedor) {
+        modalProveedor.addEventListener('hidden.bs.modal', function () {
+          console.log('Modal de proveedor cerrado, recargando lista de proveedores...');
+          cargarProveedores();
+        });
+      }
+
+      await Promise.all([
+        cargarProveedores(),
+        cargarPedidos(),
+        cargarOrdenes()
+      ]);
+
+      // Marcar inicialización completa
+      state.inicializado = true;
+      console.log('✨ OrdenesCompraUI inicializado correctamente');
+    } catch (error) {
+      console.error('❌ Error durante la inicialización:', error);
+    }
   }
 
   // Cargar datos principales
@@ -208,7 +223,10 @@
         console.log('✅ Productos cargados:', result.data);
         console.log('📊 Cantidad de productos:', result.data ? result.data.length : 0);
         state.productos = result.data || [];
+        state.productosSeleccionados.clear();
         renderizarTablaProductos();
+        actualizarTotales();
+        actualizarContadorProductos();
         actualizarResumen();
       } else {
         console.error('âŒ Error en API:', result.error);
@@ -402,7 +420,7 @@
       });
 
       return `
-        <tr>
+        <tr data-id-det-pedido="${primerId}">
           <td width="5%">
             <input type="checkbox" class="form-check-input producto-checkbox" 
                    data-id="${primerId}" 
@@ -410,8 +428,7 @@
                    data-disponible="${disponible}"
                    data-cant-comprar="${cantComprar}"
                    data-desperdicio="${desperdicio}"
-                   ${cantComprar <= 0 ? 'disabled' : ''}
-                   onchange="OrdenesCompraUI.actualizarProductoSeleccionado(this.dataset.id, this)">
+                   ${cantComprar <= 0 ? 'disabled' : ''}>
           </td>
           <td>
             ${escapeHtml(producto.descripcion)}
@@ -435,11 +452,10 @@
                      data-ids-originales='${escapeHtml(JSON.stringify(idsOriginales))}'
                      data-cant-pedida="${cantPedida}"
                      data-cant-necesaria="${cantNecesaria}"
-                     data-minimo-comercial="${minimoComercial}"
-                     onchange="OrdenesCompraUI.actualizarCantidadComprar(this)">
-              <button class="btn btn-outline-primary btn-sm" type="button"
+                     data-minimo-comercial="${minimoComercial}">
+              <button class="btn btn-outline-primary btn-sm btn-autofill-mini" type="button"
                       title="Usar cantidad calculada con mínimo comercial"
-                      onclick="OrdenesCompraUI.autofillCantidadPedida('${primerId}')">
+                      data-id="${primerId}">
                 <i class="bi bi-arrow-repeat"></i>
               </button>
             </div>
@@ -454,7 +470,7 @@
         }
           </td>
           <td class="text-end">${formatMoney(precio)}</td>
-          <td class="text-end">${formatMoney(subtotal)}</td>
+          <td class="text-end subtotal-producto">${formatMoney(subtotal)}</td>
         </tr>
       `;
     }).join('');
@@ -462,6 +478,26 @@
     console.log('📊 HTML generado, longitud:', html.length);
 
     contenedor.innerHTML = html;
+
+    // Agregar event listeners manuales para mayor confiabilidad
+    contenedor.querySelectorAll('.producto-checkbox').forEach(cb => {
+      cb.addEventListener('change', (e) => actualizarProductoSeleccionado(e.target.dataset.id, e.target));
+    });
+
+    contenedor.querySelectorAll('.cantidad-comprar').forEach(input => {
+      // Usar change y keyup para capturar cambios inmediatos
+      const handler = (e) => actualizarCantidadComprar(e.target);
+      input.addEventListener('change', handler);
+      input.addEventListener('input', handler);
+    });
+
+    contenedor.querySelectorAll('.btn-autofill-mini').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        autofillCantidadPedida(id);
+      });
+    });
+
     if (contador) contador.textContent = `${state.productos.length} productos`;
 
     console.log('✅ Tabla renderizada con', state.productos.length, 'productos');
@@ -633,6 +669,9 @@
 
     // Resetear estado de productos seleccionados
     state.productosSeleccionados.clear();
+    if (document.getElementById('selectAll')) {
+      document.getElementById('selectAll').checked = false;
+    }
 
     // Resetear totales
     if (subtotalOrden) subtotalOrden.textContent = '$0.00';
@@ -732,12 +771,14 @@
   }
 
   function seleccionarTodosProductos(e) {
-    const checkboxes = document.querySelectorAll('.producto-checkbox');
-    const inputs = document.querySelectorAll('.cantidad-comprar');
-
+    const isChecked = e.target.checked;
+    const checkboxes = document.querySelectorAll('.producto-checkbox:not(:disabled)');
+    console.log(`🔄 Seleccionar todos: ${isChecked}. Encontrados: ${checkboxes.length}`);
+    
     checkboxes.forEach(checkbox => {
-      checkbox.checked = e.target.checked;
-      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+      checkbox.checked = isChecked;
+      // Llamar directamente a la función de actualización
+      actualizarProductoSeleccionado(checkbox.dataset.id, checkbox);
     });
   }
 
@@ -749,7 +790,8 @@
       subtotal += subtotalProducto;
 
       // Actualizar subtotal en la tabla
-      const row = document.querySelector(`tr[data-id-det-pedido="${producto.id_det_pedido}"]`);
+      const idABuscar = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido[0] : producto.id_det_pedido;
+      const row = document.querySelector(`tr[data-id-det-pedido="${idABuscar}"]`);
       if (row) {
         row.querySelector('.subtotal-producto').textContent = `$${formatMoney(subtotalProducto)}`;
       }
@@ -788,8 +830,16 @@
 
   // Acciones CRUD
   async function guardarOrden() {
+    console.log('💾 Intentando guardar orden...');
     const form = document.querySelector(selectores.formOrden);
+    
+    if (!form) {
+      console.error('❌ No se encontró el formulario:', selectores.formOrden);
+      return;
+    }
+
     if (!form.checkValidity()) {
+      console.warn('⚠️ Formulario inválido');
       form.reportValidity();
       return;
     }
@@ -1280,7 +1330,8 @@
     for (const id of idsOriginales) {
       producto = (state.productos || []).find(p => {
         const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
-        return pIds.includes(parseInt(id));
+        // Usar comparación flexible (==) o convertir ambos a String para evitar problemas de tipos (int vs string)
+        return pIds.some(pid => String(pid) === String(id));
       });
       if (producto) break;
     }
@@ -1491,10 +1542,7 @@
 // Exponer en window para uso en handlers inline
 window.OrdenesCompraUI = OrdenesCompraUI;
 
-// Inicializar cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', () => {
-  OrdenesCompraUI.init();
-});
+// El componente se inicializa mediante layoutView.js llamando a OrdenesCompraUI.init()
 
 // ============================================
 // FUNCIONES PARA GESTIÓN DE PROVEEDORES
