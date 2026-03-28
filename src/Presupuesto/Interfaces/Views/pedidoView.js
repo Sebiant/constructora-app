@@ -1,4 +1,4 @@
-﻿var proyectosData = [];
+var proyectosData = [];
 var itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
 var materialesExtra = [];
 var pedidosFueraPresupuesto = [];
@@ -745,7 +745,7 @@ function toggleDesglose(itemId) {
     desglose.style.display = "block";
     button.textContent = "Ocultar";
 
-    const item = itemsData.find((m) => m.id_item == itemId);
+    const item = (itemsData.itemsIndividuales || itemsData).find((m) => m.id_item == itemId);
     if (item && item.componentes) {
       cargarComponentesParaPedido(itemId);
     }
@@ -912,7 +912,7 @@ function actualizarCantidadComponenteDesdeInput(input) {
 }
 
 function actualizarCantidadComponente(componenteId, cantidad, itemId) {
-  const item = itemsData.find((m) => m.id_item == itemId);
+  const item = (itemsData.itemsIndividuales || itemsData).find((m) => m.id_item == itemId);
   if (!item || !item.componentes) return;
 
   const componente = item.componentes.find(
@@ -958,7 +958,7 @@ function actualizarCantidadComponente(componenteId, cantidad, itemId) {
 }
 
 function agregarTodoComponente(componenteId, itemId) {
-  const item = itemsData.find((m) => m.id_item == itemId);
+  const item = (itemsData.itemsIndividuales || itemsData).find((m) => m.id_item == itemId);
   if (!item || !item.componentes) return;
 
   const componente = item.componentes.find(
@@ -977,7 +977,7 @@ function agregarTodoComponente(componenteId, itemId) {
 }
 
 function actualizarTotalComponentesItem(itemId) {
-  const item = itemsData.find((m) => m.id_item == itemId);
+  const item = (itemsData.itemsIndividuales || itemsData).find((m) => m.id_item == itemId);
   if (!item || !item.componentes) return;
 
   let total = 0;
@@ -1306,6 +1306,10 @@ async function cargarItems() {
       document.getElementById("filterCapitulo").disabled = false;
 
       mostrarItemsConComponentes(items);
+      
+      // Aplicar filtros automáticamente si hay alguno seleccionado
+      setTimeout(filtrarMaterialesPedido, 0);
+
       actualizarEstadisticas();
       mostrarInformacionProyecto(proyecto || { nombre: proyectoNombre }, presupuesto || {});
 
@@ -1543,7 +1547,7 @@ function parseDetalleSerializado(detalleSerializado) {
 
         const partes = itemStr.split("|");
 
-        if (partes.length < 10) {
+        if (partes.length < 11) {
           console.warn("Detalle serializado incompleto:", partes);
           return null;
         }
@@ -1552,14 +1556,15 @@ function parseDetalleSerializado(detalleSerializado) {
           id_item: partes[0]?.trim() || null,
           codigo_item: partes[1]?.trim() || "N/A",
           nombre_item: partes[2]?.trim() || "N/A",
-          nombre_capitulo: partes[3]?.trim() || "N/A",
-          cantidad_por_unidad: parseFloat(partes[4]) || 0,
-          unidad_componente: partes[5]?.trim() || "UND",
-          unidad_item: partes[6]?.trim() || "UND",
-          cantidad_item_presupuesto: parseFloat(partes[7]) || 0,
-          cantidad_componente: parseFloat(partes[8]) || 0,
+          id_capitulo: partes[3]?.trim() || null,
+          nombre_capitulo: partes[4]?.trim() || "N/A",
+          cantidad_por_unidad: parseFloat(partes[5]) || 0,
+          unidad_componente: partes[6]?.trim() || "UND",
+          unidad_item: partes[7]?.trim() || "UND",
+          cantidad_item_presupuesto: parseFloat(partes[8]) || 0,
+          cantidad_componente: parseFloat(partes[9]) || 0,
           pedido_actual: 0,
-          ya_pedido_item: parseFloat(partes[9]) || 0,
+          ya_pedido_item: parseFloat(partes[10]) || 0,
         };
       })
       .filter((item) => item !== null);
@@ -1680,10 +1685,10 @@ function mostrarItemsConComponentes(datos) {
     container.innerHTML = `
             <div class="text-center text-muted py-5">
                 <div class="spinner-border text-muted" role="status"></div>
-                <p class="mt-3">No hay componentes en este presupuesto/capítulo</p>
+                <p class="mt-3">No hay recursos en este presupuesto/capítulo</p>
             </div>
         `;
-    document.getElementById("contadorMateriales").textContent = "0 componentes";
+    document.getElementById("contadorMateriales").textContent = "0 recursos";
 
     const paginacionContainer = document.getElementById("paginacionContainer");
     if (paginacionContainer) paginacionContainer.style.display = "none";
@@ -1696,7 +1701,7 @@ function mostrarItemsConComponentes(datos) {
 
   document.getElementById(
     "contadorMateriales"
-  ).textContent = `${componentesAgrupados.length} componentes`;
+  ).textContent = `${componentesAgrupados.length} recursos`;
 }
 
 function mostrarErrorItems() {
@@ -1704,7 +1709,7 @@ function mostrarErrorItems() {
   container.innerHTML = `
     <div class="text-center text-danger py-5">
       <div class="spinner-border text-danger" role="status"></div>
-      <p class="mt-3">Error al cargar los items del presupuesto</p>
+      <p class="mt-3">Error al cargar los recursos del presupuesto</p>
       <button class="btn btn-warning" onclick="reintentarCargaItems()">Reintentar</button>
     </div>
   `;
@@ -4820,3 +4825,51 @@ function onMaterialSeleccionado() {
   document.getElementById('previewTipo').textContent = materialSeleccionadoData.tipo_material;
   document.getElementById('vistaPreviewMaterial').style.display = 'block';
 }
+
+/**
+ * Filtra los recursos basándose en la búsqueda, capítulo y tipo.
+ * Se ejecuta en tiempo real al cambiar cualquier filtro.
+ */
+function filtrarMaterialesPedido() {
+  console.log('[Filtro Pedido] Ejecutando...');
+  const searchInput = document.getElementById('searchResource');
+  const busqueda = searchInput?.value.toLowerCase().trim() || '';
+  const capituloId = document.getElementById('filterCapitulo')?.value || '';
+  const tipo = document.getElementById('filterTipo')?.value || '';
+
+  console.log('[Filtro Pedido] Valores:', { busqueda, capituloId, tipo });
+
+  if (!itemsData || !itemsData.componentesAgrupados) {
+    console.warn('[Filtro Pedido] No hay datos cargados');
+    return;
+  }
+
+  const filteredItems = itemsData.componentesAgrupados.filter(item => {
+    // 1. Filtrar por texto: nombre o descripción
+    const matchBusqueda = !busqueda || 
+      item.nombre_item.toLowerCase().includes(busqueda) || 
+      (item.descripcion && item.descripcion.toLowerCase().includes(busqueda));
+
+    // 2. Filtrar por capítulo (usando id_capitulo del componente serializado)
+    const matchCapitulo = !capituloId || 
+      item.items_que_usan?.some(uso => String(uso.id_capitulo) === String(capituloId));
+
+    // 3. Filtrar por tipo (material, mano_obra, etc.)
+    const matchTipo = !tipo || item.tipo_componente === tipo;
+
+    return matchBusqueda && matchCapitulo && matchTipo;
+  });
+
+  console.log(`[Filtro Pedido] Resultados: ${filteredItems.length} de ${itemsData.componentesAgrupados.length}`);
+
+  // Actualizar la vista a través del paginador
+  if (typeof paginador !== 'undefined' && paginador.configurar) {
+    paginador.configurar(filteredItems);
+  } else {
+    // Fallback si el paginador no está listo
+    mostrarItemsConComponentes({ componentesAgrupados: filteredItems });
+  }
+}
+
+// Exponer a global
+window.filtrarMaterialesPedido = filtrarMaterialesPedido;

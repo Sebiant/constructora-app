@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // El componente REQUIERE un id_proyecto para funcionar
 $proyectoId = isset($_GET['id_proyecto']) ? intval($_GET['id_proyecto']) : 0;
 $proyectoNombre = '';
@@ -111,8 +111,8 @@ if ($proyectoId > 0) {
                         
                         <div class="row mb-4">
                             <div class="col-md-8">
-                                <button class="btn btn-primary" onclick="mostrarModalNuevoItem()" id="btnAgregarExtra" disabled>
-                                    <i class="bi bi-plus-circle"></i> Agregar Material Extra
+                                <button class="btn btn-outline-primary" onclick="abrirModalMaterialExtra()" id="btnAgregarExtra" disabled>
+                                    <i class="bi bi-plus-circle"></i> Agregar Recurso Extra
                                 </button>
                                 <button class="btn btn-info ms-2" onclick="abrirModalResumen()" id="btnVerResumen" disabled>
                                     <i class="bi bi-file-earmark-text"></i> Ver Resumen
@@ -120,8 +120,8 @@ if ($proyectoId > 0) {
                             </div>
                             <div class="col-md-4 text-end">
                                 <div class="input-group">
-                                    <input type="text" class="form-control" placeholder="Buscar material..." id="searchMaterial" onkeyup="filtrarMateriales()">
-                                    <button class="btn btn-outline-secondary" type="button">
+                                    <input type="text" class="form-control" placeholder="Buscar recurso..." id="searchResource" oninput="filtrarMaterialesPedido()">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="filtrarMaterialesPedido()">
                                         <i class="bi bi-search"></i>
                                     </button>
                                 </div>
@@ -136,26 +136,17 @@ if ($proyectoId > 0) {
                                         <h6 class="mb-0">Filtros</h6>
                                     </div>
                                     <div class="card-body">
-                                        <div class="mb-3">
-                                            <label class="form-label">Estado del Material</label>
-                                            <select class="form-select" id="filterEstado" onchange="filtrarMateriales()">
-                                                <option value="">Todos</option>
-                                                <option value="disponible">Disponible</option>
-                                                <option value="agotado">Agotado</option>
-                                                <option value="pedido">En pedido</option>
-                                            </select>
-                                        </div>
                                         
                                         <div class="mb-3">
                                             <label class="form-label">Capítulo</label>
-                                            <select class="form-select" id="filterCapitulo" onchange="filtrarMateriales()">
+                                            <select class="form-select" id="filterCapitulo" onchange="filtrarMaterialesPedido()">
                                                 <option value="">Todos los capítulos</option>
                                             </select>
                                         </div>
 
                                         <div class="mb-3">
-                                            <label class="form-label">Tipo de Material</label>
-                                            <select class="form-select" id="filterTipo" onchange="filtrarMateriales()">
+                                            <label class="form-label">Tipo de Recurso</label>
+                                            <select class="form-select" id="filterTipo" onchange="filtrarMaterialesPedido()">
                                                 <option value="">Todos los tipos</option>
                                             </select>
                                         </div>

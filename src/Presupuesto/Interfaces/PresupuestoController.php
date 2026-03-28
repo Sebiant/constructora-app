@@ -2045,6 +2045,7 @@ try {
                             i.id_item, '|',
                             i.codigo_item, '|',
                             i.nombre_item, '|',
+                            c.id_capitulo, '|',
                             c.nombre_cap, '|',
                             ic.cantidad, '|',
                             ic.unidad, '|',
