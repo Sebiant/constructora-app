@@ -61,14 +61,14 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                     </div>
 
                     <div class="row">
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6 mb-3" id="container_proyecto_capitulo">
                             <label for="proyecto_capitulo" class="form-label fw-bold">Proyecto:</label>
                             <select name="id_proyecto" id="proyecto_capitulo" class="form-select" onchange="cargarPresupuestosPorProyecto()">
                                 <option value="">Seleccionar proyecto primero</option>
                             </select>
                         </div>
 
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6 mb-3" id="container_presupuesto_capitulo">
                             <label for="presupuesto_capitulo" class="form-label fw-bold">Presupuesto:</label>
                             <select name="id_presupuesto" id="presupuesto_capitulo" class="form-select" disabled>
                                 <option value="">Selecciona un proyecto primero</option>

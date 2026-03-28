@@ -175,7 +175,7 @@ try {
             }
 
             // Obtener capítulo directamente sin usar la clase Capitulo
-            $sql = "SELECT c.*, 
+            $sql = "SELECT c.*, p.id_proyecto,
                             CONCAT('Presupuesto ', c.id_presupuesto, ' - ', IFNULL(pr.nombre, 'Sin proyecto')) AS presupuesto_proyecto
                      FROM capitulos c
                      LEFT JOIN presupuestos p ON c.id_presupuesto = p.id_presupuesto
