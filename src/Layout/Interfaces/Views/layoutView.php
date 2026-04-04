@@ -82,6 +82,10 @@ $userRole = (isset($userSession['u_perfil']) && $userSession['u_perfil'] == 1) ?
                             <i class="bi bi-clipboard-check"></i>
                             <span class="nav-text">Pedidos Admin</span>
                         </a>
+                        <a href="#" class="nav-item" data-component="cotizaciones">
+                            <i class="bi bi-clipboard2-data"></i>
+                            <span class="nav-text">Cotizaciones</span>
+                        </a>
                         <a href="#" class="nav-item" data-component="ordenesCompra">
                             <i class="bi bi-cart-check"></i>
                             <span class="nav-text">Órdenes de Compra</span>

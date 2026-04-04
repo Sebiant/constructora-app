@@ -117,6 +117,12 @@ if ($proyectoId > 0) {
                                 <button class="btn btn-info ms-2" onclick="abrirModalResumen()" id="btnVerResumen" disabled>
                                     <i class="bi bi-file-earmark-text"></i> Ver Resumen
                                 </button>
+                                <!-- Botón de cotizaciones -->
+                                <button class="btn btn-outline-success ms-2" id="btnGestionarCotizaciones" disabled
+                                        title="Exportar plantilla Excel y gestionar cotizaciones de proveedores para este pedido">
+                                    <i class="bi bi-clipboard2-data"></i> Cotizaciones
+                                    <span class="badge bg-success ms-1 d-none" id="badgeCotizacionesPedidoView">0</span>
+                                </button>
                             </div>
                             <div class="col-md-4 text-end">
                                 <div class="input-group">
@@ -410,10 +416,25 @@ if ($proyectoId > 0) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="/sgigescon/src/Presupuesto/Interfaces/Views/pedidoView.js"></script>
+    <!-- Cotizaciones de pedidos -->
+    <script src="/sgigescon/src/Cotizacion/Interfaces/Views/cotizacionesPedido.js"></script>
     <script>
         var API_PRESUPUESTOS = '/sgigescon/src/Presupuesto/Interfaces/PresupuestoController.php';
+        var API_COTIZACION   = '/sgigescon/src/Cotizacion/Interfaces/CotizacionController.php';
         _initPedidoComponent();
+
+        // –– Conectar botón de cotizaciones ––
+        document.getElementById('btnGestionarCotizaciones')?.addEventListener('click', () => {
+            const idPedido = window._pedidoActualId;  // expuesto por pedidoView.js
+            const nombre   = window._pedidoActualNombre ?? 'Pedido #' + idPedido;
+            const proveedores = window._proveedoresSistema ?? [];
+            if (!idPedido) return;
+            CotizacionesPedido.abrir(idPedido, nombre, proveedores);
+        });
     </script>
 </body>
 </html>
+<?php
+    include_once __DIR__ . '/../../../Cotizacion/Interfaces/Views/cotizacionesPedidoModal.php';
+?>
 <?php endif; ?>

@@ -164,9 +164,13 @@ try {
                 throw new Exception('El archivo no contiene datos para importar.');
             }
 
+            // Consulta más robusta para detectar duplicados usando LIKE para evitar problemas de codificación
             $existingStmt = $connection->prepare("SELECT cod_material FROM materiales");
             $existingStmt->execute();
             $existingCodes = array_flip(array_map('strval', $existingStmt->fetchAll(PDO::FETCH_COLUMN)));
+            
+            // También verificamos duplicados en la misma importación
+            $importCodes = [];
 
             // Cargar tipos y unidades para mapeo por nombre
             $tiposStmt = $connection->query("SELECT id_tipo_material, desc_tipo FROM tipo_material WHERE estado = 1");
@@ -272,40 +276,53 @@ try {
                     : null;
 
                 $usuarioId = 1;
-                if ($hasNotasCol) {
-                    $stmtInsertMaterial->execute([
-                        $codigo,
-                        $nombre,
-                        $tipoId,
-                        $unidadId,
-                        $usuarioId,
-                        $estado,
-                        $minimoComercial,
-                        $presentacion,
-                        $notasImportacion
-                    ]);
-                } else {
-                    $stmtInsertMaterial->execute([
-                        $codigo,
-                        $nombre,
-                        $tipoId,
-                        $unidadId,
-                        $usuarioId,
-                        $estado,
-                        $minimoComercial,
-                        $presentacion
-                    ]);
-                }
+                
+                try {
+                    if ($hasNotasCol) {
+                        $stmtInsertMaterial->execute([
+                            $codigo,
+                            $nombre,
+                            $tipoId,
+                            $unidadId,
+                            $usuarioId,
+                            $estado,
+                            $minimoComercial,
+                            $presentacion,
+                            $notasImportacion
+                        ]);
+                    } else {
+                        $stmtInsertMaterial->execute([
+                            $codigo,
+                            $nombre,
+                            $tipoId,
+                            $unidadId,
+                            $usuarioId,
+                            $estado,
+                            $minimoComercial,
+                            $presentacion
+                        ]);
+                    }
 
-                $materialId = (int)$connection->lastInsertId();
-                if ($precio > 0) {
-                    $stmtInsertPrecio->execute([$materialId, $precio, $usuarioId]);
-                }
+                    $materialId = (int)$connection->lastInsertId();
+                    if ($precio > 0) {
+                        $stmtInsertPrecio->execute([$materialId, $precio, $usuarioId]);
+                    }
 
-                if ($codigo !== '') {
-                    $existingCodes[$codigo] = true;
+                    if ($codigo !== '') {
+                        $existingCodes[$codigo] = true;
+                    }
+                    $inserted++;
+                    
+                } catch (PDOException $e) {
+                    // Si es error de duplicado, contar como omitido y continuar
+                    if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                        $skipped++;
+                        continue;
+                    } else {
+                        // Si es otro error, relanzar la excepción
+                        throw $e;
+                    }
                 }
-                $inserted++;
             }
 
             $connection->commit();

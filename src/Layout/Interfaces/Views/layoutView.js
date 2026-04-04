@@ -10,6 +10,7 @@
         'clientes': '/sgigescon/componentes/clientesComponent.php',
         'provedores': '/sgigescon/componentes/provedoresComponent.php',
         'pedidosAdmin': '/sgigescon/componentes/pedidoAdminComponent.php',
+        'cotizaciones': '/sgigescon/src/Cotizacion/Interfaces/Views/cotizacionesView.php',
         'ordenesCompra': '/sgigescon/componentes/ordenesCompraComponent.php',
         'compras': '/sgigescon/componentes/comprasComponent.php',
         'pedido': '/sgigescon/componentes/pedidoComponent.php',
@@ -25,6 +26,7 @@
         'clientes': 'Clientes',
         'provedores': 'Proveedores',
         'pedidosAdmin': 'Pedidos Admin',
+        'cotizaciones': 'Cotizaciones',
         'ordenesCompra': 'Órdenes de Compra',
         'compras': 'Compras',
         'pedido': 'Pedidos del Proyecto',
@@ -420,6 +422,13 @@
                 }, 200);
                 break;
 
+            case 'cotizaciones':
+                // Initialize cotizaciones component
+                setTimeout(() => {
+                    // El componente de cotizaciones se inicializa automáticamente con DOMContentLoaded
+                    console.log('[Layout] Cotizaciones component loaded');
+                }, 200);
+                break;
 
             case 'usuarios':
                 setTimeout(() => {

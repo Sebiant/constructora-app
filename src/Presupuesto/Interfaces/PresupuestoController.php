@@ -160,8 +160,10 @@ try {
 
         case 'importPreview':
             try {
-                // 🔴 AGREGAR CONTROL DE SESIÓN PARA IDENTIFICAR LA IMPORTACIÓN
-                session_start();
+                // Iniciar sesión solo si no está activa
+                if (session_status() === PHP_SESSION_NONE) {
+                    session_start();
+                }
                 
                 if (!isset($_FILES['archivo_excel']) || $_FILES['archivo_excel']['error'] !== UPLOAD_ERR_OK) {
                     throw new \Exception('No se recibió el archivo Excel o hubo un error en la carga.');
@@ -289,9 +291,14 @@ try {
 
         case 'guardarPresupuestos':
             try {
-                // 🔴 VERIFICAR QUE HAY UNA IMPORTACIÓN VÁLIDA EN SESIÓN
-                session_start();
-                
+                // Iniciar sesión una sola vez y obtener usuario
+                if (session_status() === PHP_SESSION_NONE) {
+                    session_start();
+                }
+
+                // Resolver usuario desde la sesión del sistema
+                $idUsuario = (int)($_SESSION['u_id'] ?? 1);
+
                 if (!isset($_SESSION['last_import_data'])) {
                     throw new \Exception('No hay datos de importación válidos. Realice primero la vista previa.');
                 }
@@ -310,8 +317,9 @@ try {
                 error_log("=== DEBUG guardarPresupuestos ===");
                 error_log("ID Presupuesto recibido: " . $idPresupuesto);
                 error_log("Total items recibidos: " . count($presupuestosData));
+                error_log("Usuario: " . $idUsuario);
                 
-                // 🔴 VERIFICAR QUE COINCIDA CON LA IMPORTACIÓN ACTUAL
+                // Verificar que coincida con la importación actual
                 if ($idPresupuesto != $lastImport['presupuesto']) {
                     throw new \Exception('El presupuesto no coincide con la importación actual.');
                 }
@@ -325,9 +333,9 @@ try {
                 }
 
                 $repository = new \Src\Presupuesto\Infrastructure\PresupuestoMySQLRepository($connection);
-                $resultado = $repository->guardarPresupuestosMasive($presupuestosData, $idPresupuesto);
+                $resultado = $repository->guardarPresupuestosMasive($presupuestosData, $idPresupuesto, $idUsuario);
 
-                // 🔴 LIMPIAR SESIÓN DESPUÉS DE GUARDAR EXITOSAMENTE
+                // Limpiar sesión después de guardar exitosamente
                 unset($_SESSION['last_import_data']);
 
                 echo json_encode([

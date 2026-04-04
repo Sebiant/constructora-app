@@ -368,16 +368,7 @@ class PresupuestoMySQLRepository implements PresupuestoRepository {
         return $filas;
     }
 
-    public function guardarPresupuestosMasive(array $presupuestosData, int $idPresupuesto): bool {
-        session_start();
-        $datos = isset($_SESSION['seguridad']) ? json_decode($_SESSION['seguridad'], true) : null;
-
-        if (!$datos || !isset($datos['usuario'])) {
-            throw new Exception('Sesión inválida o no iniciada.');
-        }
-
-        $idUsuario = (int)$datos['usuario'];
-
+    public function guardarPresupuestosMasive(array $presupuestosData, int $idPresupuesto, int $idUsuario = 1): bool {
         try {
             $this->conn->beginTransaction();
 

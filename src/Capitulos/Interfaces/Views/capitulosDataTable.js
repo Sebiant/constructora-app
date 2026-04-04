@@ -275,13 +275,19 @@ function enviarFormularioCapitulo() {
                 // Cerramos el modal
                 $('#modalCapitulos').modal('hide');
                 
-                // Forzamos la eliminación de cualquier rastro del modal (backdrop oscurecido)
+                // Forzamos la limpieza del backdrop
                 $('body').removeClass('modal-open');
                 $('.modal-backdrop').remove();
-                $('body').css('overflow', 'auto');
-
-                $("#datos_capitulos").DataTable().ajax.reload();
-                Swal.fire('Completado', response.message, 'success');
+                
+                Swal.fire({
+                    title: 'Completado',
+                    text: response.message,
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => {
+                    location.reload();
+                });
             } else {
                 Swal.fire('Error', response.error || 'No se pudo guardar', 'error');
             }

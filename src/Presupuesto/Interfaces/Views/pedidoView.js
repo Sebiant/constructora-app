@@ -8,6 +8,11 @@ var seleccionActual = null;
 var _presupuestosAbortController = null;
 var _presupuestosRequestToken = 0;
 
+// Variables globales para la gestión de pedidos y cotizaciones
+window._pedidoActualId = null;
+window._pedidoActualNombre = '';
+window._proveedoresSistema = [];
+
 function resetarGestion() {
   itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
   seleccionActual = null;
@@ -1129,6 +1134,7 @@ function _initPedidoComponent() {
     cargarUnidades();
     cargarTiposMaterial();
     resetarGestion();
+    _cargarProveedoresSistema(); // Cargar catálogo de proveedores
 
     setTimeout(() => {
       paginador.inicializar();
@@ -1304,6 +1310,13 @@ async function cargarItems() {
         btnResumen.disabled = false;
       }
       document.getElementById("filterCapitulo").disabled = false;
+
+      // Habilitar botón de cotizaciones al seleccionar presupuesto
+      const btnCotiz = document.getElementById('btnGestionarCotizaciones');
+      if (btnCotiz) {
+        btnCotiz.disabled = false;
+        btnCotiz.title = "Exportar plantilla Excel y gestionar cotizaciones para este presupuesto";
+      }
 
       mostrarItemsConComponentes(items);
       
@@ -2472,6 +2485,16 @@ async function confirmarPedido() {
 
       // Recargar los datos del presupuesto actual para reflejar ya_pedido actualizado
       await cargarItems();
+
+      // –––– NUEVO: Habilitar gestión de cotizaciones para este pedido ––––
+      window._pedidoActualId = result.id_pedido;
+      window._pedidoActualNombre = (seleccionActual?.datos?.nombrePresupuesto || '') + ' - ' + new Date().toLocaleDateString();
+      
+      const btnCotiz = document.getElementById('btnGestionarCotizaciones');
+      if (btnCotiz) {
+          btnCotiz.disabled = false;
+          _actualizarBadgeCotizaciones(result.id_pedido);
+      }
     } else {
       alert("Error al guardar el pedido: " + result.error);
     }
@@ -4847,7 +4870,7 @@ function filtrarMaterialesPedido() {
   const filteredItems = itemsData.componentesAgrupados.filter(item => {
     // 1. Filtrar por texto: nombre o descripción
     const matchBusqueda = !busqueda || 
-      item.nombre_item.toLowerCase().includes(busqueda) || 
+      (item.nombre_componente && item.nombre_componente.toLowerCase().includes(busqueda)) || 
       (item.descripcion && item.descripcion.toLowerCase().includes(busqueda));
 
     // 2. Filtrar por capítulo (usando id_capitulo del componente serializado)
@@ -4871,5 +4894,36 @@ function filtrarMaterialesPedido() {
   }
 }
 
+/**
+ * Carga el catálogo de proveedores para matching en cotizaciones
+ */
+async function _cargarProveedoresSistema() {
+    try {
+        const resp = await fetch('/sgigescon/src/Provedores/Interfaces/ProvedorController.php?action=getAll');
+        const res = await resp.json();
+        if (res.success) {
+            window._proveedoresSistema = res.data || [];
+        }
+    } catch(e) { console.error('Error cargando proveedores:', e); }
+}
+
+/**
+ * Actualiza el contador de cotizaciones en el botón
+ */
+async function _actualizarBadgeCotizaciones(idPedido) {
+    if (!idPedido) return;
+    try {
+        const resp = await fetch(`/sgigescon/src/Cotizacion/Interfaces/CotizacionController.php?action=getCotizacionesByPedido&id_pedido=${idPedido}`);
+        const res = await resp.json();
+        const badge = document.getElementById('badgeCotizacionesPedidoView');
+        if (badge && res.success) {
+            const total = res.data?.length || 0;
+            badge.textContent = total;
+            badge.classList.toggle('d-none', total === 0);
+        }
+    } catch(e) { console.error('Error badge cotiz:', e); }
+}
+
 // Exponer a global
 window.filtrarMaterialesPedido = filtrarMaterialesPedido;
+window._actualizarBadgeCotizaciones = _actualizarBadgeCotizaciones;

@@ -127,9 +127,22 @@ function guardarPresupuestoCRUD() {
         contentType: "application/json",
         success: function (res) {
             if (res.success) {
-                Swal.fire('Éxito', id ? 'Presupuesto actualizado' : 'Presupuesto creado', 'success');
+                // Cerramos el modal
                 $("#modalPresupuestoCRUD").modal("hide");
-                if (dataTablePresupuestos) dataTablePresupuestos.ajax.reload();
+                
+                // Forzamos la limpieza del backdrop
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+                
+                Swal.fire({
+                    title: 'Éxito',
+                    text: id ? 'Presupuesto actualizado' : 'Presupuesto creado',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => {
+                    location.reload();
+                });
             } else {
                 Swal.fire('Error', res.error || 'Ocurrió un error', 'error');
             }

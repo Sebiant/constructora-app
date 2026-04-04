@@ -192,12 +192,53 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
               </select>
               <div class="form-text">Seleccione el pedido que originará esta orden</div>
             </div>
-            
-            <div class="col-md-6">
-              <label class="form-label fw-bold">Proveedor *</label>
-              <select class="form-select" id="idProveedor" required>
-                <option value="">Seleccione un proveedor...</option>
-              </select>
+
+            <div class="col-md-6 d-flex flex-column justify-content-end">
+              <!-- Botón para seleccionar cotización -->
+              <button type="button" class="btn btn-outline-success" id="btnAbrirCotizacion" disabled
+                      style="border-width: 2px;">
+                <i class="bi bi-clipboard2-check-fill me-2"></i>Aplicar Cotización de Proveedores
+              </button>
+              <div class="form-text">Usa una de las cotizaciones importadas en el módulo de pedidos para este pedido</div>
+            </div>
+          </div>
+
+          <!-- Panel de resumen de cotización (aparece después de confirmar cotización) -->
+          <div id="panelResumenCotizacion" class="d-none mb-4">
+            <div class="card border-0 shadow-sm" style="border-left:4px solid #00384A !important;">
+              <div class="card-header d-flex justify-content-between align-items-center"
+                   style="background:linear-gradient(135deg,#00384A,#005f7a); color:white;">
+                <span class="fw-bold">
+                  <i class="bi bi-clipboard2-check-fill me-2"></i>Cotización Confirmada
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-light" id="btnReabrirCotizacion">
+                  <i class="bi bi-pencil me-1"></i>Editar
+                </button>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-sm mb-0" id="tablaResumenCot">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Proveedor</th>
+                        <th class="text-center">N° Recursos</th>
+                        <th class="text-end">Subtotal Estimado</th>
+                        <th class="text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tablaResumenCotBody">
+                      <tr><td colspan="4" class="text-center text-muted py-3">Sin datos</td></tr>
+                    </tbody>
+                    <tfoot class="table-light fw-bold">
+                      <tr>
+                        <td colspan="2">Total general:</td>
+                        <td class="text-end" id="totalGeneralCot">$0.00</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -274,8 +315,8 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
           <i class="bi bi-x-circle"></i> Cancelar
         </button>
-        <button type="button" class="btn btn-primary" id="btnGuardarOrden">
-          <i class="bi bi-check-circle"></i> Guardar Orden
+        <button type="button" class="btn btn-success" id="btnGuardarOrden" disabled>
+          <i class="bi bi-check2-circle me-1"></i>Generar Orden(es) de Compra
         </button>
       </div>
     </div>
@@ -304,6 +345,8 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
   </div>
 </div>
 
+<?php include_once __DIR__ . '/cotizacionModal.php'; ?>
+
 
 <script>
 // Recargar proveedores cuando la ventana recupere el foco
@@ -318,5 +361,7 @@ window.addEventListener('focus', function() {
 });
 </script>
 
+<!-- Scripts del módulo de órdenes de compra -->
+<script src="/sgigescon/src/OrdenesCompra/Interfaces/Views/cotizacionModal.js"></script>
 <!-- Script included via component wrapper -->
 <?php include_once __DIR__ . '/../../../Shared/Components/footer.php'; ?>

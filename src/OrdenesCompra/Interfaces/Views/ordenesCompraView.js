@@ -27,6 +27,9 @@ const OrdenesCompraUI = (() => {
     montoTotal: '#montoTotal'
   };
 
+  // Estado adicional para cotizaciones
+  state.gruposCotizacion = [];  // [{id_provedor, nombre_proveedor, productos:[...]}]
+
   // Inicialización
   async function init() {
     if (state.inicializado) {
@@ -43,7 +46,7 @@ const OrdenesCompraUI = (() => {
       
       console.log('✅ Modales inicializados');
 
-      // Event listeners
+      // Event listeners principales
       document.getElementById('btnRefrescar')?.addEventListener('click', cargarOrdenes);
       document.getElementById('btnNuevaOrden')?.addEventListener('click', mostrarModalNuevaOrden);
       document.getElementById('btnBuscar')?.addEventListener('click', filtrarOrdenes);
@@ -62,16 +65,35 @@ const OrdenesCompraUI = (() => {
         btn.addEventListener('click', (e) => cambiarVista(e.target.dataset.view));
       });
 
-      // Formulario
-      document.getElementById('idPedido')?.addEventListener('change', cargarProductosPedido);
+      // Al cambiar pedido: cargar productos y habilitar boton cotización
+      document.getElementById('idPedido')?.addEventListener('change', async () => {
+        await cargarProductosPedido();
+        const btn = document.getElementById('btnAbrirCotizacion');
+        const idPedido = document.getElementById('idPedido').value;
+        if (btn) btn.disabled = !idPedido;
+
+        // Resetear cotización previa
+        state.gruposCotizacion = [];
+        _ocultarResumenCotizacion();
+        const btnGuardar = document.getElementById('btnGuardarOrden');
+        if (btnGuardar) btnGuardar.disabled = true;
+      });
+
+      // Botón abrir cotización
+      document.getElementById('btnAbrirCotizacion')?.addEventListener('click', _abrirCotizacion);
+
+      // Botón reabrir/editar cotización
+      document.getElementById('btnReabrirCotizacion')?.addEventListener('click', _abrirCotizacion);
+
+      // Botón guardar (genera las órdenes agrupadas)
       document.getElementById('btnGuardarOrden')?.addEventListener('click', guardarOrden);
+
       document.getElementById('selectAll')?.addEventListener('change', seleccionarTodosProductos);
 
       // Event listener para recargar proveedores cuando se cierra el modal de agregar proveedor
       const modalProveedor = document.getElementById('modalAgregarProveedor');
       if (modalProveedor) {
         modalProveedor.addEventListener('hidden.bs.modal', function () {
-          console.log('Modal de proveedor cerrado, recargando lista de proveedores...');
           cargarProveedores();
         });
       }
@@ -81,6 +103,11 @@ const OrdenesCompraUI = (() => {
         cargarPedidos(),
         cargarOrdenes()
       ]);
+
+      // Inicializar módulo de cotización
+      if (typeof CotizacionModal !== 'undefined') {
+        CotizacionModal.init();
+      }
 
       // Marcar inicialización completa
       state.inicializado = true;
@@ -115,8 +142,9 @@ const OrdenesCompraUI = (() => {
 
       if (result.success) {
         state.proveedores = result.data || [];
+        // Solo llenar el filtro del listado principal, no el select de proveedor
+        // porque ahora se usa el modal de cotización
         llenarSelect('filterProveedor', state.proveedores, 'id_provedor', 'nombre');
-        llenarSelect('idProveedor', state.proveedores, 'id_provedor', 'nombre');
       }
     } catch (error) {
       console.error('Error cargando proveedores:', error);
@@ -828,90 +856,208 @@ const OrdenesCompraUI = (() => {
     document.getElementById('montoTotal').textContent = `$${formatCurrency(montoTotal)}`;
   }
 
-  // Acciones CRUD
+  /* ====================================================================
+   * FUNCIONES DE COTIZACIÓN
+   * ==================================================================== */
+
+  function _abrirCotizacion() {
+    if (!state.productos || state.productos.length === 0) {
+      mostrarError('Primero seleccione un pedido con productos disponibles');
+      return;
+    }
+
+    if (!state.proveedores || state.proveedores.length === 0) {
+      mostrarError('No hay proveedores disponibles. Registre proveedores primero.');
+      return;
+    }
+
+    // Si hay cotización previa, se reabre para editar
+    const idPedido = document.getElementById('idPedido')?.value;
+    if (!idPedido) {
+      showToast('Seleccione un pedido primero', 'warning');
+      return;
+    }
+
+    if (typeof CotizacionModal !== 'undefined') {
+      CotizacionModal.abrir(
+        idPedido,
+        state.productos,
+        state.proveedores,
+        _onCotizacionConfirmada
+      );
+    } else {
+      mostrarError('El módulo de cotización no está disponible');
+    }
+  }
+
+  function _onCotizacionConfirmada(grupos) {
+    state.gruposCotizacion = grupos;
+    _mostrarResumenCotizacion(grupos);
+
+    // Habilitar botón de guardar
+    const btnGuardar = document.getElementById('btnGuardarOrden');
+    if (btnGuardar) {
+      btnGuardar.disabled = false;
+    }
+  }
+
+  function _mostrarResumenCotizacion(grupos) {
+    const panel = document.getElementById('panelResumenCotizacion');
+    const tbody = document.getElementById('tablaResumenCotBody');
+    const totalEl = document.getElementById('totalGeneralCot');
+
+    if (!panel || !tbody) return;
+
+    let totalGeneral = 0;
+
+    tbody.innerHTML = grupos.map(g => {
+      const subtotalGrupo = g.productos.reduce(
+        (s, p) => s + (parseFloat(p.precio_unitario_cotizado) * parseFloat(p.cantidad_comprar || 0)), 0
+      );
+      totalGeneral += subtotalGrupo;
+
+      // Detalle de productos
+      const detalleId = `det_cot_${g.id_provedor}`;
+      const detalleHtml = g.productos.map(p => `
+        <tr class="table-light">
+          <td colspan="2" class="ps-4 small">
+            <i class="bi bi-chevron-right text-muted me-1"></i>
+            ${p.descripcion ?? ''}
+            <span class="text-muted ms-2">(${parseFloat(p.cantidad_comprar).toFixed(2)} ${p.unidad ?? ''})</span>
+          </td>
+          <td class="text-end small">$${_fmt(parseFloat(p.precio_unitario_cotizado) * parseFloat(p.cantidad_comprar))}</td>
+          <td></td>
+        </tr>`).join('');
+
+      return `
+        <tr class="fw-semibold">
+          <td>
+            <button type="button" class="btn btn-link btn-sm p-0 me-1"
+                    onclick="document.getElementById('${detalleId}').classList.toggle('d-none')"
+                    title="Ver detalle">
+              <i class="bi bi-chevron-down"></i>
+            </button>
+            <i class="bi bi-shop me-1 text-primary"></i>${g.nombre_proveedor}
+          </td>
+          <td class="text-center">
+            <span class="badge bg-primary rounded-pill">${g.productos.length}</span>
+          </td>
+          <td class="text-end text-success fw-bold">$${_fmt(subtotalGrupo)}</td>
+          <td class="text-center">
+            <span class="badge bg-success">Lista</span>
+          </td>
+        </tr>
+        <tbody id="${detalleId}" class="d-none">
+          ${detalleHtml}
+        </tbody>`;
+    }).join('');
+
+    if (totalEl) totalEl.textContent = `$${_fmt(totalGeneral)}`;
+    panel.classList.remove('d-none');
+  }
+
+  function _fmt(n) {
+    return parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function _ocultarResumenCotizacion() {
+    const panel = document.getElementById('panelResumenCotizacion');
+    if (panel) panel.classList.add('d-none');
+  }
+
+  /* ====================================================================
+   * GUARDAR ORDEN(ES) - Ahora genera múltiples si hay varios proveedores
+   * ==================================================================== */
   async function guardarOrden() {
-    console.log('💾 Intentando guardar orden...');
-    const form = document.querySelector(selectores.formOrden);
-    
-    if (!form) {
-      console.error('❌ No se encontró el formulario:', selectores.formOrden);
+    console.log('💾 Intentando guardar orden(es) desde cotización...');
+
+    const idPedido = document.getElementById('idPedido')?.value;
+    if (!idPedido) {
+      mostrarError('Seleccione un pedido');
       return;
     }
 
-    if (!form.checkValidity()) {
-      console.warn('⚠️ Formulario inválido');
-      form.reportValidity();
+    if (!state.gruposCotizacion || state.gruposCotizacion.length === 0) {
+      mostrarError('Complete la cotización con proveedores antes de generar la orden');
       return;
     }
 
-    // Debug: Ver qué hay en productosSeleccionados
-    console.log('DEBUG: productosSeleccionados.size =', state.productosSeleccionados.size);
-    console.log('DEBUG: productosSeleccionados.entries =', Array.from(state.productosSeleccionados.entries()));
-    
-    // Debug: Ver si hay checkboxes marcados
-    const checkboxesMarcados = document.querySelectorAll('.producto-checkbox:checked');
-    console.log('DEBUG: checkboxes marcados =', checkboxesMarcados.length);
-    checkboxesMarcados.forEach(cb => console.log('DEBUG: checkbox marcado id =', cb.dataset.id));
+    const observaciones = document.getElementById('observaciones')?.value ?? '';
 
-    if (state.productosSeleccionados.size === 0) {
-      mostrarError('Debe seleccionar al menos un producto');
-      return;
+    const btnGuardar = document.getElementById('btnGuardarOrden');
+    if (btnGuardar) {
+      btnGuardar.disabled = true;
+      btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generando...';
     }
 
-    // Validar que ningún producto tenga cantidad 0
-    let hayCantidadCero = false;
-    state.productosSeleccionados.forEach(p => {
-      if (parseFloat(p.cantidad_comprar) <= 0) {
-        hayCantidadCero = true;
+    const errores = [];
+    const ordenesCreadas = [];
+
+    for (const grupo of state.gruposCotizacion) {
+      if (!grupo.productos || grupo.productos.length === 0) continue;
+
+      const subtotal = grupo.productos.reduce(
+        (s, p) => s + parseFloat(p.precio_unitario_cotizado) * parseFloat(p.cantidad_comprar || 0), 0
+      );
+      const impuestos = subtotal * 0.16;
+      const total = subtotal + impuestos;
+
+      // Preparar productos con precios de la cotización
+      const productosParaOrden = grupo.productos.map(p => ({
+        ...p,
+        precio_unitario: p.precio_unitario_cotizado,
+        subtotal: parseFloat(p.precio_unitario_cotizado) * parseFloat(p.cantidad_comprar || 0)
+      }));
+
+      const ordenData = {
+        id_pedido: idPedido,
+        id_provedor: grupo.id_provedor,
+        observaciones: observaciones + (state.gruposCotizacion.length > 1
+          ? ` [Orden ${ordenesCreadas.length + 1}/${state.gruposCotizacion.length} de cotización comparativa]`
+          : ''),
+        productos: productosParaOrden,
+        subtotal: subtotal.toFixed(2),
+        impuestos: impuestos.toFixed(2),
+        total: total.toFixed(2)
+      };
+
+      try {
+        const response = await fetch(`${API_ORDENES}?action=guardarOrdenCompra`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ordenData)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || 'Error al guardar');
+        ordenesCreadas.push(result.numero_orden);
+      } catch (err) {
+        errores.push(`Proveedor "${grupo.nombre_proveedor}": ${err.message}`);
       }
-    });
-
-    if (hayCantidadCero) {
-      mostrarError('No se pueden generar órdenes con productos en cantidad cero. Por favor ajuste las cantidades o desmarque los productos.');
-      return;
     }
 
-    const productos = Array.from(state.productosSeleccionados.values());
-    const ordenData = {
-      id_pedido: document.getElementById('idPedido').value,
-      id_provedor: document.getElementById('idProveedor').value,
-      observaciones: document.getElementById('observaciones').value,
-      productos: productos,
-      subtotal: document.getElementById('subtotalOrden').textContent.replace(/[$,]/g, ''),
-      impuestos: document.getElementById('impuestosOrden').textContent.replace(/[$,]/g, ''),
-      total: document.getElementById('totalOrden').textContent.replace(/[$,]/g, '')
-    };
+    if (btnGuardar) {
+      btnGuardar.disabled = false;
+      btnGuardar.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Generar Orden(es) de Compra';
+    }
 
-    try {
-      const response = await fetch(`${API_ORDENES}?action=guardarOrdenCompra`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ordenData)
-      });
+    if (errores.length > 0) {
+      mostrarError('Errores al generar órdenes:\n' + errores.join('\n'));
+    }
 
-      const result = await response.json();
+    if (ordenesCreadas.length > 0) {
+      mostrarExito(
+        ordenesCreadas.length === 1
+          ? `Orden ${ordenesCreadas[0]} generada correctamente`
+          : `${ordenesCreadas.length} órdenes generadas: ${ordenesCreadas.join(', ')}`
+      );
 
-      if (!result.success) throw new Error(result.error || 'Error al guardar orden');
+      if (state.modalOrden) state.modalOrden.hide();
 
-      mostrarExito('Orden de compra guardada correctamente');
-
-      // Cerrar modal antes de refrescar listas
-      if (state.modalOrden) {
-        state.modalOrden.hide();
-        console.log('✅ Modal cerrado exitosamente');
-      }
-
-      // Refrescar datos
       await Promise.all([
         cargarOrdenes(),
-        cargarPedidos() // refrescar listado para excluir pedidos que quedaron sin faltantes
+        cargarPedidos()
       ]);
-
-      // Actualizar notificación de pedidos sin orden dinámicamente
       actualizarNotificacionPedidos();
-    } catch (error) {
-      console.error('Error guardando orden:', error);
-      mostrarError(error.message);
     }
   }
 
