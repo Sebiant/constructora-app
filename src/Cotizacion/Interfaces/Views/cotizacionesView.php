@@ -173,6 +173,7 @@
                     </div>
                     <div class="card-body">
                         <form id="formNuevaCotizacion">
+                            <input type="hidden" id="idCotizacion" value="">
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label class="form-label">Proveedor *</label>
@@ -203,11 +204,11 @@
                             </div>
                             <div class="row mt-3">
                                 <div class="col-12 text-end">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                        <i class="bi bi-x-circle"></i> Cancelar
+                                    <button type="button" class="btn btn-secondary me-2" onclick="cancelarEdicionCotizacion()">
+                                        <i class="bi bi-x-circle"></i> Limpiar
                                     </button>
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-check-circle"></i> Guardar Cotización
+                                    <button type="submit" class="btn btn-primary" id="btnGuardarCotizacion">
+                                        <i class="bi bi-check-circle"></i> Guardar / Actualizar
                                     </button>
                                 </div>
                             </div>

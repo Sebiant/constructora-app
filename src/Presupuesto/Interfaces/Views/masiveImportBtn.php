@@ -7,7 +7,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
   <!-- Card principal para importar Excel -->
   <div class="card shadow-sm border-light" id="cardImportacionMasiva">
     <div class="card-header bg-primary text-white">
-      <h4 class="mb-0">Importar Presupuesto Masivo</h4>
+      <h4 class="mb-0">Gestión de Presupuestos</h4>
     </div>
     <div class="card-body">
 

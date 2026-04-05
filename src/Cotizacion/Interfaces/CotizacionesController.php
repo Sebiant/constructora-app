@@ -73,8 +73,14 @@ try {
                             dp.cantidad as cantidad,
                             dp.id_capitulo,
                             CONVERT(c.nombre_cap USING utf8mb4) as nombre_capitulo,
-                            0 as cotizaciones_count,
-                            0 as precio_mejor
+                            (SELECT COUNT(*) FROM cotizaciones_componentes cc2 
+                             WHERE cc2.id_componente = 0 
+                             AND cc2.id_presupuesto = dp.id_presupuesto 
+                             AND cc2.estado = 'activa') as cotizaciones_count,
+                            (SELECT MIN(cc3.precio_unitario) FROM cotizaciones_componentes cc3 
+                             WHERE cc3.id_componente = 0 
+                             AND cc3.id_presupuesto = dp.id_presupuesto 
+                             AND cc3.estado = 'activa') as precio_mejor
                         FROM det_presupuesto dp
                         INNER JOIN materiales m ON dp.id_material = m.id_material
                         LEFT JOIN gr_unidad u ON m.idunidad = u.idunidad
@@ -110,29 +116,47 @@ try {
         case 'getComponenteConCotizaciones':
             $idComponente = (int)($_GET['id_componente'] ?? 0);
             $idPresupuesto = (int)($_GET['id_presupuesto'] ?? 0);
-            if (!$idComponente || !$idPresupuesto) throw new Exception('ID de componente y presupuesto requeridos');
+            if (!$idPresupuesto) throw new Exception('ID de presupuesto requerido');
             
-            // Datos del componente obteniendo la cantidad total en el presupuesto
-            $stmtComp = $connection->prepare(
-                "SELECT ic.*, SUM(dp.cantidad * ic.cantidad) as cantidad
-                 FROM item_componentes ic
-                 INNER JOIN det_presupuesto dp ON ic.id_item = dp.id_item
-                 WHERE ic.id_componente = ? AND dp.id_presupuesto = ? 
-                    AND dp.idestado = 1 AND ic.idestado = 1
-                 GROUP BY ic.id_componente"
-            );
-            $stmtComp->execute([$idComponente, $idPresupuesto]);
-            $componente = $stmtComp->fetch(PDO::FETCH_ASSOC);
+            if ($idComponente > 0) {
+                // Datos del componente obteniendo la cantidad total en el presupuesto
+                $stmtComp = $connection->prepare(
+                    "SELECT ic.*, SUM(dp.cantidad * ic.cantidad) as cantidad
+                     FROM item_componentes ic
+                     INNER JOIN det_presupuesto dp ON ic.id_item = dp.id_item
+                     WHERE ic.id_componente = ? AND dp.id_presupuesto = ? 
+                        AND dp.idestado = 1 AND ic.idestado = 1
+                     GROUP BY ic.id_componente"
+                );
+                $stmtComp->execute([$idComponente, $idPresupuesto]);
+                $componente = $stmtComp->fetch(PDO::FETCH_ASSOC);
+            } else {
+                // Es un material directo o recurso sin ID formal de componente
+                // Buscamos su información básica si es necesario, o creamos un objeto genérico
+                $componente = [
+                    'id_componente' => 0,
+                    'descripcion' => 'Recurso directo del presupuesto',
+                    'cantidad' => 0 // Se calculará o mostrará del listado
+                ];
+            }
             
-            if (!$componente) throw new Exception('Componente no encontrado en este presupuesto');
+            if (!$componente && $idComponente > 0) throw new Exception('Componente no encontrado en este presupuesto');
             
             // Cotizaciones existentes para este componente y presupuesto
             $stmtCot = $connection->prepare(
-                "SELECT cc.*, p.nombre as nombre_proveedor
+                "SELECT cc.*, p.nombre as nombre_proveedor,
+                       (SELECT COUNT(*) 
+                        FROM ordenes_compra_detalle ocd
+                        INNER JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra
+                        INNER JOIN pedidos_detalle pd ON ocd.id_det_pedido = pd.id_det_pedido
+                        WHERE pd.id_componente = cc.id_componente 
+                          AND oc.id_provedor = cc.id_proveedor 
+                          AND ABS(ocd.precio_unitario - cc.precio_unitario) < 0.01
+                       ) as ordenes_count
                  FROM cotizaciones_componentes cc
                  LEFT JOIN provedores p ON cc.id_proveedor = p.id_provedor
                  WHERE cc.id_componente = ? AND cc.id_presupuesto = ?
-                 ORDER BY cc.fecha_cotizacion DESC"
+                 ORDER BY cc.estado ASC, cc.fecha_cotizacion DESC"
             );
             $stmtCot->execute([$idComponente, $idPresupuesto]);
             $cotizaciones = $stmtCot->fetchAll(PDO::FETCH_ASSOC);
@@ -146,13 +170,12 @@ try {
             ]);
             break;
             
-        /* ── Guardar nueva cotización ─────────────────────────────── */
+        /* ── Guardar nueva cotización (Supersede histórico) ──────── */
         case 'guardarCotizacion':
             $idComponente = (int)($_POST['id_componente'] ?? 0);
             $idPresupuesto = (int)($_POST['id_presupuesto'] ?? 0);
             $idProveedor = (int)($_POST['id_proveedor'] ?? 0);
             $precioUnitario = (float)($_POST['precio_unitario'] ?? 0);
-            $moneda = $_POST['moneda'] ?? 'USD';
             $tiempoEntrega = $_POST['tiempo_entrega'] ?? '';
             $observaciones = $_POST['observaciones'] ?? '';
             
@@ -163,22 +186,89 @@ try {
             // Obtener sesión del usuario
             if (session_status() === PHP_SESSION_NONE) session_start();
             $idUsuario = (int)($_SESSION['u_id'] ?? 1);
+
+            $connection->beginTransaction();
+            try {
+                // Desactivar cotizaciones anteriores para el mismo proveedor y componente en este presupuesto
+                $stmtSupersede = $connection->prepare(
+                    "UPDATE cotizaciones_componentes 
+                     SET estado = 'inactiva', fechaupdate = NOW() 
+                     WHERE id_componente = ? AND id_presupuesto = ? AND id_proveedor = ? AND estado = 'activa'"
+                );
+                $stmtSupersede->execute([$idComponente, $idPresupuesto, $idProveedor]);
+
+                // Insertar nueva cotización como vigente
+                $stmt = $connection->prepare(
+                    "INSERT INTO cotizaciones_componentes 
+                     (id_componente, id_presupuesto, id_proveedor, precio_unitario, tiempo_entrega, 
+                      observaciones, id_usuario, fecha_cotizacion, estado, fechareg)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE(), 'activa', NOW())"
+                );
+                $stmt->execute([
+                    $idComponente, $idPresupuesto, $idProveedor, $precioUnitario, 
+                    $tiempoEntrega, $observaciones, $idUsuario
+                ]);
+
+                $connection->commit();
+            } catch (Exception $e) {
+                $connection->rollBack();
+                throw $e;
+            }
             
-            // Insertar cotización
+            echo json_encode([
+                'success' => true,
+                'mensaje' => 'Cotización guardada exitosamente como vigente'
+            ]);
+            break;
+            
+        /* ── Actualizar cotización existente ─────────────────────── */
+        case 'actualizarCotizacion':
+            $idCotizacion = (int)($_POST['id_cotizacion'] ?? 0);
+            $idProveedor = (int)($_POST['id_proveedor'] ?? 0);
+            $precioUnitario = (float)($_POST['precio_unitario'] ?? 0);
+            $tiempoEntrega = $_POST['tiempo_entrega'] ?? '';
+            $observaciones = $_POST['observaciones'] ?? '';
+            
+            if (!$idCotizacion || !$idProveedor || $precioUnitario <= 0) {
+                throw new Exception('Datos incompletos o ID de cotización inválido');
+            }
+
+            // 1. Obtener datos actuales de la cotización
+            $stmtOrigin = $connection->prepare("SELECT * FROM cotizaciones_componentes WHERE id_cotizacion = ?");
+            $stmtOrigin->execute([$idCotizacion]);
+            $cot = $stmtOrigin->fetch(PDO::FETCH_ASSOC);
+            if (!$cot) throw new Exception('Cotización no encontrada');
+
+            // 2. Verificar si hay órdenes de compra relacionadas (bloqueo de edición)
+            $sqlCheck = "SELECT COUNT(*) as total 
+                         FROM ordenes_compra_detalle ocd
+                         INNER JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra
+                         INNER JOIN pedidos_detalle pd ON ocd.id_det_pedido = pd.id_det_pedido
+                         WHERE pd.id_componente = ? 
+                           AND oc.id_provedor = ? 
+                           AND ABS(ocd.precio_unitario - ?) < 0.01";
+            
+            $stmtCheck = $connection->prepare($sqlCheck);
+            $stmtCheck->execute([$cot['id_componente'], $cot['id_proveedor'], $cot['precio_unitario']]);
+            $check = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+            if ($check['total'] > 0) {
+                throw new Exception("No se puede editar esta cotización porque ya ha sido utilizada en {$check['total']} recurso(s) de órdenes de compra. Si el precio cambió, por favor cree una nueva cotización.");
+            }
+            
             $stmt = $connection->prepare(
-                "INSERT INTO cotizaciones_componentes 
-                 (id_componente, id_presupuesto, id_proveedor, precio_unitario, moneda, tiempo_entrega, 
-                  observaciones, id_usuario, fecha_cotizacion, estado, fechareg)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), 'activa', NOW())"
+                "UPDATE cotizaciones_componentes 
+                 SET id_proveedor = ?, precio_unitario = ?, tiempo_entrega = ?, 
+                     observaciones = ?, fechaupdate = NOW() 
+                 WHERE id_cotizacion = ?"
             );
             $stmt->execute([
-                $idComponente, $idPresupuesto, $idProveedor, $precioUnitario, $moneda, 
-                $tiempoEntrega, $observaciones, $idUsuario
+                $idProveedor, $precioUnitario, $tiempoEntrega, $observaciones, $idCotizacion
             ]);
             
             echo json_encode([
                 'success' => true,
-                'mensaje' => 'Cotización guardada correctamente'
+                'mensaje' => 'Cotización actualizada correctamente'
             ]);
             break;
             
@@ -186,19 +276,45 @@ try {
         case 'eliminarCotizacion':
             $idCotizacion = (int)($_GET['id'] ?? 0);
             if (!$idCotizacion) throw new Exception('ID de cotización requerido');
-            
-            // Marcar como inactiva en lugar de eliminar físicamente
-            $stmt = $connection->prepare(
-                "UPDATE cotizaciones_componentes 
-                 SET estado = 'inactiva', fechaupdate = NOW() 
-                 WHERE id_cotizacion = ?"
-            );
+
+            // 1. Obtener datos de la cotización
+            $stmt = $connection->prepare("SELECT * FROM cotizaciones_componentes WHERE id_cotizacion = ?");
             $stmt->execute([$idCotizacion]);
+            $cot = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$cot) throw new Exception('Cotización no encontrada');
+
+            // 2. Verificar si hay órdenes de compra relacionadas
+            $sqlCheck = "SELECT COUNT(*) as total 
+                         FROM ordenes_compra_detalle ocd
+                         INNER JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra
+                         INNER JOIN pedidos_detalle pd ON ocd.id_det_pedido = pd.id_det_pedido
+                         WHERE pd.id_componente = ? 
+                           AND oc.id_provedor = ? 
+                           AND ABS(ocd.precio_unitario - ?) < 0.01";
             
-            echo json_encode([
-                'success' => true,
-                'mensaje' => 'Cotización eliminada correctamente'
-            ]);
+            $stmtCheck = $connection->prepare($sqlCheck);
+            $stmtCheck->execute([$cot['id_componente'], $cot['id_proveedor'], $cot['precio_unitario']]);
+            $check = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+            if ($check['total'] > 0) {
+                throw new Exception("No se puede desactivar esta cotización porque ya existen {$check['total']} recurso(s) en órdenes de compra con este precio y proveedor.");
+            }
+
+            // 3. Marcar como inactiva
+            $stmt = $connection->prepare("UPDATE cotizaciones_componentes SET estado = 'inactiva' WHERE id_cotizacion = ?");
+            $stmt->execute([$idCotizacion]);
+
+            echo json_encode(['success' => true, 'message' => 'Cotización marcada como inactiva']);
+            break;
+
+        case 'activarCotizacion':
+            $idCotizacion = (int)($_GET['id'] ?? 0);
+            if (!$idCotizacion) throw new Exception('ID de cotización requerido');
+
+            $stmt = $connection->prepare("UPDATE cotizaciones_componentes SET estado = 'activa' WHERE id_cotizacion = ?");
+            $stmt->execute([$idCotizacion]);
+
+            echo json_encode(['success' => true, 'message' => 'Cotización activada correctamente']);
             break;
             
         /* ── Exportar cotizaciones de un presupuesto ───────────────── */
@@ -228,7 +344,7 @@ try {
                     ic.unidad,
                     SUM(dp.cantidad * ic.cantidad) as cantidad,
                     GROUP_CONCAT(
-                        CONCAT(p.nombre, ':', cc.precio_unitario, '(', cc.moneda, ')') 
+                        CONCAT(p.nombre, ':', cc.precio_unitario) 
                         ORDER BY cc.precio_unitario ASC
                         SEPARATOR ' | '
                     ) as cotizaciones_info
@@ -355,7 +471,6 @@ function _crearTablasCotizacionesIndependientes(PDO $conn): void {
             id_presupuesto     INT          NOT NULL,
             id_proveedor        INT          NOT NULL,
             precio_unitario    DECIMAL(15,4) NOT NULL DEFAULT 0,
-            moneda             VARCHAR(10)  NOT NULL DEFAULT 'USD',
             tiempo_entrega     VARCHAR(100) NULL,
             observaciones       TEXT         NULL,
             id_usuario         INT          NOT NULL DEFAULT 1,

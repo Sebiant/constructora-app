@@ -40,7 +40,7 @@ try {
             // Si se proporciona id_proyecto, filtrar por proyecto
             if ($idProyecto) {
                 $sql = "SELECT c.*, 
-                               CONCAT('Presupuesto ', c.id_presupuesto, ' - ', IFNULL(pr.nombre, 'Sin proyecto')) AS presupuesto_proyecto
+                               CONCAT(IFNULL(p.nombre, IFNULL(p.codigo, CONCAT('Presupuesto ', c.id_presupuesto))), ' - ', IFNULL(pr.nombre, 'Sin proyecto')) AS presupuesto_proyecto
                         FROM capitulos c
                         LEFT JOIN presupuestos p ON c.id_presupuesto = p.id_presupuesto
                         LEFT JOIN proyectos pr ON p.id_proyecto = pr.id_proyecto
@@ -175,8 +175,8 @@ try {
             }
 
             // Obtener capítulo directamente sin usar la clase Capitulo
-            $sql = "SELECT c.*, p.id_proyecto,
-                            CONCAT('Presupuesto ', c.id_presupuesto, ' - ', IFNULL(pr.nombre, 'Sin proyecto')) AS presupuesto_proyecto
+             $sql = "SELECT c.*, p.id_proyecto,
+                            CONCAT(IFNULL(p.nombre, IFNULL(p.codigo, CONCAT('Presupuesto ', c.id_presupuesto))), ' - ', IFNULL(pr.nombre, 'Sin proyecto')) AS presupuesto_proyecto
                      FROM capitulos c
                      LEFT JOIN presupuestos p ON c.id_presupuesto = p.id_presupuesto
                      LEFT JOIN proyectos pr ON p.id_proyecto = pr.id_proyecto

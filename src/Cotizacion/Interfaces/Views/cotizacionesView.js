@@ -20,6 +20,7 @@ if (typeof API_PROVEEDORES === 'undefined') {
 
 let proyectoActual = null;
 let presupuestoActual = null;
+let componenteActual = null;
 let componentesPresupuesto = [];
 let proveedoresDB = [];
 let cotizacionesExistentes = [];
@@ -290,8 +291,9 @@ function limpiarInformacionProyecto() {
 
 /**
  * Carga los componentes del presupuesto seleccionado
+ * @param {boolean} silent - Si es true, no muestra el spinner de carga
  */
-async function cargarComponentesPresupuesto() {
+async function cargarComponentesPresupuesto(silent = false) {
     const select = document.getElementById('selectPresupuesto');
     const presupuestoId = select.value;
     
@@ -319,7 +321,9 @@ async function cargarComponentesPresupuesto() {
     
     // Cargar componentes
     try {
-        mostrarCargandoComponentes();
+        if (!silent) {
+            mostrarCargandoComponentes();
+        }
         
         const response = await fetch(`${API_COTIZACIONES}?action=getComponentesPresupuesto&id_presupuesto=${presupuestoId}`);
         const result = await response.json();
@@ -338,7 +342,8 @@ async function cargarComponentesPresupuesto() {
         if (result.success) {
             componentesPresupuesto = result.data || [];
             document.getElementById('infoTotalComponentes').textContent = componentesPresupuesto.length;
-            mostrarComponentes(componentesPresupuesto);
+            // Aplicar filtros actuales sobre la nueva data en lugar de mostrar todo
+            filtrarComponentes();
         } else {
             mostrarError(result.error || 'Error cargando componentes');
         }
@@ -470,10 +475,12 @@ function filtrarComponentes() {
         
         // Filtro por cotizaciones
         let coincideCotizados = true;
+        const nCotizaciones = parseInt(componente.cotizaciones_count || 0);
+        
         if (cotizados === 'con_cotizacion') {
-            coincideCotizados = (componente.cotizaciones_count || 0) > 0;
+            coincideCotizados = nCotizaciones > 0;
         } else if (cotizados === 'sin_cotizacion') {
-            coincideCotizados = (componente.cotizaciones_count || 0) === 0;
+            coincideCotizados = nCotizaciones === 0;
         }
         
         return coincideTexto && coincideTipo && coincideCotizados;
@@ -503,12 +510,14 @@ function filtrarComponentes() {
  */
 async function abrirModalCotizaciones(idComponente) {
     try {
+        debugLog('Abriendo/Actualizando modal de cotizaciones...', idComponente);
         // Cargar datos del componente con sus cotizaciones
         const response = await fetch(`${API_COTIZACIONES}?action=getComponenteConCotizaciones&id_componente=${idComponente}&id_presupuesto=${presupuestoActual.id_presupuesto}`);
         const result = await response.json();
         
         if (result.success) {
             const componente = result.data.componente;
+            componenteActual = componente;
             cotizacionesExistentes = result.data.cotizaciones || [];
             
             // Llenar información del componente
@@ -520,9 +529,21 @@ async function abrirModalCotizaciones(idComponente) {
             // Mostrar cotizaciones existentes
             mostrarCotizacionesExistentes();
             
-            // Abrir modal
-            const modal = new bootstrap.Modal(document.getElementById('modalCotizacionesComponente'));
-            modal.show();
+            // Abrir o refrescar modal
+            const modalElement = document.getElementById('modalCotizacionesComponente');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+            
+            // Solo llamar a show si el modal no está visible
+            if (!modalElement.classList.contains('show')) {
+                modal.show();
+                
+                // Limpieza de backdrops al cerrar
+                modalElement.addEventListener('hidden.bs.modal', function () {
+                    document.body.classList.remove('modal-open');
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(b => b.remove());
+                }, { once: true });
+            }
         } else {
             mostrarError(result.error || 'Error cargando componente');
         }
@@ -548,26 +569,45 @@ function mostrarCotizacionesExistentes() {
     }
     
     tbody.innerHTML = cotizacionesExistentes.map(cotizacion => {
-        const estadoClass = cotizacion.estado === 'activa' ? 'bg-success' : 'bg-secondary';
+        const esActiva = cotizacion.estado === 'activa';
         const fecha = new Date(cotizacion.fecha_cotizacion).toLocaleDateString('es-MX');
+        const ordenesCount = parseInt(cotizacion.ordenes_count || 0);
         
         return `
-            <tr>
-                <td>${cotizacion.nombre_proveedor}</td>
+            <tr class="${esActiva ? '' : 'table-light text-muted'}" style="${esActiva ? '' : 'opacity: 0.7;'}">
+                <td>
+                    <div class="fw-bold">${cotizacion.nombre_proveedor}</div>
+                    ${esActiva 
+                        ? '<span class="badge bg-success small">Activa</span>' 
+                        : '<span class="badge bg-secondary small">Inactiva</span>'}
+                    ${ordenesCount > 0 
+                        ? `<span class="badge bg-info text-dark small" title="Usada en ${ordenesCount} recursos de O.C."><i class="bi bi-cart-check"></i> ${ordenesCount} OC</span>` 
+                        : ''}
+                </td>
                 <td class="text-end">
                     <strong>$${formatCurrency(cotizacion.precio_unitario)}</strong>
                 </td>
                 <td class="text-center">${cotizacion.tiempo_entrega || '-'}</td>
                 <td class="text-center">${fecha}</td>
                 <td class="text-center">
-                    <button class="btn btn-sm btn-outline-warning" 
-                            onclick="editarCotizacion(${cotizacion.id_cotizacion})">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" 
-                            onclick="eliminarCotizacion(${cotizacion.id_cotizacion})">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    ${esActiva ? `
+                        <button class="btn btn-sm btn-outline-warning" 
+                                onclick="editarCotizacion(${cotizacion.id_cotizacion})" 
+                                title="Editar cotización">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" 
+                                onclick="eliminarCotizacion(${cotizacion.id_cotizacion})"
+                                title="Desactivar cotización">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    ` : `
+                        <button class="btn btn-sm btn-outline-success" 
+                                onclick="activarCotizacion(${cotizacion.id_cotizacion})"
+                                title="Reactivar cotización">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reactivar
+                        </button>
+                    `}
                 </td>
             </tr>
         `;
@@ -575,11 +615,12 @@ function mostrarCotizacionesExistentes() {
 }
 
 /**
- * Guarda una nueva cotización
+ * Guarda o actualiza una cotización
  */
 async function guardarNuevaCotizacion(e) {
     e.preventDefault();
     
+    const idCotizacion = document.getElementById('idCotizacion').value;
     const idProveedor = document.getElementById('selectProveedor').value;
     const precioUnitario = parseFloat(document.getElementById('precioUnitario').value);
     const tiempoEntrega = document.getElementById('tiempoEntrega').value;
@@ -592,7 +633,14 @@ async function guardarNuevaCotizacion(e) {
     
     try {
         const formData = new FormData();
-        formData.append('action', 'guardarCotizacion');
+        // Si hay idCotizacion, es una actualización
+        const accion = idCotizacion ? 'actualizarCotizacion' : 'guardarCotizacion';
+        formData.append('action', accion);
+        
+        if (idCotizacion) {
+            formData.append('id_cotizacion', idCotizacion);
+        }
+        
         formData.append('id_componente', componenteActual.id_componente);
         formData.append('id_presupuesto', presupuestoActual.id_presupuesto);
         formData.append('id_proveedor', idProveedor);
@@ -608,57 +656,111 @@ async function guardarNuevaCotizacion(e) {
         const result = await response.json();
         
         if (result.success) {
-            mostrarExito('Cotización guardada correctamente');
+            mostrarExito(idCotizacion ? 'Cotización actualizada' : 'Cotización guardada');
             
-            // Limpiar formulario
-            document.getElementById('formNuevaCotizacion').reset();
+            // Limpiar formulario pasamos a modo creación
+            cancelarEdicionCotizacion();
             
             // Recargar cotizaciones existentes
             await abrirModalCotizaciones(componenteActual.id_componente);
             
-            // Actualizar lista de componentes
-            await cargarComponentesPresupuesto();
+            // Actualizar lista de componentes silenciosamente para no interrumpir
+            await cargarComponentesPresupuesto(true);
         } else {
-            mostrarError(result.error || 'Error guardando cotización');
+            mostrarError(result.error || 'Error procesando cotización');
         }
     } catch (error) {
-        console.error('Error guardando cotización:', error);
-        mostrarError('Error al guardar la cotización');
+        console.error('Error procesando cotización:', error);
+        mostrarError('Error al procesar la cotización');
     }
 }
 
 /**
- * Elimina una cotización
+ * Prepara el formulario para editar una cotización
+ */
+function editarCotizacion(idCotizacion) {
+    const cotizacion = cotizacionesExistentes.find(c => c.id_cotizacion == idCotizacion);
+    if (!cotizacion) return;
+    
+    document.getElementById('idCotizacion').value = idCotizacion;
+    document.getElementById('selectProveedor').value = cotizacion.id_proveedor;
+    document.getElementById('precioUnitario').value = cotizacion.precio_unitario;
+    document.getElementById('tiempoEntrega').value = cotizacion.tiempo_entrega || '';
+    document.getElementById('observacionesCotizacion').value = cotizacion.observaciones || '';
+    
+    // Cambiar estilo del botón
+    const btn = document.getElementById('btnGuardarCotizacion');
+    if (btn) {
+        btn.classList.replace('btn-primary', 'btn-warning');
+        btn.innerHTML = '<i class="bi bi-pencil-square"></i> Actualizar Cotización';
+    }
+    
+    // Scroll al formulario
+    document.getElementById('formNuevaCotizacion').scrollIntoView({ behavior: 'smooth' });
+}
+
+/**
+ * Cancela la edición y limpia el formulario
+ */
+function cancelarEdicionCotizacion() {
+    document.getElementById('idCotizacion').value = '';
+    document.getElementById('formNuevaCotizacion').reset();
+    
+    const btn = document.getElementById('btnGuardarCotizacion');
+    if (btn) {
+        btn.classList.replace('btn-warning', 'btn-primary');
+        btn.innerHTML = '<i class="bi bi-check-circle"></i> Guardar Cotización';
+    }
+}
+
+/**
+ * Desactiva una cotización
  */
 async function eliminarCotizacion(idCotizacion) {
-    if (!confirm('¿Estás seguro de eliminar esta cotización?')) return;
+    if (!confirm('¿Estás seguro de que deseas desactivar esta cotización?')) return;
     
     try {
-        const response = await fetch(`${API_COTIZACIONES}?action=eliminarCotizacion&id=${idCotizacion}`, {
-            method: 'DELETE'
-        });
-        
+        const response = await fetch(`${API_COTIZACIONES}?action=eliminarCotizacion&id=${idCotizacion}`);
         const result = await response.json();
         
         if (result.success) {
-            mostrarExito('Cotización eliminada');
+            mostrarExito('Cotización desactivada correctamente');
             await abrirModalCotizaciones(componenteActual.id_componente);
-            await cargarComponentesPresupuesto();
+            // Actualizar lista silenciosamente
+            await cargarComponentesPresupuesto(true);
         } else {
-            mostrarError(result.error || 'Error eliminando cotización');
+            // El error vendrá del controlador si hay órdenes de compra
+            mostrarError(result.error || 'Error al desactivar cotización');
         }
     } catch (error) {
-        console.error('Error eliminando cotización:', error);
-        mostrarError('Error al eliminar la cotización');
+        console.error('Error desactivando cotización:', error);
+        mostrarError('Error al desactivar la cotización');
     }
 }
 
 /**
- * Edita una cotización (placeholder para futura implementación)
+ * Reactiva una cotización previamente desactivada
  */
-function editarCotizacion(idCotizacion) {
-    mostrarMensaje('Función de edición en desarrollo', 'info');
+async function activarCotizacion(idCotizacion) {
+    try {
+        const response = await fetch(`${API_COTIZACIONES}?action=activarCotizacion&id=${idCotizacion}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            mostrarExito('Cotización reactivada correctamente');
+            await abrirModalCotizaciones(componenteActual.id_componente);
+            // Actualizar lista silenciosamente
+            await cargarComponentesPresupuesto(true);
+        } else {
+            mostrarError(result.error || 'Error reactivando cotización');
+        }
+    } catch (error) {
+        console.error('Error reactivando cotización:', error);
+        mostrarError('Error al reactivar la cotización');
+    }
 }
+
+
 
 /**
  * Exporta las cotizaciones del presupuesto
@@ -744,5 +846,13 @@ function mostrarExito(mensaje) {
     mostrarMensaje(mensaje, 'success');
 }
 
-// Exponer función de inicialización para el layout
+// Exponer funciones globales para eventos inline de HTML
 window.inicializarCotizaciones = inicializarCotizaciones;
+window.abrirModalCotizaciones = abrirModalCotizaciones;
+window.editarCotizacion = editarCotizacion;
+window.eliminarCotizacion = eliminarCotizacion;
+window.activarCotizacion = activarCotizacion;
+window.cancelarEdicionCotizacion = cancelarEdicionCotizacion;
+window.cargarPresupuestosDeProyecto = cargarPresupuestosDeProyecto;
+window.cargarComponentesPresupuesto = cargarComponentesPresupuesto;
+window.filtrarComponentes = filtrarComponentes;

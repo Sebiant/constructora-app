@@ -141,13 +141,13 @@ $userRole = (isset($userSession['u_perfil']) && $userSession['u_perfil'] == 1) ?
                             <i class="bi bi-clipboard-data"></i>
                             <span class="nav-text">Pedidos</span>
                         </a>
-                        <a href="#" class="nav-item" data-component="capitulos" data-project-locked="true">
-                            <i class="bi bi-journal-text"></i>
-                            <span class="nav-text">Capítulos</span>
-                        </a>
                         <a href="#" class="nav-item" data-component="importMasiva" data-project-locked="true">
                             <i class="bi bi-wallet2"></i>
                             <span class="nav-text">Presupuestos</span>
+                        </a>
+                        <a href="#" class="nav-item" data-component="capitulos" data-project-locked="true">
+                            <i class="bi bi-journal-text"></i>
+                            <span class="nav-text">Capítulos</span>
                         </a>
                     </div>
                 </div>
