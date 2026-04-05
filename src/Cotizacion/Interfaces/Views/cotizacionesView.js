@@ -4,10 +4,19 @@
  * Flujo: Seleccionar proyecto → Seleccionar presupuesto → Ver componentes → Agregar cotizaciones
  */
 
-const API_COTIZACIONES = '/sgigescon/src/Cotizacion/Interfaces/CotizacionesController.php';
-const API_PRESUPUESTOS = '/sgigescon/src/Presupuesto/Interfaces/PresupuestoController.php';
-const API_PROYECTOS = '/sgigescon/src/Proyectos/Interfaces/ProyectoController.php';
-const API_PROVEEDORES = '/sgigescon/src/Provedores/Interfaces/ProvedorController.php';
+// Definición de APIs con verificación para evitar errores de ya definido al navegar
+if (typeof API_COTIZACIONES === 'undefined') {
+    var API_COTIZACIONES = '/sgigescon/src/Cotizacion/Interfaces/CotizacionesController.php';
+}
+if (typeof API_PRESUPUESTOS === 'undefined') {
+    var API_PRESUPUESTOS = '/sgigescon/src/Presupuesto/Interfaces/PresupuestoController.php';
+}
+if (typeof API_PROYECTOS === 'undefined') {
+    var API_PROYECTOS = '/sgigescon/src/Proyectos/Interfaces/ProyectoController.php';
+}
+if (typeof API_PROVEEDORES === 'undefined') {
+    var API_PROVEEDORES = '/sgigescon/src/Provedores/Interfaces/ProvedorController.php';
+}
 
 let proyectoActual = null;
 let presupuestoActual = null;
@@ -734,3 +743,6 @@ function mostrarError(mensaje) {
 function mostrarExito(mensaje) {
     mostrarMensaje(mensaje, 'success');
 }
+
+// Exponer función de inicialización para el layout
+window.inicializarCotizaciones = inicializarCotizaciones;

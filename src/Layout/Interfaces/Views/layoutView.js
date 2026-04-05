@@ -30,7 +30,7 @@
         'ordenesCompra': 'Órdenes de Compra',
         'compras': 'Compras',
         'pedido': 'Pedidos del Proyecto',
-        'importMasiva': 'Importación Masiva',
+        'importMasiva': 'Presupuestos',
         'usuarios': 'Gestión de Usuarios'
     };
 
@@ -155,32 +155,31 @@
                         }, 3000); // Hide after 3 seconds
                     }
 
-                    // Also update topbar project name
-                    const topbarProjectInfo = document.getElementById('topbarProjectInfo');
-                    const topbarProjectName = document.getElementById('topbarProjectName');
+                // Also update topbar project name
+                const topbarProjectName = document.getElementById('topbarProjectName');
 
-                    if (topbarProjectInfo && topbarProjectName) {
-                        topbarProjectInfo.style.display = 'flex';
-                        topbarProjectName.textContent = projectName;
-                        console.log('[Layout] Topbar project name updated:', projectName);
-                    } else {
-                        console.warn('[Layout] Topbar project elements not found');
-                    }
-
-                    return;
-                }
-
-                if (attempts < maxAttempts) {
-                    setTimeout(tryUpdate, 50);
+                if (topbarProjectName) {
+                    topbarProjectName.style.display = 'inline';
+                    topbarProjectName.textContent = projectName;
+                    console.log('[Layout] Topbar project name updated:', projectName);
                 } else {
-                    console.error('[Layout] Could not find currentProjectName element after', maxAttempts, 'attempts');
+                    console.warn('[Layout] Topbar project name element not found');
                 }
-            };
 
-            tryUpdate();
+                return;
+            }
+
+            if (attempts < maxAttempts) {
+                setTimeout(tryUpdate, 50);
+            } else {
+                console.error('[Layout] Could not find currentProjectName element after', maxAttempts, 'attempts');
+            }
         };
 
-        updateNameWithRetry();
+        tryUpdate();
+    };
+
+    updateNameWithRetry();
 
         // Store in session
         sessionStorage.setItem('currentProject', JSON.stringify(currentProject));
@@ -425,8 +424,12 @@
             case 'cotizaciones':
                 // Initialize cotizaciones component
                 setTimeout(() => {
-                    // El componente de cotizaciones se inicializa automáticamente con DOMContentLoaded
-                    console.log('[Layout] Cotizaciones component loaded');
+                    console.log('[Layout] Initializing cotizaciones...');
+                    if (typeof inicializarCotizaciones === 'function') {
+                        inicializarCotizaciones();
+                    } else {
+                        console.warn('[Layout] inicializarCotizaciones function not found');
+                    }
                 }, 200);
                 break;
 
