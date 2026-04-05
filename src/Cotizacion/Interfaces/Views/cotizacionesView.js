@@ -212,13 +212,13 @@ async function cargarPresupuestosDeProyecto() {
     }
     
     try {
-        // Obtener datos del proyecto
-        const responseProy = await fetch(`${API_PROYECTOS}?action=getById&id=${proyectoId}`);
-        const resultProy = await responseProy.json();
-        
-        if (resultProy.success) {
-            proyectoActual = resultProy.data;
+        // Obtener datos del proyecto del atributo data del select
+        const selectedOption = selectProyecto.selectedOptions[0];
+        if (selectedOption && selectedOption.getAttribute('data-proyecto')) {
+            proyectoActual = JSON.parse(selectedOption.getAttribute('data-proyecto'));
         }
+        
+        debugLog('Proyecto seleccionado:', proyectoActual);
         
         // Cargar presupuestos
         const formData = new FormData();
@@ -302,7 +302,9 @@ async function cargarComponentesPresupuesto() {
     presupuestoActual = presupuestoData;
     
     // Mostrar información del presupuesto
-    document.getElementById('infoNombreProyecto').textContent = proyectoActual.nombre;
+    if (proyectoActual && proyectoActual.nombre) {
+        document.getElementById('infoNombreProyecto').textContent = proyectoActual.nombre;
+    }
     document.getElementById('infoNombrePresupuesto').textContent = presupuestoActual.nombre || presupuestoActual.codigo;
     document.getElementById('infoProyectoPresupuesto').style.display = 'block';
     
@@ -313,10 +315,21 @@ async function cargarComponentesPresupuesto() {
         const response = await fetch(`${API_COTIZACIONES}?action=getComponentesPresupuesto&id_presupuesto=${presupuestoId}`);
         const result = await response.json();
         
+        if (result.debug) {
+            console.group('Depuración Cotizaciones');
+            console.log('ID Presupuesto:', result.debug.id_presupuesto);
+            console.log('Consulta SQL:', result.debug.sql);
+            console.log('Filas obtenidas:', result.debug.total_filas_encontradas);
+            console.log('Cant. registros det_presupuesto:', result.debug.conteo_det_presupuesto);
+            console.log('Cant. items con APU:', result.debug.conteo_items_con_apu);
+            console.log('Tablas:', result.debug.tablas_existentes);
+            console.groupEnd();
+        }
+        
         if (result.success) {
             componentesPresupuesto = result.data || [];
             document.getElementById('infoTotalComponentes').textContent = componentesPresupuesto.length;
-            mostrarComponentes();
+            mostrarComponentes(componentesPresupuesto);
         } else {
             mostrarError(result.error || 'Error cargando componentes');
         }
@@ -519,7 +532,7 @@ function mostrarCotizacionesExistentes() {
     if (!cotizacionesExistentes || cotizacionesExistentes.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-center text-muted">No hay cotizaciones registradas</td>
+                <td colspan="5" class="text-center text-muted">No hay cotizaciones registradas</td>
             </tr>
         `;
         return;
@@ -534,9 +547,6 @@ function mostrarCotizacionesExistentes() {
                 <td>${cotizacion.nombre_proveedor}</td>
                 <td class="text-end">
                     <strong>$${formatCurrency(cotizacion.precio_unitario)}</strong>
-                </td>
-                <td class="text-center">
-                    <span class="badge bg-info">${cotizacion.moneda}</span>
                 </td>
                 <td class="text-center">${cotizacion.tiempo_entrega || '-'}</td>
                 <td class="text-center">${fecha}</td>
@@ -563,7 +573,6 @@ async function guardarNuevaCotizacion(e) {
     
     const idProveedor = document.getElementById('selectProveedor').value;
     const precioUnitario = parseFloat(document.getElementById('precioUnitario').value);
-    const moneda = document.getElementById('moneda').value;
     const tiempoEntrega = document.getElementById('tiempoEntrega').value;
     const observaciones = document.getElementById('observacionesCotizacion').value;
     
@@ -579,7 +588,6 @@ async function guardarNuevaCotizacion(e) {
         formData.append('id_presupuesto', presupuestoActual.id_presupuesto);
         formData.append('id_proveedor', idProveedor);
         formData.append('precio_unitario', precioUnitario);
-        formData.append('moneda', moneda);
         formData.append('tiempo_entrega', tiempoEntrega);
         formData.append('observaciones', observaciones);
         

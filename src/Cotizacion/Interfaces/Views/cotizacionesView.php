@@ -150,7 +150,6 @@
                                 <tr>
                                     <th>Proveedor</th>
                                     <th class="text-end">Precio Unitario</th>
-                                    <th class="text-center">Moneda</th>
                                     <th class="text-center">Tiempo Entrega</th>
                                     <th class="text-center">Fecha</th>
                                     <th class="text-center">Acciones</th>
@@ -158,7 +157,7 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted">No hay cotizaciones registradas</td>
+                                    <td colspan="5" class="text-center text-muted">No hay cotizaciones registradas</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -189,14 +188,7 @@
                                                step="0.01" min="0" required>
                                     </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Moneda</label>
-                                    <select class="form-select" id="moneda">
-                                        <option value="USD">USD</option>
-                                        <option value="MXN">MXN</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
+                                <div class="col-md-5">
                                     <label class="form-label">Tiempo de entrega</label>
                                     <input type="text" class="form-control" id="tiempoEntrega" 
                                            placeholder="Ej: 3 días">
