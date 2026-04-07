@@ -259,7 +259,8 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                       <th class="text-center">Disponible</th>
                       <th class="text-center">A Comprar</th>
                       <th class="text-center">Desperdicio</th>
-                      <th class="text-end">Precio Unitario</th>
+                      <th class="text-end">Precio Presupuestado</th>
+                      <th class="text-end">Precio Cotizado</th>
                       <th class="text-end">Subtotal</th>
                     </tr>
                   </thead>

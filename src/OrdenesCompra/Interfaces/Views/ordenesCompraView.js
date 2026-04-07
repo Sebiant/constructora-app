@@ -517,24 +517,32 @@ const OrdenesCompraUI = (() => {
         }
           </td>
           <td class="text-end">
-            <div class="d-flex flex-column lh-1">
-                <small class="text-muted mb-1" title="Precio presupuestado">Pres: ${formatMoney(precio)}</small>
-                <div class="d-flex align-items-center justify-content-end gap-1">
-                    ${mejorPrecio !== null ? `
-                        <span class="fw-bold ${mejorPrecio > precio ? 'text-danger' : 'text-success'}" 
-                              title="Proveedor: ${escapeHtml(mejorProv)}">
-                            <i class="bi bi-shop me-1" style="font-size:0.75rem;"></i>${formatMoney(mejorPrecio)}
-                        </span>
-                    ` : '<small class="text-muted italic">Sin cotizar</small>'}
-                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1" 
-                            style="font-size: 0.65rem;"
-                            onclick="OrdenesCompraUI.verDesglose(${primerId}, ${escapeHtml(JSON.stringify(idsOriginales))})"
-                            title="Ver todas las ofertas para este producto">
-                        <i class="bi bi-three-dots-vertical"></i>
-                    </button>
-                </div>
-                ${mejorProv ? `<small class="text-truncate d-block text-muted mt-1" style="max-width:100px; font-size:0.65rem;">${escapeHtml(mejorProv)}</small>` : ''}
+            <small class="text-muted" title="Precio presupuestado">
+              <i class="bi bi-calculator me-1"></i>Presupuestado
+            </small>
+            <div class="fw-bold">${formatMoney(producto.precio_presupuestado_original || precio)}</div>
+          </td>
+          <td class="text-end">
+            <small class="text-muted" title="Precio cotizado">
+              <i class="bi bi-shop me-1"></i>Cotizado
+            </small>
+            <div class="d-flex align-items-center justify-content-end gap-1">
+              ${mejorPrecio !== null ? `
+                <span class="fw-bold ${mejorPrecio > (producto.precio_presupuestado_original || precio) ? 'text-danger' : 'text-success'}" 
+                      title="Proveedor: ${escapeHtml(mejorProv)}">
+                  ${formatMoney(mejorPrecio)}
+                </span>
+              ` : '<small class="text-muted italic">Sin cotizar</small>'}
+              <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1" 
+                      style="font-size: 0.65rem;"
+                      onclick="OrdenesCompraUI.verDesglose(${primerId}, ${escapeHtml(JSON.stringify(idsOriginales))})"
+                      title="Ver todas las ofertas para este producto">
+                <i class="bi bi-three-dots-vertical"></i>
+              </button>
             </div>
+            ${mejorProv ? `<small class="text-truncate d-block text-muted mt-1" style="max-width:150px; font-size:0.65rem;">
+              <i class="bi bi-person me-1"></i>${escapeHtml(mejorProv)}
+            </small>` : ''}
           </td>
           <td class="text-end subtotal-producto">${formatMoney(subtotal)}</td>
         </tr>
@@ -1059,7 +1067,12 @@ const OrdenesCompraUI = (() => {
     const ordenesCreadas = [];
 
     for (const grupo of gruposArray) {
-      const subtotal = grupo.productos.reduce((s, p) => s + (p.cantidad_comprar * p.precio_unitario), 0);
+      // Usar siempre el precio de cotización seleccionado (ya actualizado en seleccionarDeDesglose)
+      const subtotal = grupo.productos.reduce((s, p) => {
+        const precioCotizacion = parseFloat(p.precio_unitario) || 0;
+        const cantidad = parseFloat(p.cantidad_comprar) || 0;
+        return s + (cantidad * precioCotizacion);
+      }, 0);
       const impuestos = subtotal * 0.16;
       const total = subtotal + impuestos;
 
@@ -1068,7 +1081,12 @@ const OrdenesCompraUI = (() => {
         id_provedor: grupo.id_provedor,
         observaciones: observaciones + (gruposArray.length > 1
           ? ` [Orden ${ordenesCreadas.length + 1}/${gruposArray.length} de pedido agrupado]` : ''),
-        productos: grupo.productos,
+        productos: grupo.productos.map(p => ({
+          ...p,
+          // Asegurar que se use el precio de cotización
+          precio_unitario: parseFloat(p.precio_unitario) || 0,
+          subtotal: (parseFloat(p.cantidad_comprar) || 0) * (parseFloat(p.precio_unitario) || 0)
+        })),
         subtotal: subtotal.toFixed(2),
         impuestos: impuestos.toFixed(2),
         total: total.toFixed(2)
@@ -1181,30 +1199,40 @@ const OrdenesCompraUI = (() => {
                     </th>
                   </tr>
                   <tr>
-                    <th>Precio Unitario</th>
+                    <th>Precio Cotizado</th>
                     <th>Nombre Cotización</th>
                     <th>Fecha</th>
                     <th class="text-center">Acción</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${g.productos.map(item => `
-                    <tr>
-                      <td class="text-end fw-bold text-success">
-                        $${formatMoney(item.precio_unitario)}
-                      </td>
-                      <td class="text-muted small">
-                        ${escapeHtml(item.nombre_cotizacion)} (${item.fecha_cotizacion})
-                      </td>
-                      <td></td>
-                      <td class="text-center">
-                        <button class="btn btn-sm btn-primary py-0 px-2"
-                          onclick="OrdenesCompraUI.seleccionarDeDesglose(${idDetPedido}, ${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                          Seleccionar
-                        </button>
-                      </td>
-                    </tr>
-                  `).join('')}
+                  ${g.productos.map(item => {
+                    // Obtener el precio presupuestado del producto original
+                    const productoOriginal = state.productos.find(p => {
+                      const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+                      return pIds.some(pid => String(pid) === String(idDetPedido));
+                    });
+                    
+                    return `
+                      <tr>
+                        <td class="text-end fw-bold text-success" style="min-width: 120px;">
+                          $${formatMoney(item.precio_unitario)}
+                        </td>
+                        <td class="text-muted small" style="min-width: 200px;">
+                          ${escapeHtml(item.nombre_cotizacion)} (${item.fecha_cotizacion})
+                        </td>
+                        <td class="text-muted small" style="min-width: 100px;">
+                          ${item.fecha_cotizacion}
+                        </td>
+                        <td class="text-center" style="min-width: 100px;">
+                          <button class="btn btn-sm btn-primary py-0 px-2"
+                            onclick="OrdenesCompraUI.seleccionarDeDesglose(${idDetPedido}, ${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                            Seleccionar
+                          </button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
                 </tbody>
               </table>
             </div>
@@ -1235,6 +1263,47 @@ const OrdenesCompraUI = (() => {
   }
 }
 
+  function showToast(message, type = 'info') {
+    // Crear toast si no existe un contenedor
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+      toastContainer = document.createElement('div');
+      toastContainer.id = 'toastContainer';
+      toastContainer.className = 'position-fixed top-0 end-0 p-3';
+      toastContainer.style.zIndex = '1050';
+      document.body.appendChild(toastContainer);
+    }
+
+    const toastId = 'toast_' + Date.now();
+    const bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : type === 'warning' ? 'bg-warning' : 'bg-info';
+    
+    const toastHTML = `
+      <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+        <div class="d-flex">
+          <div class="toast-body">
+            ${message}
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, {
+      autohide: true,
+      delay: 3000
+    });
+    
+    toast.show();
+    
+    // Limpiar después de ocultar
+    toastElement.addEventListener('hidden.bs.toast', () => {
+      toastElement.remove();
+    });
+  }
+
   function seleccionarDeDesglose(idDetPedido, item) {
     // 1. Actualizar el producto en la lista original de productos del estado
     const idStr = String(idDetPedido);
@@ -1244,6 +1313,11 @@ const OrdenesCompraUI = (() => {
     });
 
     if (productoObj) {
+      // Guardar el precio presupuestado original si no existe
+      if (!productoObj.precio_presupuestado_original) {
+        productoObj.precio_presupuestado_original = productoObj.precio_unitario;
+      }
+      
       // Actualizar con los datos de la cotización seleccionada
       productoObj.precio_unitario = parseFloat(item.precio_unitario);
       productoObj.id_provedor = item.id_real_proveedor || item.id_cot_prov;
@@ -1271,6 +1345,15 @@ const OrdenesCompraUI = (() => {
     // 3. Notificar éxito, actualizar UI y cerrar desglose
     renderizarTablaProductos();
     actualizarTotales();
+    
+    // 4. Cerrar el desglose automáticamente después de seleccionar
+    const rowDesglose = document.getElementById(`desglose_${idStr}`);
+    if (rowDesglose) {
+      rowDesglose.classList.add('d-none');
+    }
+    
+    // 5. Mostrar notificación de éxito
+    showToast(`Cotización seleccionada: ${item.nombre} - $${formatMoney(item.precio_unitario)}`, 'success');
   }
 
   async function verDetalle(idOrden) {
