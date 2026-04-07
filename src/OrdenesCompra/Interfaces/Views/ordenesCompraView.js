@@ -1115,85 +1115,125 @@ const OrdenesCompraUI = (() => {
   }
 
   async function verDesglose(idDetPedido, idsOriginales) {
-    console.log(`🔍 verDesglose llamado con:`, {
-      idDetPedido,
-      idsOriginales,
+  const rowDesglose = document.getElementById(`desglose_${idDetPedido}`);
+  const contDesglose = document.getElementById(`contenido_desglose_${idDetPedido}`);
 
-    if (rowDesglose.classList.contains('d-none')) {
-      // 1. Obtener los IDs de detalle del producto
-      const producto = state.productos.find(p => {
-        const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
-        return pIds.some(pid => String(pid) === String(idDetPedido));
-      });
-      const ids = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido.join(',') : producto.id_det_pedido;
+  if (rowDesglose.classList.contains('d-none')) {
 
-      contDesglose.innerHTML = '<div class="text-center p-3 small"><div class="spinner-border spinner-border-sm me-1"></div>Buscando todas las cotizaciones...</div>';
-      rowDesglose.classList.remove('d-none');
+    let producto = state.productos.find(p => {
+      const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+      return pIds.some(pid => String(pid) === String(idDetPedido));
+    });
 
-      try {
-        const resp = await fetch(`/sgigescon/src/Cotizacion/Interfaces/CotizacionController.php?action=getDetallePreciosRecurso&ids=${ids}`);
-        const res = await resp.json();
-
-        if (res.success && res.data.length > 0) {
-          // Agrupar por proveedor
-          const grupos = res.data.reduce((acc, item) => {
-            const key = item.id_real_proveedor || item.id_cot_prov;
-            if (!acc[key]) {
-              acc[key] = {
-                id_provedor: key,
-                nombre_proveedor: item.nombre,
-                productos: []
-              };
-            }
-            acc[key].productos.push(item);
-            return acc;
-          }, {});
-
-          const contenido = Object.values(grupos).map(g => `
-            <div class="mb-3">
-              <h6 class="text-primary">
-                <i class="bi bi-shop me-2"></i>${escapeHtml(g.nombre_proveedor)}
-              </h6>
-              <div class="table-responsive">
-                <table class="table table-sm table-hover">
-                  <thead class="table-light">
-                    <tr>
-                      <th>Precio Unitario</th>
-                      <th>Nombre Cotización</th>
-                      <th>Fecha</th>
-                      <th class="text-center">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${g.productos.map(item => `
-                      <tr>
-                        <td class="text-end fw-bold text-success">$${formatMoney(item.precio_unitario)}</td>
-                        <td class="text-muted small">${escapeHtml(item.nombre_cotizacion)} (${item.fecha_cotizacion})</td>
-                        <td class="text-center">
-                          <button type="button" class="btn btn-sm btn-primary py-0 px-2" style="font-size:0.75rem;"
-                                  onclick="OrdenesCompraUI.seleccionarDeDesglose(${idDetPedido}, ${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                            Seleccionar
-                          </button>
-                        </td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          `).join('');
-
-          contDesglose.innerHTML = contenido;
-        } else {
-          contDesglose.innerHTML = '<div class="alert alert-info py-2 mb-0 small">No se encontraron cotizaciones activas para este producto.</div>';
-        }
-      } catch (e) {
-        contDesglose.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">Error al conectar con el servidor para obtener precios.</div>';
-      }
-    } else {
-      rowDesglose.classList.add('d-none');
+    if (!producto && state.productosSeleccionados.has(String(idDetPedido))) {
+      producto = state.productosSeleccionados.get(String(idDetPedido));
     }
+
+    if (!producto) {
+      console.error('❌ No se encontró el producto con ID:', idDetPedido);
+      return;
+    }
+
+    const ids = Array.isArray(producto.id_componente)
+      ? producto.id_componente
+      : [producto.id_componente];
+
+    const idsStr = ids.join(',');
+
+    contDesglose.innerHTML = `
+      <div class="text-center p-3 small">
+        <div class="spinner-border spinner-border-sm me-1"></div>
+        Buscando todas las cotizaciones...
+      </div>
+    `;
+    rowDesglose.classList.remove('d-none');
+
+    try {
+      const resp = await fetch(`/sgigescon/src/Cotizacion/Interfaces/CotizacionController.php?action=getDetallePreciosRecurso&ids=${idsStr}`);
+      const res = await resp.json();
+
+      if (res.success && res.data.length > 0) {
+
+        // 🔥 usamos SIEMPRE "nombre" (no nombre_proveedor)
+        const grupos = res.data.reduce((acc, item) => {
+          const key = item.id_real_proveedor ?? item.id_cot_prov;
+
+          if (!acc[key]) {
+            acc[key] = {
+              id_provedor: key,
+              nombre: item.nombre || "Proveedor sin nombre",
+              productos: []
+            };
+          }
+
+          acc[key].productos.push(item);
+          return acc;
+        }, {});
+
+        const contenido = Object.values(grupos).map(g => `
+          <div class="mb-3">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover">
+                <thead class="table-light">
+                  <tr>
+                    <th colspan="4" class="text-primary">
+                      <i class="bi bi-shop me-2"></i>${escapeHtml(g.nombre)}
+                    </th>
+                  </tr>
+                  <tr>
+                    <th>Precio Unitario</th>
+                    <th>Nombre Cotización</th>
+                    <th>Fecha</th>
+                    <th class="text-center">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${g.productos.map(item => `
+                    <tr>
+                      <td class="text-end fw-bold text-success">
+                        $${formatMoney(item.precio_unitario)}
+                      </td>
+                      <td class="text-muted small">
+                        ${escapeHtml(item.nombre_cotizacion)} (${item.fecha_cotizacion})
+                      </td>
+                      <td></td>
+                      <td class="text-center">
+                        <button class="btn btn-sm btn-primary py-0 px-2"
+                          onclick="OrdenesCompraUI.seleccionarDeDesglose(${idDetPedido}, ${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                          Seleccionar
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `).join('');
+
+        contDesglose.innerHTML = contenido;
+
+      } else {
+        contDesglose.innerHTML = `
+          <div class="alert alert-info py-2 mb-0 small">
+            No se encontraron cotizaciones activas para este producto.
+          </div>
+        `;
+      }
+
+    } catch (e) {
+      console.error("Error fetch:", e);
+      contDesglose.innerHTML = `
+        <div class="alert alert-danger py-2 mb-0 small">
+          Error al conectar con el servidor para obtener precios.
+        </div>
+      `;
+    }
+
+  } else {
+    rowDesglose.classList.add('d-none');
   }
+}
 
   function seleccionarDeDesglose(idDetPedido, item) {
     // 1. Actualizar el producto en la lista original de productos del estado
