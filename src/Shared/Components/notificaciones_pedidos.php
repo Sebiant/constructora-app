@@ -351,10 +351,5 @@ document.addEventListener('click', function(event) {
         document.getElementById('notificacionContenido').classList.remove('show');
     }
 });
-
-// Auto-refresh cada 5 minutos
-setInterval(function() {
-    location.reload();
-}, 300000);
 </script>
 <?php endif; ?>

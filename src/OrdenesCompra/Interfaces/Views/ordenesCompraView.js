@@ -40,10 +40,10 @@ const OrdenesCompraUI = (() => {
     try {
       const modalOrdenEl = document.querySelector(selectores.modalOrden);
       const modalDetalleEl = document.querySelector(selectores.modalDetalle);
-      
+
       if (modalOrdenEl) state.modalOrden = new bootstrap.Modal(modalOrdenEl);
       if (modalDetalleEl) state.modalDetalle = new bootstrap.Modal(modalDetalleEl);
-      
+
       console.log('✅ Modales inicializados');
 
       // Event listeners principales
@@ -66,23 +66,26 @@ const OrdenesCompraUI = (() => {
       });
 
       // Al cambiar pedido: cargar productos y habilitar boton cotización
-      document.getElementById('idPedido')?.addEventListener('change', async () => {
-        await cargarProductosPedido();
+      document.getElementById('idPedido')?.addEventListener('change', async (e) => {
+        const idPedido = e.target.value;
         const btn = document.getElementById('btnAbrirCotizacion');
-        const idPedido = document.getElementById('idPedido').value;
         if (btn) btn.disabled = !idPedido;
+
+        if (idPedido) {
+          await cargarProductosPedido();
+        } else {
+          document.getElementById('tablaProductosBody').innerHTML = '';
+          document.getElementById('contadorProductos').textContent = '0 productos';
+          _ocultarResumenCotizacion();
+        }
 
         // Resetear cotización previa
         state.gruposCotizacion = [];
-        _ocultarResumenCotizacion();
         const btnGuardar = document.getElementById('btnGuardarOrden');
         if (btnGuardar) btnGuardar.disabled = true;
       });
 
-      // Botón abrir cotización
-      document.getElementById('btnAbrirCotizacion')?.addEventListener('click', _abrirCotizacion);
-
-      // Botón reabrir/editar cotización
+      // Botón reabrir/editar cotización (ya no se usa el anterior pero mantenemos compatibilidad por si acaso)
       document.getElementById('btnReabrirCotizacion')?.addEventListener('click', _abrirCotizacion);
 
       // Botón guardar (genera las órdenes agrupadas)
@@ -256,6 +259,11 @@ const OrdenesCompraUI = (() => {
         actualizarTotales();
         actualizarContadorProductos();
         actualizarResumen();
+
+        // ⚠️ Habilitar botón de cotización si hay productos y pedido
+        const btnCot = document.getElementById('btnAbrirCotizacion');
+        if (btnCot) btnCot.disabled = !idPedido;
+
       } else {
         console.error('âŒ Error en API:', result.error);
         mostrarError(result.error || 'Error al cargar productos del pedido');
@@ -378,18 +386,11 @@ const OrdenesCompraUI = (() => {
     const contenedor = document.getElementById('tablaProductosBody');
     const contador = document.getElementById('contadorProductos');
 
-    console.log('🎨 Renderizando tabla de productos...');
-    console.log('📊 Productos en state:', state.productos);
-    console.log('📊 Contenedor encontrado:', !!contenedor);
-    console.log('📊 Contador encontrado:', !!contador);
-
     if (!contenedor) {
-      console.error('âŒ No se encontró el contenedor tablaProductosBody');
       return;
     }
 
     if (!state.productos || state.productos.length === 0) {
-      console.log('📥 No hay productos para mostrar');
       contenedor.innerHTML = `
         <tr>
           <td colspan="10" class="text-center py-3 text-muted">
@@ -402,11 +403,13 @@ const OrdenesCompraUI = (() => {
       return;
     }
 
-    console.log('📊 Renderizando', state.productos.length, 'productos');
     let html = state.productos.map((producto, index) => {
       const cantPedida = Number(producto.cantidad_solicitada ?? producto.cantidad ?? 0);
       const cantOC = Number(producto.cantidad_comprada ?? 0);
       const precio = Number(producto.precio_unitario ?? 0);
+      const mejorPrecio = producto.mejor_precio_cotizado ? Number(producto.mejor_precio_cotizado) : null;
+      const mejorProv = producto.mejor_proveedor_nombre ?? '';
+
       const subtotal = Number(producto.subtotal ?? (cantOC * precio));
       const disponible = Number(producto.cantidad_disponible ?? 0);
       const minimoComercial = Number(producto.minimo_comercial ?? 1.0);
@@ -419,8 +422,9 @@ const OrdenesCompraUI = (() => {
       const porcentajeDesperdicio = cantNecesaria > 0 ? (desperdicio / cantNecesaria) * 100 : 0;
 
       // Obtener IDs originales para el checkbox y otros elementos
-      const idsOriginales = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido : [producto.id_det_pedido];
-      const primerId = idsOriginales[0]; // Usar el primer ID para el checkbox
+      // Para cotizaciones usamos id_componente, para otras operaciones usamos id_det_pedido
+      const idsOriginales = producto.id_componente ? [producto.id_componente] : (Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido : [producto.id_det_pedido]);
+      const primerId = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido[0] : producto.id_det_pedido; // Para checkbox usamos id_det_pedido
 
       // Indicador visual si hay múltiples productos agrupados
       const indicadorAgrupado = idsOriginales.length > 1 ?
@@ -436,6 +440,9 @@ const OrdenesCompraUI = (() => {
 
       console.log(`ðŸ“¦ Producto ${index + 1}:`, {
         ids_originales: idsOriginales,
+        valores_ids_originales: idsOriginales.map(id => `${id} (${typeof id})`),
+        id_componente: producto.id_componente,
+        id_det_pedido: producto.id_det_pedido,
         descripcion: producto.descripcion,
         cantPedida,
         cantOC,
@@ -446,6 +453,18 @@ const OrdenesCompraUI = (() => {
         desperdicio,
         porcentajeDesperdicio
       });
+
+      // Logging adicional para depuración
+      console.log(`🔍 Producto ${index + 1} - Detalle IDs:`, {
+        'ids_originales completo': JSON.stringify(idsOriginales),
+        'primer valor ids_originales': idsOriginales[0],
+        'producto.id_componente': producto.id_componente,
+        'producto.id_det_pedido': producto.id_det_pedido,
+        'producto completo claves': Object.keys(producto)
+      });
+
+      // Mostrar todos los valores del producto para encontrar el id_componente
+      console.log(`📋 Producto ${index + 1} - Todos los campos:`, producto);
 
       return `
         <tr data-id-det-pedido="${primerId}">
@@ -497,14 +516,37 @@ const OrdenesCompraUI = (() => {
           '<span class="text-muted">-</span>'
         }
           </td>
-          <td class="text-end">${formatMoney(precio)}</td>
+          <td class="text-end">
+            <div class="d-flex flex-column lh-1">
+                <small class="text-muted mb-1" title="Precio presupuestado">Pres: ${formatMoney(precio)}</small>
+                <div class="d-flex align-items-center justify-content-end gap-1">
+                    ${mejorPrecio !== null ? `
+                        <span class="fw-bold ${mejorPrecio > precio ? 'text-danger' : 'text-success'}" 
+                              title="Proveedor: ${escapeHtml(mejorProv)}">
+                            <i class="bi bi-shop me-1" style="font-size:0.75rem;"></i>${formatMoney(mejorPrecio)}
+                        </span>
+                    ` : '<small class="text-muted italic">Sin cotizar</small>'}
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1" 
+                            style="font-size: 0.65rem;"
+                            onclick="OrdenesCompraUI.verDesglose(${primerId}, ${escapeHtml(JSON.stringify(idsOriginales))})"
+                            title="Ver todas las ofertas para este producto">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                </div>
+                ${mejorProv ? `<small class="text-truncate d-block text-muted mt-1" style="max-width:100px; font-size:0.65rem;">${escapeHtml(mejorProv)}</small>` : ''}
+            </div>
+          </td>
           <td class="text-end subtotal-producto">${formatMoney(subtotal)}</td>
+        </tr>
+        <tr id="desglose_${primerId}" class="d-none table-light">
+          <td colspan="10" class="p-0 border-top-0">
+             <div id="contenido_desglose_${primerId}" class="px-3 py-2 bg-light border-bottom shadow-inner"></div>
+          </td>
         </tr>
       `;
     }).join('');
 
     console.log('📊 HTML generado, longitud:', html.length);
-
     contenedor.innerHTML = html;
 
     // Agregar event listeners manuales para mayor confiabilidad
@@ -527,8 +569,6 @@ const OrdenesCompraUI = (() => {
     });
 
     if (contador) contador.textContent = `${state.productos.length} productos`;
-
-    console.log('✅ Tabla renderizada con', state.productos.length, 'productos');
   }
 
   function renderizarProductosPedido(productos) {
@@ -593,22 +633,9 @@ const OrdenesCompraUI = (() => {
     // Event listeners para productos
     document.querySelectorAll('.producto-checkbox').forEach(checkbox => {
       checkbox.addEventListener('change', (e) => {
-        const id = e.target.dataset.id;
-        const cantidadInput = document.querySelector(`.cantidad-comprar[data-id="${id}"]`);
-
-        if (e.target.checked) {
-          const producto = productos.find(p => p.id_det_pedido == id);
-          state.productosSeleccionados.set(id, {
-            ...producto,
-            cantidad_comprar: parseFloat(cantidadInput.value)
-          });
-          cantidadInput.disabled = false;
-        } else {
-          state.productosSeleccionados.delete(id);
-          cantidadInput.disabled = true;
-        }
-
-        actualizarTotales();
+        console.log('📦 Checkbox cambiado:', e.target.dataset.id, e.target.checked);
+        // Usar la función unificada
+        actualizarProductoSeleccionado(e.target.dataset.id, e.target);
       });
     });
 
@@ -706,21 +733,21 @@ const OrdenesCompraUI = (() => {
     if (impuestosOrden) impuestosOrden.textContent = '$0.00';
     if (totalOrden) totalOrden.textContent = '$0.00';
 
+    // ⚠️ Resetear estado de botón cotización
+    const btnCot = document.getElementById('btnAbrirCotizacion');
+    if (btnCot) btnCot.disabled = true;
+
     // Si viene desde notificación con id_pedido, autocompletar datos
     if (idPedidoDesdeURL) {
-      console.log('ðŸ”„ Detectado pedido desde notificación, autocompletando datos...');
-      idPedido.value = idPedidoDesdeURL;
-
-      // Disparar evento change para cargar productos automáticamente
-      const changeEvent = new Event('change', { bubbles: true });
-      idPedido.dispatchEvent(changeEvent);
-
-      console.log('✅ Pedido autocompletado:', idPedidoDesdeURL);
-
-      // Esperar un poco más y luego cargar productos
-      setTimeout(() => {
-        cargarProductosPedido();
-      }, 200);
+      console.log('🔄 Detectado pedido desde notificación, autocompletando datos...');
+      if (idPedido) {
+        idPedido.value = idPedidoDesdeURL;
+        // Habilitar botón inmediatamente
+        if (btnCot) btnCot.disabled = false;
+        // Disparar evento change para gatillar cargarProductosPedido UNA SOLA VEZ
+        idPedido.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log('✅ Pedido autocompletado y disparado:', idPedidoDesdeURL);
+      }
     }
 
     // Mostrar modal limpio
@@ -801,11 +828,12 @@ const OrdenesCompraUI = (() => {
   function seleccionarTodosProductos(e) {
     const isChecked = e.target.checked;
     const checkboxes = document.querySelectorAll('.producto-checkbox:not(:disabled)');
-    console.log(`🔄 Seleccionar todos: ${isChecked}. Encontrados: ${checkboxes.length}`);
-    
+
     checkboxes.forEach(checkbox => {
+      // Forzar el estado del checkbox
       checkbox.checked = isChecked;
-      // Llamar directamente a la función de actualización
+      
+      // Llamar a la función de actualización para cada checkbox
       actualizarProductoSeleccionado(checkbox.dataset.id, checkbox);
     });
   }
@@ -813,24 +841,37 @@ const OrdenesCompraUI = (() => {
   function actualizarTotales() {
     let subtotal = 0;
 
-    state.productosSeleccionados.forEach(producto => {
-      const subtotalProducto = producto.cantidad_comprar * producto.precio_unitario;
+    state.productosSeleccionados.forEach((producto, id) => {
+      const cantidad = parseFloat(producto.cantidad_comprar) || 0;
+      const precio = parseFloat(producto.precio_unitario) || 0;
+      const subtotalProducto = cantidad * precio;
       subtotal += subtotalProducto;
 
       // Actualizar subtotal en la tabla
       const idABuscar = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido[0] : producto.id_det_pedido;
       const row = document.querySelector(`tr[data-id-det-pedido="${idABuscar}"]`);
       if (row) {
-        row.querySelector('.subtotal-producto').textContent = `$${formatMoney(subtotalProducto)}`;
+        const subtotalCell = row.querySelector('.subtotal-producto');
+        if (subtotalCell) {
+          subtotalCell.textContent = formatMoney(subtotalProducto);
+        }
       }
     });
 
-    const impuestos = subtotal * 0.16; // 16% IVA (ajustar según configuración)
+    const impuestos = subtotal * 0.16; // 16% IVA
     const total = subtotal + impuestos;
 
-    document.getElementById('subtotalOrden').textContent = `$${formatMoney(subtotal)}`;
-    document.getElementById('impuestosOrden').textContent = `$${formatMoney(impuestos)}`;
-    document.getElementById('totalOrden').textContent = `$${formatMoney(total)}`;
+    // Actualizar elementos del DOM con verificación
+    const subtotalElement = document.getElementById('subtotalOrden');
+    const impuestosElement = document.getElementById('impuestosOrden');
+    const totalElement = document.getElementById('totalOrden');
+
+    if (subtotalElement) subtotalElement.textContent = formatMoney(subtotal);
+    if (impuestosElement) impuestosElement.textContent = formatMoney(impuestos);
+    if (totalElement) totalElement.textContent = formatMoney(total);
+
+    // Actualizar contador de productos
+    actualizarContadorProductos();
   }
 
   function actualizarContadorProductos() {
@@ -969,7 +1010,7 @@ const OrdenesCompraUI = (() => {
    * GUARDAR ORDEN(ES) - Ahora genera múltiples si hay varios proveedores
    * ==================================================================== */
   async function guardarOrden() {
-    console.log('💾 Intentando guardar orden(es) desde cotización...');
+    console.log('💾 Intentando guardar orden(es)...');
 
     const idPedido = document.getElementById('idPedido')?.value;
     if (!idPedido) {
@@ -977,11 +1018,35 @@ const OrdenesCompraUI = (() => {
       return;
     }
 
-    if (!state.gruposCotizacion || state.gruposCotizacion.length === 0) {
-      mostrarError('Complete la cotización con proveedores antes de generar la orden');
+    if (state.productosSeleccionados.size === 0) {
+      mostrarError('Seleccione al menos un producto');
       return;
     }
 
+    // Verificar que todos los seleccionados tengan un proveedor asignado
+    const incompletos = Array.from(state.productosSeleccionados.values())
+      .filter(p => !p.id_provedor);
+
+    if (incompletos.length > 0) {
+      mostrarError(`Debe usar el botón de desglose para asignar un proveedor a: \n- ${incompletos.map(p => p.descripcion).join('\n- ')}`);
+      return;
+    }
+
+    // Agrupar productos seleccionados por proveedor
+    const grupos = {};
+    state.productosSeleccionados.forEach(p => {
+      const idProv = p.id_provedor;
+      if (!grupos[idProv]) {
+        grupos[idProv] = {
+          id_provedor: idProv,
+          nombre_proveedor: p.nombre_proveedor || `Proveedor #${idProv}`,
+          productos: []
+        };
+      }
+      grupos[idProv].productos.push(p);
+    });
+
+    const gruposArray = Object.values(grupos);
     const observaciones = document.getElementById('observaciones')?.value ?? '';
 
     const btnGuardar = document.getElementById('btnGuardarOrden');
@@ -993,29 +1058,17 @@ const OrdenesCompraUI = (() => {
     const errores = [];
     const ordenesCreadas = [];
 
-    for (const grupo of state.gruposCotizacion) {
-      if (!grupo.productos || grupo.productos.length === 0) continue;
-
-      const subtotal = grupo.productos.reduce(
-        (s, p) => s + parseFloat(p.precio_unitario_cotizado) * parseFloat(p.cantidad_comprar || 0), 0
-      );
+    for (const grupo of gruposArray) {
+      const subtotal = grupo.productos.reduce((s, p) => s + (p.cantidad_comprar * p.precio_unitario), 0);
       const impuestos = subtotal * 0.16;
       const total = subtotal + impuestos;
-
-      // Preparar productos con precios de la cotización
-      const productosParaOrden = grupo.productos.map(p => ({
-        ...p,
-        precio_unitario: p.precio_unitario_cotizado,
-        subtotal: parseFloat(p.precio_unitario_cotizado) * parseFloat(p.cantidad_comprar || 0)
-      }));
 
       const ordenData = {
         id_pedido: idPedido,
         id_provedor: grupo.id_provedor,
-        observaciones: observaciones + (state.gruposCotizacion.length > 1
-          ? ` [Orden ${ordenesCreadas.length + 1}/${state.gruposCotizacion.length} de cotización comparativa]`
-          : ''),
-        productos: productosParaOrden,
+        observaciones: observaciones + (gruposArray.length > 1
+          ? ` [Orden ${ordenesCreadas.length + 1}/${gruposArray.length} de pedido agrupado]` : ''),
+        productos: grupo.productos,
         subtotal: subtotal.toFixed(2),
         impuestos: impuestos.toFixed(2),
         total: total.toFixed(2)
@@ -1059,6 +1112,125 @@ const OrdenesCompraUI = (() => {
       ]);
       actualizarNotificacionPedidos();
     }
+  }
+
+  async function verDesglose(idDetPedido, idsOriginales) {
+    console.log(`🔍 verDesglose llamado con:`, {
+      idDetPedido,
+      idsOriginales,
+
+    if (rowDesglose.classList.contains('d-none')) {
+      // 1. Obtener los IDs de detalle del producto
+      const producto = state.productos.find(p => {
+        const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+        return pIds.some(pid => String(pid) === String(idDetPedido));
+      });
+      const ids = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido.join(',') : producto.id_det_pedido;
+
+      contDesglose.innerHTML = '<div class="text-center p-3 small"><div class="spinner-border spinner-border-sm me-1"></div>Buscando todas las cotizaciones...</div>';
+      rowDesglose.classList.remove('d-none');
+
+      try {
+        const resp = await fetch(`/sgigescon/src/Cotizacion/Interfaces/CotizacionController.php?action=getDetallePreciosRecurso&ids=${ids}`);
+        const res = await resp.json();
+
+        if (res.success && res.data.length > 0) {
+          // Agrupar por proveedor
+          const grupos = res.data.reduce((acc, item) => {
+            const key = item.id_real_proveedor || item.id_cot_prov;
+            if (!acc[key]) {
+              acc[key] = {
+                id_provedor: key,
+                nombre_proveedor: item.nombre,
+                productos: []
+              };
+            }
+            acc[key].productos.push(item);
+            return acc;
+          }, {});
+
+          const contenido = Object.values(grupos).map(g => `
+            <div class="mb-3">
+              <h6 class="text-primary">
+                <i class="bi bi-shop me-2"></i>${escapeHtml(g.nombre_proveedor)}
+              </h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Precio Unitario</th>
+                      <th>Nombre Cotización</th>
+                      <th>Fecha</th>
+                      <th class="text-center">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${g.productos.map(item => `
+                      <tr>
+                        <td class="text-end fw-bold text-success">$${formatMoney(item.precio_unitario)}</td>
+                        <td class="text-muted small">${escapeHtml(item.nombre_cotizacion)} (${item.fecha_cotizacion})</td>
+                        <td class="text-center">
+                          <button type="button" class="btn btn-sm btn-primary py-0 px-2" style="font-size:0.75rem;"
+                                  onclick="OrdenesCompraUI.seleccionarDeDesglose(${idDetPedido}, ${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                            Seleccionar
+                          </button>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `).join('');
+
+          contDesglose.innerHTML = contenido;
+        } else {
+          contDesglose.innerHTML = '<div class="alert alert-info py-2 mb-0 small">No se encontraron cotizaciones activas para este producto.</div>';
+        }
+      } catch (e) {
+        contDesglose.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">Error al conectar con el servidor para obtener precios.</div>';
+      }
+    } else {
+      rowDesglose.classList.add('d-none');
+    }
+  }
+
+  function seleccionarDeDesglose(idDetPedido, item) {
+    // 1. Actualizar el producto en la lista original de productos del estado
+    const idStr = String(idDetPedido);
+    const productoObj = state.productos.find(p => {
+      const ids = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+      return ids.some(id => String(id) === idStr);
+    });
+
+    if (productoObj) {
+      // Actualizar con los datos de la cotización seleccionada
+      productoObj.precio_unitario = parseFloat(item.precio_unitario);
+      productoObj.id_provedor = item.id_real_proveedor || item.id_cot_prov;
+      productoObj.nombre_proveedor = item.nombre; // Usar item.nombre que viene de la cotización
+      productoObj.mejor_precio_cotizado = item.precio_unitario;
+      productoObj.mejor_proveedor_nombre = item.nombre;
+    }
+
+    // 2. Si el producto ya está seleccionado en el checkbox, actualizar sus datos para el envío
+    if (state.productosSeleccionados.has(idStr)) {
+      const seleccionado = state.productosSeleccionados.get(idStr);
+      seleccionado.precio_unitario = parseFloat(item.precio_unitario);
+      seleccionado.id_provedor = item.id_real_proveedor || item.id_cot_prov;
+      seleccionado.nombre_proveedor = item.nombre; // Usar item.nombre
+      state.productosSeleccionados.set(idStr, seleccionado);
+    } else {
+      // Si no está seleccionado, seleccionarlo automáticamente al elegir un precio
+      const checkbox = document.querySelector(`.producto-checkbox[data-id="${idStr}"]`);
+      if (checkbox) {
+        checkbox.checked = true;
+        actualizarProductoSeleccionado(idStr, checkbox);
+      }
+    }
+
+    // 3. Notificar éxito, actualizar UI y cerrar desglose
+    renderizarTablaProductos();
+    actualizarTotales();
   }
 
   async function verDetalle(idOrden) {
@@ -1429,7 +1601,7 @@ const OrdenesCompraUI = (() => {
     // asegurar que los datos estén correctos para el frontend
     return productos.map(producto => ({
       ...producto,
-      ids_originales: Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido : [producto.id_det_pedido]
+      ids_originales: producto.id_componente ? [producto.id_componente] : (Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido : [producto.id_det_pedido])
     }));
   }
 
@@ -1471,19 +1643,15 @@ const OrdenesCompraUI = (() => {
     const idsOriginalesStr = checkboxEl.dataset.idsOriginales;
     const idsOriginales = idsOriginalesStr ? JSON.parse(idsOriginalesStr) : [idDetPedido];
 
-    // Buscar el producto en el estado usando cualquiera de los IDs originales
-    let producto = null;
-    for (const id of idsOriginales) {
-      producto = (state.productos || []).find(p => {
-        const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
-        // Usar comparación flexible (==) o convertir ambos a String para evitar problemas de tipos (int vs string)
-        return pIds.some(pid => String(pid) === String(id));
-      });
-      if (producto) break;
-    }
+    // Buscar el producto en el estado global - el idDetPedido es el primerId que se usó en data-id
+    let producto = (state.productos || []).find(p => {
+      const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+      // Buscar si el idDetPedido está en los IDs del producto O si coincide con el primer ID original
+      return pIds.some(pid => String(pid) === String(idDetPedido)) ||
+             idsOriginales.some(oid => String(oid) === String(idDetPedido));
+    });
 
     if (!producto) {
-      console.error('No se encontró el producto con IDs:', idsOriginales);
       return;
     }
 
@@ -1491,7 +1659,7 @@ const OrdenesCompraUI = (() => {
       if (cantidadInput) cantidadInput.disabled = false;
       const cantidad = cantidadInput ? parseFloat(cantidadInput.value) || 0 : 0;
 
-      // Guardar el producto con todos sus IDs originales
+      // Guardar el producto con todos sus datos
       state.productosSeleccionados.set(String(idDetPedido), {
         ...producto,
         cantidad_comprar: cantidad,
@@ -1501,6 +1669,7 @@ const OrdenesCompraUI = (() => {
       if (cantidadInput) cantidadInput.disabled = true;
       state.productosSeleccionados.delete(String(idDetPedido));
     }
+    
     actualizarTotales();
     actualizarContadorProductos();
   }
@@ -1657,7 +1826,6 @@ const OrdenesCompraUI = (() => {
       console.error('Error actualizando notificación:', error);
     }
   }
-
   return {
     init,
     cargarOrdenes,
@@ -1665,25 +1833,25 @@ const OrdenesCompraUI = (() => {
     verDetalle,
     editarOrden,
     convertirEnCompra,
-    verDetallePedido,
     abrirNuevaOrdenConPedido,
-    actualizarProductoSeleccionado,
-    actualizarCantidadComprar,
-    autofillCantidadPedida
+    verDesglose,
+    seleccionarDeDesglose,
+    actualizarNotificacionPedidos,
+    state
   };
-
-  // Event listener para el botón de cerrar del modal
-  document.addEventListener('click', function (e) {
-    if (e.target.hasAttribute('data-bs-dismiss') || e.target.closest('[data-bs-dismiss]')) {
-      if (state.modalOrden) {
-        state.modalOrden.hide();
-      }
-      if (state.modalDetalle) {
-        state.modalDetalle.hide();
-      }
-    }
-  });
 })();
+
+// Event listener para el botón de cerrar del modal
+document.addEventListener('click', function (e) {
+  if (e.target.hasAttribute('data-bs-dismiss') || e.target.closest('[data-bs-dismiss]')) {
+    if (OrdenesCompraUI.state?.modalOrden) {
+      OrdenesCompraUI.state.modalOrden.hide();
+    }
+    if (OrdenesCompraUI.state?.modalDetalle) {
+      OrdenesCompraUI.state.modalDetalle.hide();
+    }
+  }
+});
 
 // Exponer en window para uso en handlers inline
 window.OrdenesCompraUI = OrdenesCompraUI;

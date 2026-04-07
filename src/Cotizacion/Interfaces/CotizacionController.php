@@ -27,20 +27,18 @@ try {
             if (!$idPedido) throw new Exception('id_pedido requerido');
 
             $sql = "SELECT
-                        c.id_cotizacion,
-                        c.nombre,
-                        c.observaciones,
-                        c.estado,
-                        c.fecha_cotizacion,
-                        c.fechareg,
-                        COUNT(DISTINCT cp.id_cot_prov) AS total_proveedores,
-                        COUNT(cd.id_det_cot)           AS total_recursos_cotizados
-                    FROM cotizaciones c
-                    LEFT JOIN cotizacion_proveedores cp ON cp.id_cotizacion = c.id_cotizacion
-                    LEFT JOIN cotizacion_detalle cd ON cd.id_cot_prov = cp.id_cot_prov AND cd.precio_unitario > 0
-                    WHERE c.id_pedido = ? AND c.estado != 'cancelada'
-                    GROUP BY c.id_cotizacion
-                    ORDER BY c.fechareg DESC";
+                        cc.id_cotizacion as id_cotizacion,
+                        CONCAT('Cotización ', cc.id_cotizacion) as nombre,
+                        '' as observaciones,
+                        cc.estado,
+                        cc.fecha_cotizacion,
+                        cc.fechareg,
+                        COUNT(DISTINCT cc.id_proveedor) AS total_proveedores,
+                        COUNT(cc.id_cotizacion)           AS total_recursos_cotizados
+                    FROM cotizaciones_componentes cc
+                    WHERE cc.id_presupuesto = ? AND cc.estado = 'activa'
+                    GROUP BY cc.id_cotizacion
+                    ORDER BY cc.fechareg DESC";
 
             $stmt = $connection->prepare($sql);
             $stmt->execute([$idPedido]);
@@ -49,6 +47,69 @@ try {
             echo json_encode(['success' => true, 'data' => $cotizaciones]);
             break;
 
+        /* ── Obtener todos los precios cotizados para un conjunto de items ── */
+case 'getDetallePreciosRecurso':
+    error_log("=== DEBUG: getDetallePreciosRecurso llamado ===");
+    
+    $idsStr = $_GET['ids'] ?? '';
+    error_log("IDs recibidos: " . $idsStr);
+
+    if (!$idsStr) {
+        echo json_encode(['success' => false, 'error' => 'IDs requeridos']);
+        break;
+    }
+
+    // Convertir a array (soporta "4150" o "4150,4151,4152")
+    $ids = array_filter(array_map('intval', explode(',', $idsStr)));
+
+    if (empty($ids)) {
+        echo json_encode(['success' => false, 'error' => 'IDs inválidos']);
+        break;
+    }
+
+    try {
+        // Crear placeholders dinámicos (?, ?, ?)
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        $sql = "SELECT 
+                    cc.id_componente,
+                    cc.precio_unitario,
+                    p.nombre,
+                    p.id_provedor as id_real_proveedor,
+                    cc.id_proveedor as id_cot_prov,
+                    'Cotización Componente' as nombre_cotizacion,
+                    cc.fecha_cotizacion
+                FROM cotizaciones_componentes cc
+                LEFT JOIN provedores p ON cc.id_proveedor = p.id_provedor
+                WHERE cc.id_componente IN ($placeholders)
+                AND cc.estado = 'activa' 
+                AND cc.precio_unitario > 0
+                ORDER BY cc.precio_unitario ASC";
+
+        error_log("SQL: " . $sql);
+        error_log("Parámetros: " . implode(',', $ids));
+
+        $stmt = $connection->prepare($sql);
+        $stmt->execute($ids);
+        $precios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        error_log("Resultados encontrados: " . count($precios));
+
+        echo json_encode([
+            'success' => true,
+            'data' => $precios
+        ]);
+
+    } catch (Exception $e) {
+        error_log("ERROR en consulta: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]);
+    }
+
+    break;
+
         /* ── Detalle completo de una cotización ─────────────────── */
         case 'getCotizacionDetalle':
             $idCot = (int)($_GET['id_cotizacion'] ?? 0);
@@ -56,35 +117,33 @@ try {
 
             // Info básica
             $stmtC = $connection->prepare(
-                "SELECT c.*, p.id_pedido FROM cotizaciones c
-                 INNER JOIN cotizaciones c2 ON c2.id_cotizacion = c.id_cotizacion
-                 LEFT JOIN pedidos p ON p.id_pedido = c.id_pedido
-                 WHERE c.id_cotizacion = ? LIMIT 1"
-            );
-            // Simplified query:
-            $stmtC = $connection->prepare(
-                "SELECT * FROM cotizaciones WHERE id_cotizacion = ? LIMIT 1"
+                "SELECT cc.*, cc.id_presupuesto as id_pedido 
+                 FROM cotizaciones_componentes cc 
+                 WHERE cc.id_cotizacion = ? LIMIT 1"
             );
             $stmtC->execute([$idCot]);
             $cotizacion = $stmtC->fetch(PDO::FETCH_ASSOC);
             if (!$cotizacion) throw new Exception('Cotización no encontrada');
 
-            // Proveedores
+            // Proveedores agrupados
             $stmtPv = $connection->prepare(
-                "SELECT id_cot_prov, id_provedor, nombre_proveedor
-                 FROM cotizacion_proveedores
-                 WHERE id_cotizacion = ?
-                 ORDER BY id_cot_prov"
+                "SELECT DISTINCT 
+                        cc.id_proveedor as id_cot_prov, 
+                        cc.id_proveedor as id_provedor, 
+                        p.nombre
+                 FROM cotizaciones_componentes cc
+                 INNER JOIN provedores p ON cc.id_proveedor = p.id_provedor
+                 WHERE cc.id_cotizacion = ?
+                 ORDER BY cc.id_proveedor"
             );
             $stmtPv->execute([$idCot]);
             $proveedores = $stmtPv->fetchAll(PDO::FETCH_ASSOC);
 
             // Precios por proveedor y recurso
             $stmtDet = $connection->prepare(
-                "SELECT cd.id_cot_prov, cd.id_det_pedido, cd.precio_unitario
-                 FROM cotizacion_detalle cd
-                 INNER JOIN cotizacion_proveedores cp ON cp.id_cot_prov = cd.id_cot_prov
-                 WHERE cp.id_cotizacion = ?"
+                "SELECT cc.id_proveedor as id_cot_prov, cc.id_componente as id_det_pedido, cc.precio_unitario
+                 FROM cotizaciones_componentes cc
+                 WHERE cc.id_cotizacion = ?"
             );
             $stmtDet->execute([$idCot]);
             $detalles = $stmtDet->fetchAll(PDO::FETCH_ASSOC);
@@ -99,10 +158,39 @@ try {
             }
             unset($pv);
 
+            // ⚠️ ADICIÓN: Información sobre compras ya realizadas (recepciones)
+            // Para bloquear cambios de precio en items ya comprados.
+            $sqlComprados = "SELECT 
+                                lr.id_componente as id_det_pedido,
+                                oc.id_provedor as id_provedor_comprado,
+                                lr.precio_unitario as precio_comprado,
+                                SUM(lr.cantidad_recibida) as total_recibido
+                             FROM log_recepciones lr
+                             INNER JOIN ordenes_compra oc ON lr.id_orden_compra = oc.id_orden_compra
+                             WHERE lr.id_componente IN (
+                                 SELECT id_componente FROM cotizaciones_componentes WHERE id_presupuesto = ?
+                             )
+                             GROUP BY lr.id_componente, oc.id_provedor, lr.precio_unitario
+                             HAVING total_recibido > 0";
+            
+            $stmtCmp = $connection->prepare($sqlComprados);
+            $stmtCmp->execute([$cotizacion['id_pedido']]);
+            $compradosRaw = $stmtCmp->fetchAll(PDO::FETCH_ASSOC);
+            
+            $compradosIndex = [];
+            foreach ($compradosRaw as $cmp) {
+                $compradosIndex[$cmp['id_det_pedido']] = [
+                    'id_provedor' => (int)$cmp['id_provedor_comprado'],
+                    'precio'     => (float)$cmp['precio_comprado'],
+                    'recibido'   => (float)$cmp['total_recibido']
+                ];
+            }
+
             echo json_encode([
                 'success'    => true,
                 'cotizacion' => $cotizacion,
-                'proveedores' => $proveedores
+                'proveedores' => $proveedores,
+                'comprados'   => $compradosIndex
             ]);
             break;
 
@@ -202,6 +290,8 @@ try {
 
 /* ── Crear tablas si no existen ─────────────────────────────────── */
 function _crearTablasCotizacion(PDO $conn): void {
+    // Comentado: ya existe la tabla cotizaciones_componentes en tu base de datos
+    /*
     $conn->exec("
         CREATE TABLE IF NOT EXISTS cotizaciones (
             id_cotizacion    INT          NOT NULL AUTO_INCREMENT,
@@ -240,4 +330,5 @@ function _crearTablasCotizacion(PDO $conn): void {
             INDEX idx_det_pedido (id_det_pedido)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    */
 }

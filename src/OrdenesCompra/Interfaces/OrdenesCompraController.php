@@ -762,11 +762,22 @@ function getProductosPedido($connection) {
     // Productos del pedido con cálculo de cantidades ya compradas
     $sql = "SELECT 
                 pd.id_det_pedido,
+                COALESCE(ic.id_componente, pd.id_componente) AS id_componente,
                 COALESCE(ic.descripcion, CAST(m.nombremat AS CHAR)) AS descripcion,
                 COALESCE(ic.unidad, u.unidesc, 'unidad') AS unidad,
                 pd.cantidad,
                 pd.precio_unitario,
                 pd.subtotal,
+                (SELECT MIN(cc.precio_unitario) 
+                 FROM cotizaciones_componentes cc 
+                 WHERE cc.id_componente = COALESCE(ic.id_componente, pd.id_componente) AND cc.estado = 'activa' AND cc.precio_unitario > 0
+                ) AS mejor_precio_cotizado,
+                (SELECT p.nombre 
+                 FROM cotizaciones_componentes cc2
+                 INNER JOIN provedores p ON cc2.id_proveedor = p.id_provedor
+                 WHERE cc2.id_componente = COALESCE(ic.id_componente, pd.id_componente) AND cc2.estado = 'activa' AND cc2.precio_unitario > 0
+                 ORDER BY cc2.precio_unitario ASC LIMIT 1
+                ) AS mejor_proveedor_nombre,
                 COALESCE(SUM(ocd.cantidad_comprada), 0) AS cantidad_comprada,
                 GREATEST(pd.cantidad - COALESCE(SUM(ocd.cantidad_comprada), 0), 0) AS cantidad_disponible,
                 CASE 
@@ -786,10 +797,11 @@ function getProductosPedido($connection) {
             WHERE pd.id_pedido = ?
             GROUP BY 
                 pd.id_det_pedido,
+                pd.id_componente,
                 pd.cantidad,
                 pd.precio_unitario,
                 pd.subtotal,
-                COALESCE(ic.descripcion, CAST(m.nombremat AS CHAR)),
+                COALESCE(ic.descripcion, m.nombremat),
                 COALESCE(ic.unidad, u.unidesc, 'unidad'),
                 m.minimo_comercial,
                 m.presentacion_comercial
@@ -799,6 +811,9 @@ function getProductosPedido($connection) {
     $stmt = $connection->prepare($sql);
     $stmt->execute([$idPedido]);
     $productosOriginales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Debug: Mostrar qué se está devolviendo
+    error_log("getProductosPedido - Productos originales: " . print_r($productosOriginales, true));
 
     // Agrupar productos por descripción
     $productosAgrupados = [];
@@ -810,25 +825,32 @@ function getProductosPedido($connection) {
                 'id_det_pedido' => [], // Guardar IDs originales
                 'descripcion' => $producto['descripcion'],
                 'unidad' => $producto['unidad'],
-                'cantidad' => 0,
+                'cantidad' => $producto['cantidad'],
                 'precio_unitario' => $producto['precio_unitario'],
-                'subtotal' => 0,
-                'cantidad_comprada' => 0,
-                'cantidad_disponible' => 0,
-                'estado_producto' => 'disponible',
-                'cantidad_maxima_seleccionable' => 0,
+                'subtotal' => $producto['subtotal'],
+                'mejor_precio_cotizado' => $producto['mejor_precio_cotizado'],
+                'mejor_proveedor_nombre' => $producto['mejor_proveedor_nombre'],
+                'cantidad_comprada' => $producto['cantidad_comprada'],
+                'cantidad_disponible' => $producto['cantidad_disponible'],
+                'estado_producto' => $producto['estado_producto'],
+                'cantidad_maxima_seleccionable' => $producto['cantidad_maxima_seleccionable'],
                 'minimo_comercial' => $producto['minimo_comercial'],
-                'presentacion_comercial' => $producto['presentacion_comercial']
+                'presentacion_comercial' => $producto['presentacion_comercial'],
+                'id_componente' => $producto['id_componente'] // Agregar id_componente
             ];
         }
         
-        // Sumar cantidades y subtotales
-        $productosAgrupados[$clave]['cantidad'] += floatval($producto['cantidad']);
-        $productosAgrupados[$clave]['subtotal'] += floatval($producto['subtotal']);
-        $productosAgrupados[$clave]['cantidad_comprada'] += floatval($producto['cantidad_comprada']);
-        $productosAgrupados[$clave]['cantidad_disponible'] += floatval($producto['cantidad_disponible']);
-        $productosAgrupados[$clave]['cantidad_maxima_seleccionable'] += floatval($producto['cantidad_maxima_seleccionable']);
+        // Acumular IDs y cantidades
         $productosAgrupados[$clave]['id_det_pedido'][] = $producto['id_det_pedido'];
+        $productosAgrupados[$clave]['cantidad'] += $producto['cantidad'];
+        $productosAgrupados[$clave]['subtotal'] += $producto['subtotal'];
+        
+        // Actualizar mejor precio si es menor
+        if ($productosAgrupados[$clave]['mejor_precio_cotizado'] === null || 
+            floatval($producto['mejor_precio_cotizado']) < $productosAgrupados[$clave]['mejor_precio_cotizado']) {
+            $productosAgrupados[$clave]['mejor_precio_cotizado'] = floatval($producto['mejor_precio_cotizado']);
+            $productosAgrupados[$clave]['mejor_proveedor_nombre'] = $producto['mejor_proveedor_nombre'];
+        }
         
         // El estado será 'disponible' si hay alguna cantidad disponible
         if ($producto['cantidad_disponible'] > 0) {

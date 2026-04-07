@@ -193,13 +193,8 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
               <div class="form-text">Seleccione el pedido que originará esta orden</div>
             </div>
 
-            <div class="col-md-6 d-flex flex-column justify-content-end">
-              <!-- Botón para seleccionar cotización -->
-              <button type="button" class="btn btn-outline-success" id="btnAbrirCotizacion" disabled
-                      style="border-width: 2px;">
-                <i class="bi bi-clipboard2-check-fill me-2"></i>Aplicar Cotización de Proveedores
-              </button>
-              <div class="form-text">Usa una de las cotizaciones importadas en el módulo de pedidos para este pedido</div>
+            <div class="col-md-6 d-flex flex-column justify-content-end text-end text-muted small pb-2">
+               <i class="bi bi-info-circle me-1"></i> Use el botón de <strong>desglose</strong> en cada producto para seleccionar las cotizaciones de proveedores.
             </div>
           </div>
 
