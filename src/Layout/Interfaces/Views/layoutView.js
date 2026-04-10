@@ -1220,17 +1220,35 @@
 
             const sessionMode = sessionStorage.getItem('isInProjectMode');
 
+            // Debug: Log para verificar el estado de la sesión
+            console.log('[Layout] Session check:', {
+                sessionProjectId,
+                sessionMode,
+                documentTitle: document.title
+            });
+
             if (sessionMode === 'true' && sessionProjectId) {
 
                 const separator = componentPath.includes('?') ? '&' : '?';
 
                 componentPath += `${separator}id_proyecto=${sessionProjectId}`;
 
+            } else {
+                // Si no hay sesión de proyecto, intentar restaurar desde localStorage
+                const savedProjectId = localStorage.getItem('lastSelectedProjectId');
+                if (savedProjectId) {
+                    console.log('[Layout] Restaurando proyecto desde localStorage:', savedProjectId);
+                    sessionStorage.setItem('selectedProjectId', savedProjectId);
+                    sessionStorage.setItem('isInProjectMode', 'true');
+                    
+                    const separator = componentPath.includes('?') ? '&' : '?';
+                    componentPath += `${separator}id_proyecto=${savedProjectId}`;
+                }
             }
 
         }
 
-        console.log('[Layout] Loading component:', componentName, 'â†’', componentPath);
+        console.log('[Layout] Loading component:', componentName, 'â†' , componentPath);
 
 
 
@@ -1258,11 +1276,13 @@
 
             .then(html => {
 
-                // Insert component HTML
+                if (contentArea) {
 
-                contentArea.innerHTML = `<div class="component-container">${html}</div>`;
+                    // Insert component HTML
 
+                    contentArea.innerHTML = `<div class="component-container">${html}</div>`;
 
+                }
 
                 // Execute any scripts in the loaded component
 

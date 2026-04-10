@@ -694,16 +694,35 @@ const OrdenesCompraUI = (() => {
 
   // Funciones de UI
   function mostrarModalNuevaOrden() {
-    console.log('🚀 Mostrando modal de nueva orden...');
+    // Verificar que los datos estén cargados antes de mostrar el modal
+    if (!state.productos || state.productos.length === 0) {
+      // Si no hay productos, cargar datos básicos primero
+      cargarProveedores();
+      cargarOrdenes();
+      cargarPedidos();
 
+      // Mostrar mensaje de carga
+      showToast('Cargando datos, espere un momento...', 'info');
+
+      // Esperar un poco y verificar de nuevo
+      setTimeout(() => {
+        if (!state.productos || state.productos.length === 0) {
+          mostrarError('No se pudieron cargar los datos. Por favor recargue la página.');
+          return;
+        }
+        // Si ya hay datos, mostrar el modal
+        mostrarModalConDatos();
+      }, 2000);
+      return;
+    }
+
+    mostrarModalConDatos();
+  }
+
+  function mostrarModalConDatos() {
     // Verificar si hay parámetros en la URL (viene desde notificación)
     const urlParams = new URLSearchParams(window.location.search);
     const idPedidoDesdeURL = urlParams.get('id_pedido');
-
-    console.log('📋 Parámetros URL detectados:', {
-      idPedidoDesdeURL: idPedidoDesdeURL,
-      tieneParametros: urlParams.toString()
-    });
 
     // Resetear formulario completamente
     const form = document.querySelector(selectores.formOrden);
@@ -718,13 +737,6 @@ const OrdenesCompraUI = (() => {
     const subtotalOrden = document.getElementById('subtotalOrden');
     const impuestosOrden = document.getElementById('impuestosOrden');
     const totalOrden = document.getElementById('totalOrden');
-
-    console.log('📋 Elementos encontrados:', {
-      form: !!form,
-      idPedido: !!idPedido,
-      idProveedor: !!idProveedor,
-      contenidoProductos: !!contenidoProductos
-    });
 
     if (idPedido) idPedido.value = '';
     if (idProveedor) idProveedor.value = '';
@@ -747,14 +759,12 @@ const OrdenesCompraUI = (() => {
 
     // Si viene desde notificación con id_pedido, autocompletar datos
     if (idPedidoDesdeURL) {
-      console.log('🔄 Detectado pedido desde notificación, autocompletando datos...');
       if (idPedido) {
         idPedido.value = idPedidoDesdeURL;
         // Habilitar botón inmediatamente
         if (btnCot) btnCot.disabled = false;
         // Disparar evento change para gatillar cargarProductosPedido UNA SOLA VEZ
         idPedido.dispatchEvent(new Event('change', { bubbles: true }));
-        console.log('✅ Pedido autocompletado y disparado:', idPedidoDesdeURL);
       }
     }
 
@@ -764,27 +774,18 @@ const OrdenesCompraUI = (() => {
       modalTitle.innerHTML = '<i class="bi bi-clipboard-plus"></i> Nueva Orden de Compra';
     }
 
-    console.log('🎯 Intentando mostrar modal...');
-    console.log('Modal title encontrado:', !!modalTitle);
-
     // Verificar si el modal existe
     const modalElement = document.getElementById('modalOrdenCompra');
-    console.log('Elemento modal encontrado:', !!modalElement);
-
     if (modalElement) {
-      console.log('✅ Modal encontrado, intentando mostrar...');
       try {
         const modal = new bootstrap.Modal(modalElement);
-        console.log('📋 Instancia de modal creada:', !!modal);
         modal.show();
-        console.log('✅ Modal mostrado exitosamente');
       } catch (error) {
-        console.error('âŒ Error al mostrar modal:', error);
-        alert('Error al abrir el modal de nueva orden');
+        console.error('Error al mostrar modal:', error);
+        mostrarError('Error al abrir el modal de nueva orden');
       }
     } else {
-      console.error('âŒ No se encontró el elemento modalOrdenCompra');
-      alert('Error: No se encontró el modal de nueva orden');
+      mostrarError('No se encontró el modal de nueva orden');
     }
   }
 
@@ -840,7 +841,7 @@ const OrdenesCompraUI = (() => {
     checkboxes.forEach(checkbox => {
       // Forzar el estado del checkbox
       checkbox.checked = isChecked;
-      
+
       // Llamar a la función de actualización para cada checkbox
       actualizarProductoSeleccionado(checkbox.dataset.id, checkbox);
     });
@@ -1133,62 +1134,62 @@ const OrdenesCompraUI = (() => {
   }
 
   async function verDesglose(idDetPedido, idsOriginales) {
-  const rowDesglose = document.getElementById(`desglose_${idDetPedido}`);
-  const contDesglose = document.getElementById(`contenido_desglose_${idDetPedido}`);
+    const rowDesglose = document.getElementById(`desglose_${idDetPedido}`);
+    const contDesglose = document.getElementById(`contenido_desglose_${idDetPedido}`);
 
-  if (rowDesglose.classList.contains('d-none')) {
+    if (rowDesglose.classList.contains('d-none')) {
 
-    let producto = state.productos.find(p => {
-      const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
-      return pIds.some(pid => String(pid) === String(idDetPedido));
-    });
+      let producto = state.productos.find(p => {
+        const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+        return pIds.some(pid => String(pid) === String(idDetPedido));
+      });
 
-    if (!producto && state.productosSeleccionados.has(String(idDetPedido))) {
-      producto = state.productosSeleccionados.get(String(idDetPedido));
-    }
+      if (!producto && state.productosSeleccionados.has(String(idDetPedido))) {
+        producto = state.productosSeleccionados.get(String(idDetPedido));
+      }
 
-    if (!producto) {
-      console.error('❌ No se encontró el producto con ID:', idDetPedido);
-      return;
-    }
+      if (!producto) {
+        console.error('❌ No se encontró el producto con ID:', idDetPedido);
+        return;
+      }
 
-    const ids = Array.isArray(producto.id_componente)
-      ? producto.id_componente
-      : [producto.id_componente];
+      const ids = Array.isArray(producto.id_componente)
+        ? producto.id_componente
+        : [producto.id_componente];
 
-    const idsStr = ids.join(',');
+      const idsStr = ids.join(',');
 
-    contDesglose.innerHTML = `
+      contDesglose.innerHTML = `
       <div class="text-center p-3 small">
         <div class="spinner-border spinner-border-sm me-1"></div>
         Buscando todas las cotizaciones...
       </div>
     `;
-    rowDesglose.classList.remove('d-none');
+      rowDesglose.classList.remove('d-none');
 
-    try {
-      const resp = await fetch(`/sgigescon/src/Cotizacion/Interfaces/CotizacionController.php?action=getDetallePreciosRecurso&ids=${idsStr}`);
-      const res = await resp.json();
+      try {
+        const resp = await fetch(`/sgigescon/src/Cotizacion/Interfaces/CotizacionController.php?action=getDetallePreciosRecurso&ids=${idsStr}`);
+        const res = await resp.json();
 
-      if (res.success && res.data.length > 0) {
+        if (res.success && res.data.length > 0) {
 
-        // 🔥 usamos SIEMPRE "nombre" (no nombre_proveedor)
-        const grupos = res.data.reduce((acc, item) => {
-          const key = item.id_real_proveedor ?? item.id_cot_prov;
+          // usamos SIEMPRE "nombre" (no nombre_proveedor)
+          const grupos = res.data.reduce((acc, item) => {
+            const key = item.id_real_proveedor ?? item.id_cot_prov;
 
-          if (!acc[key]) {
-            acc[key] = {
-              id_provedor: key,
-              nombre: item.nombre || "Proveedor sin nombre",
-              productos: []
-            };
-          }
+            if (!acc[key]) {
+              acc[key] = {
+                id_provedor: key,
+                nombre: item.nombre || "Proveedor sin nombre",
+                productos: []
+              };
+            }
 
-          acc[key].productos.push(item);
-          return acc;
-        }, {});
+            acc[key].productos.push(item);
+            return acc;
+          }, {});
 
-        const contenido = Object.values(grupos).map(g => `
+          const contenido = Object.values(grupos).map(g => `
           <div class="mb-3">
             <div class="table-responsive">
               <table class="table table-sm table-hover">
@@ -1207,13 +1208,13 @@ const OrdenesCompraUI = (() => {
                 </thead>
                 <tbody>
                   ${g.productos.map(item => {
-                    // Obtener el precio presupuestado del producto original
-                    const productoOriginal = state.productos.find(p => {
-                      const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
-                      return pIds.some(pid => String(pid) === String(idDetPedido));
-                    });
-                    
-                    return `
+            // Obtener el precio presupuestado del producto original
+            const productoOriginal = state.productos.find(p => {
+              const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+              return pIds.some(pid => String(pid) === String(idDetPedido));
+            });
+
+            return `
                       <tr>
                         <td class="text-end fw-bold text-success" style="min-width: 120px;">
                           $${formatMoney(item.precio_unitario)}
@@ -1232,36 +1233,36 @@ const OrdenesCompraUI = (() => {
                         </td>
                       </tr>
                     `;
-                  }).join('')}
+          }).join('')}
                 </tbody>
               </table>
             </div>
           </div>
         `).join('');
 
-        contDesglose.innerHTML = contenido;
+          contDesglose.innerHTML = contenido;
 
-      } else {
-        contDesglose.innerHTML = `
+        } else {
+          contDesglose.innerHTML = `
           <div class="alert alert-info py-2 mb-0 small">
             No se encontraron cotizaciones activas para este producto.
           </div>
         `;
-      }
+        }
 
-    } catch (e) {
-      console.error("Error fetch:", e);
-      contDesglose.innerHTML = `
+      } catch (e) {
+        console.error("Error fetch:", e);
+        contDesglose.innerHTML = `
         <div class="alert alert-danger py-2 mb-0 small">
           Error al conectar con el servidor para obtener precios.
         </div>
       `;
-    }
+      }
 
-  } else {
-    rowDesglose.classList.add('d-none');
+    } else {
+      rowDesglose.classList.add('d-none');
+    }
   }
-}
 
   function showToast(message, type = 'info') {
     // Crear toast si no existe un contenedor
@@ -1276,7 +1277,7 @@ const OrdenesCompraUI = (() => {
 
     const toastId = 'toast_' + Date.now();
     const bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : type === 'warning' ? 'bg-warning' : 'bg-info';
-    
+
     const toastHTML = `
       <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
         <div class="d-flex">
@@ -1287,17 +1288,17 @@ const OrdenesCompraUI = (() => {
         </div>
       </div>
     `;
-    
+
     toastContainer.insertAdjacentHTML('beforeend', toastHTML);
-    
+
     const toastElement = document.getElementById(toastId);
     const toast = new bootstrap.Toast(toastElement, {
       autohide: true,
       delay: 3000
     });
-    
+
     toast.show();
-    
+
     // Limpiar después de ocultar
     toastElement.addEventListener('hidden.bs.toast', () => {
       toastElement.remove();
@@ -1317,7 +1318,7 @@ const OrdenesCompraUI = (() => {
       if (!productoObj.precio_presupuestado_original) {
         productoObj.precio_presupuestado_original = productoObj.precio_unitario;
       }
-      
+
       // Actualizar con los datos de la cotización seleccionada
       productoObj.precio_unitario = parseFloat(item.precio_unitario);
       productoObj.id_provedor = item.id_real_proveedor || item.id_cot_prov;
@@ -1345,13 +1346,13 @@ const OrdenesCompraUI = (() => {
     // 3. Notificar éxito, actualizar UI y cerrar desglose
     renderizarTablaProductos();
     actualizarTotales();
-    
+
     // 4. Cerrar el desglose automáticamente después de seleccionar
     const rowDesglose = document.getElementById(`desglose_${idStr}`);
     if (rowDesglose) {
       rowDesglose.classList.add('d-none');
     }
-    
+
     // 5. Mostrar notificación de éxito
     showToast(`Cotización seleccionada: ${item.nombre} - $${formatMoney(item.precio_unitario)}`, 'success');
   }
@@ -1382,11 +1383,11 @@ const OrdenesCompraUI = (() => {
   }
 
   function mostrarModalDetalle(orden) {
-    console.log('🎨 Renderizando modal con datos:', orden);
+    console.log('Renderizando modal con datos:', orden);
 
     const contenido = document.getElementById('contenidoDetalle');
     if (!contenido) {
-      console.error('âŒ No se encontró el elemento #contenidoDetalle');
+      console.error('No se encontró el elemento #contenidoDetalle');
       return;
     }
 
@@ -1771,7 +1772,7 @@ const OrdenesCompraUI = (() => {
       const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
       // Buscar si el idDetPedido está en los IDs del producto O si coincide con el primer ID original
       return pIds.some(pid => String(pid) === String(idDetPedido)) ||
-             idsOriginales.some(oid => String(oid) === String(idDetPedido));
+        idsOriginales.some(oid => String(oid) === String(idDetPedido));
     });
 
     if (!producto) {
@@ -1792,7 +1793,7 @@ const OrdenesCompraUI = (() => {
       if (cantidadInput) cantidadInput.disabled = true;
       state.productosSeleccionados.delete(String(idDetPedido));
     }
-    
+
     actualizarTotales();
     actualizarContadorProductos();
   }
