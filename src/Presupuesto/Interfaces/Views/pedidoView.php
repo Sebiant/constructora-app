@@ -196,9 +196,19 @@ if ($proyectoId > 0) {
                                 <!-- TABLA 1: Materiales del Presupuesto -->
                                 <div class="card shadow-sm mb-4">
                                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                                        <h6 class="mb-0">
-                                            <i class="bi bi-box-seam"></i> Materiales del Presupuesto
-                                        </h6>
+                                        <div class="d-flex align-items-center">
+                                            <h6 class="mb-0 me-3">
+                                                <i class="bi bi-box-seam"></i> Materiales del Presupuesto
+                                            </h6>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-light active" id="btnVistaProductos" onclick="cambiarVistaPedido('productos')">
+                                                    <i class="bi bi-grid-3x3-gap"></i> Por Productos
+                                                </button>
+                                                <button type="button" class="btn btn-outline-light" id="btnVistaItems" onclick="cambiarVistaPedido('items')">
+                                                    <i class="bi bi-list-ul"></i> Por Items
+                                                </button>
+                                            </div>
+                                        </div>
                                         <span class="badge bg-light text-dark" id="contadorMateriales">0 materiales</span>
                                     </div>
                                     <div class="card-body">

@@ -4,6 +4,9 @@ var materialesExtra = [];
 var pedidosFueraPresupuesto = [];
 var seleccionActual = null;
 
+// Variable de estado para la vista actual: 'productos' o 'items'
+var vistaActualPedido = 'productos';
+
 // Control de peticiones concurrentes para evitar condiciones de carrera al cambiar proyecto
 var _presupuestosAbortController = null;
 var _presupuestosRequestToken = 0;
@@ -4834,31 +4837,319 @@ function onMaterialSeleccionado() {
 }
 
 /**
+ * Cambia entre la vista de productos agrupados y la vista de items
+ * @param {string} vista - 'productos' o 'items'
+ */
+function cambiarVistaPedido(vista) {
+  if (vista !== 'productos' && vista !== 'items') return;
+
+  vistaActualPedido = vista;
+
+  // Actualizar botones
+  const btnProductos = document.getElementById('btnVistaProductos');
+  const btnItems = document.getElementById('btnVistaItems');
+
+  if (btnProductos && btnItems) {
+    if (vista === 'productos') {
+      btnProductos.classList.remove('btn-outline-light');
+      btnProductos.classList.add('btn-light', 'active');
+      btnItems.classList.remove('btn-light', 'active');
+      btnItems.classList.add('btn-outline-light');
+    } else {
+      btnItems.classList.remove('btn-outline-light');
+      btnItems.classList.add('btn-light', 'active');
+      btnProductos.classList.remove('btn-light', 'active');
+      btnProductos.classList.add('btn-outline-light');
+    }
+  }
+
+  // Aplicar filtros para mostrar la vista correspondiente
+  filtrarMaterialesPedido();
+}
+
+/**
+ * Muestra los items individuales con desglose de componentes
+ * Esta es la vista alternativa a los productos agrupados
+ */
+function mostrarItemsPorItem() {
+  const container = document.getElementById("materialesList");
+  const itemsIndividuales = itemsData.itemsIndividuales || [];
+
+  if (itemsIndividuales.length === 0) {
+    container.innerHTML = `
+      <div class="text-center text-muted py-5">
+        <div class="spinner-border text-muted" role="status"></div>
+        <p class="mt-3">No hay items en este presupuesto/capítulo</p>
+      </div>
+    `;
+    document.getElementById("contadorMateriales").textContent = "0 items";
+    return;
+  }
+
+  let html = `
+    <div class="alert alert-info mb-3">
+      <strong>Vista por Items:</strong>
+      Cada item muestra sus componentes asociados. Haga clic en "Ver Componentes" para desglosar.
+    </div>
+  `;
+
+  itemsIndividuales.forEach((item) => {
+    const componentes = item.componentes || [];
+    const tieneComponentes = componentes.length > 0;
+    const unidad = item.unidad || "UND";
+
+    html += `
+      <div class="card mb-3 shadow-sm item-card" data-id="${item.id_item}">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div>
+            <h6 class="mb-0">
+              <strong>${item.codigo_item}</strong> - ${item.nombre_item}
+            </h6>
+            <small class="text-muted">${item.nombre_capitulo || 'Sin capítulo'} | Unidad: ${unidad}</small>
+          </div>
+          <div>
+            <span class="badge bg-primary">${componentes.length} componentes</span>
+            ${tieneComponentes ? `
+              <button class="btn btn-sm btn-outline-info ms-2" onclick="toggleDesgloseItem('${item.id_item}')">
+                Ver Componentes
+              </button>
+            ` : ''}
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row mb-2">
+            <div class="col-md-4">
+              <small class="text-muted">Cantidad Item:</small>
+              <strong>${parseFloat(item.cantidad || 0).toFixed(4)} ${unidad}</strong>
+            </div>
+            <div class="col-md-4">
+              <small class="text-muted">Precio Unit.:</small>
+              <strong>$${formatCurrency(item.precio_unitario)}</strong>
+            </div>
+            <div class="col-md-4">
+              <small class="text-muted">Subtotal:</small>
+              <strong>$${formatCurrency(item.subtotal)}</strong>
+            </div>
+          </div>
+
+          ${tieneComponentes ? `
+            <div id="desglose-item-${item.id_item}" style="display: none;" class="mt-3">
+              <hr>
+              <h6 class="text-primary mb-3">Componentes del Item</h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered tabla-componentes-item" data-item-id="${item.id_item}">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Componente</th>
+                      <th>Tipo</th>
+                      <th>Unidad</th>
+                      <th class="text-end">Cant. por Unidad</th>
+                      <th class="text-end">Cant. Total Necesaria</th>
+                      <th class="text-end">Precio Unit.</th>
+                      <th class="text-end">Subtotal</th>
+                      <th class="text-end">Cant. a Pedir</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${componentes.map((comp) => {
+                      const cantidadPorUnidad = parseFloat(comp.cantidad) || 0;
+                      const cantidadTotalNecesaria = cantidadPorUnidad * (parseFloat(item.cantidad) || 0);
+                      const precioUnitario = parseFloat(comp.precio_unitario) || 0;
+                      const subtotal = cantidadTotalNecesaria * precioUnitario;
+                      const unidadComp = comp.unidad || "UND";
+                      const pedidoActual = parseFloat(comp.pedido || 0);
+
+                      return `
+                        <tr>
+                          <td><strong>${comp.descripcion || 'Sin descripción'}</strong></td>
+                          <td><span class="badge ${obtenerClaseBadgeTipo(comp.tipo_componente || 'material')}">${obtenerNombreTipoComponente(comp.tipo_componente || 'material')}</span></td>
+                          <td>${unidadComp}</td>
+                          <td class="text-end">${cantidadPorUnidad.toFixed(4)} ${unidadComp}</td>
+                          <td class="text-end">${cantidadTotalNecesaria.toFixed(4)} ${unidadComp}</td>
+                          <td class="text-end">$${formatCurrency(precioUnitario)}</td>
+                          <td class="text-end">$${formatCurrency(subtotal)}</td>
+                          <td class="text-end" style="width: 150px;">
+                            <div class="input-group input-group-sm">
+                              <input type="number"
+                                     class="form-control form-control-sm cantidad-componente-item-por-item"
+                                     value="${pedidoActual.toFixed(4)}"
+                                     min="0"
+                                     step="0.0001"
+                                     data-item-id="${item.id_item}"
+                                     data-componente-id="${comp.id_componente}"
+                                     data-precio="${precioUnitario}"
+                                     data-unidad="${unidadComp}"
+                                     onchange="actualizarCantidadComponentePorItem(this)">
+                              <span class="input-group-text">${unidadComp}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                  <tfoot class="table-light">
+                    <tr>
+                      <td colspan="6" class="text-end"><strong>Total Componentes:</strong></td>
+                      <td class="text-end"><strong>$${formatCurrency(componentes.reduce((sum, comp) => {
+                        const cantTotal = (parseFloat(comp.cantidad) || 0) * (parseFloat(item.cantidad) || 0);
+                        return sum + (cantTotal * (parseFloat(comp.precio_unitario) || 0));
+                      }, 0))}</strong></td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          ` : '<div class="text-muted small"><i class="bi bi-info-circle"></i> Este item no tiene componentes asociados.</div>'}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+/**
+ * Toggle para mostrar/ocultar el desglose de componentes de un item
+ */
+function toggleDesgloseItem(itemId) {
+  const desglose = document.getElementById(`desglose-item-${itemId}`);
+  if (desglose) {
+    const isVisible = desglose.style.display !== "none";
+    desglose.style.display = isVisible ? "none" : "block";
+
+    // Actualizar texto del botón
+    const btn = desglose.closest('.card').querySelector('.btn-outline-info');
+    if (btn) {
+      btn.textContent = isVisible ? "Ver Componentes" : "Ocultar Componentes";
+    }
+  }
+}
+
+/**
+ * Actualiza la cantidad de un componente desde la vista por items
+ */
+function actualizarCantidadComponentePorItem(input) {
+  const nuevaCantidad = parseFloat(input.value) || 0;
+  const itemId = input.dataset.itemId;
+  const componenteId = input.dataset.componenteId;
+  const precio = parseFloat(input.dataset.precio) || 0;
+
+  // Buscar el item y el componente correspondiente
+  const item = itemsData.itemsIndividuales?.find(i => String(i.id_item) === String(itemId));
+  if (item && item.componentes) {
+    const componente = item.componentes.find(c => String(c.id_componente) === String(componenteId));
+    if (componente) {
+      componente.pedido = nuevaCantidad;
+
+      // Sincronizar con la vista de componentes agrupados si existe
+      sincronizarPedidoConComponenteAgrupado(itemId, componenteId, nuevaCantidad);
+
+      // Actualizar estadísticas
+      actualizarEstadisticas();
+    }
+  }
+}
+
+/**
+ * Sincroniza el pedido desde la vista por items hacia los componentes agrupados
+ */
+function sincronizarPedidoConComponenteAgrupado(itemId, componenteId, cantidad) {
+  if (!itemsData.componentesAgrupados) return;
+
+  // Encontrar el componente agrupado que contiene este item
+  itemsData.componentesAgrupados.forEach(comp => {
+    if (comp.items_que_usan) {
+      const itemEnComponente = comp.items_que_usan.find(i => String(i.id_item) === String(itemId));
+      if (itemEnComponente) {
+        // Actualizar el pedido actual del item dentro del componente agrupado
+        itemEnComponente.pedido_actual = cantidad;
+      }
+    }
+  });
+}
+
+/**
  * Filtra los recursos basándose en la búsqueda, capítulo y tipo.
  * Se ejecuta en tiempo real al cambiar cualquier filtro.
+ * Soporta ambas vistas: productos agrupados e items individuales.
  */
 function filtrarMaterialesPedido() {
-  console.log('[Filtro Pedido] Ejecutando...');
+  console.log('[Filtro Pedido] Ejecutando... Vista:', vistaActualPedido);
   const searchInput = document.getElementById('searchResource');
   const busqueda = searchInput?.value.toLowerCase().trim() || '';
   const capituloId = document.getElementById('filterCapitulo')?.value || '';
   const tipo = document.getElementById('filterTipo')?.value || '';
 
-  console.log('[Filtro Pedido] Valores:', { busqueda, capituloId, tipo });
+  console.log('[Filtro Pedido] Valores:', { busqueda, capituloId, tipo, vista: vistaActualPedido });
 
-  if (!itemsData || !itemsData.componentesAgrupados) {
+  if (!itemsData) {
     console.warn('[Filtro Pedido] No hay datos cargados');
+    return;
+  }
+
+  // Vista de Items Individuales
+  if (vistaActualPedido === 'items') {
+    if (!itemsData.itemsIndividuales) {
+      console.warn('[Filtro Pedido] No hay items individuales cargados');
+      return;
+    }
+
+    const filteredItems = itemsData.itemsIndividuales.filter(item => {
+      // 1. Filtrar por texto: código o nombre del item
+      const matchBusqueda = !busqueda ||
+        (item.codigo_item && item.codigo_item.toLowerCase().includes(busqueda)) ||
+        (item.nombre_item && item.nombre_item.toLowerCase().includes(busqueda));
+
+      // 2. Filtrar por capítulo
+      const matchCapitulo = !capituloId ||
+        String(item.id_capitulo) === String(capituloId);
+
+      // 3. Filtrar por tipo (en componentes del item)
+      const matchTipo = !tipo ||
+        (item.componentes && item.componentes.some(comp => comp.tipo_componente === tipo));
+
+      return matchBusqueda && matchCapitulo && matchTipo;
+    });
+
+    console.log(`[Filtro Pedido - Items] Resultados: ${filteredItems.length} de ${itemsData.itemsIndividuales.length}`);
+
+    // Actualizar contador
+    const contadorMateriales = document.getElementById("contadorMateriales");
+    if (contadorMateriales) {
+      contadorMateriales.textContent = `${filteredItems.length} items`;
+    }
+
+    // Configurar paginador con items filtrados
+    if (typeof paginador !== 'undefined' && paginador.configurar) {
+      // Sobreescribir temporalmente la función mostrarItemsEnVista del paginador
+      const originalMostrarItems = paginador.mostrarItemsEnVista.bind(paginador);
+      paginador.mostrarItemsEnVista = function(items) {
+        mostrarItemsIndividualesEnVista(items);
+      };
+      paginador.configurar(filteredItems);
+      // Restaurar función original
+      paginador.mostrarItemsEnVista = originalMostrarItems;
+    } else {
+      mostrarItemsIndividualesEnVista(filteredItems);
+    }
+    return;
+  }
+
+  // Vista de Productos Agrupados (por defecto)
+  if (!itemsData.componentesAgrupados) {
+    console.warn('[Filtro Pedido] No hay componentes agrupados cargados');
     return;
   }
 
   const filteredItems = itemsData.componentesAgrupados.filter(item => {
     // 1. Filtrar por texto: nombre o descripción
-    const matchBusqueda = !busqueda || 
-      (item.nombre_componente && item.nombre_componente.toLowerCase().includes(busqueda)) || 
+    const matchBusqueda = !busqueda ||
+      (item.nombre_componente && item.nombre_componente.toLowerCase().includes(busqueda)) ||
       (item.descripcion && item.descripcion.toLowerCase().includes(busqueda));
 
     // 2. Filtrar por capítulo (usando id_capitulo del componente serializado)
-    const matchCapitulo = !capituloId || 
+    const matchCapitulo = !capituloId ||
       item.items_que_usan?.some(uso => String(uso.id_capitulo) === String(capituloId));
 
     // 3. Filtrar por tipo (material, mano_obra, etc.)
@@ -4879,6 +5170,151 @@ function filtrarMaterialesPedido() {
 }
 
 /**
+ * Muestra items individuales en la vista (usado por el paginador en modo items)
+ */
+function mostrarItemsIndividualesEnVista(items) {
+  const container = document.getElementById("materialesList");
+
+  if (!items || items.length === 0) {
+    container.innerHTML = `
+      <div class="text-center text-muted py-5">
+        <div class="spinner-border text-muted" role="status"></div>
+        <p class="mt-3">No hay items que coincidan con los filtros</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = `
+    <div class="alert alert-info mb-3">
+      <strong>Vista por Items:</strong>
+      Cada item muestra sus componentes asociados. Haga clic en "Ver Componentes" para desglosar.
+    </div>
+  `;
+
+  items.forEach((item) => {
+    const componentes = item.componentes || [];
+    const tieneComponentes = componentes.length > 0;
+    const unidad = item.unidad || "UND";
+
+    html += `
+      <div class="card mb-3 shadow-sm item-card" data-id="${item.id_item}">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <div>
+            <h6 class="mb-0">
+              <strong>${item.codigo_item}</strong> - ${item.nombre_item}
+            </h6>
+            <small class="text-muted">${item.nombre_capitulo || 'Sin capítulo'} | Unidad: ${unidad}</small>
+          </div>
+          <div>
+            <span class="badge bg-primary">${componentes.length} componentes</span>
+            ${tieneComponentes ? `
+              <button class="btn btn-sm btn-outline-info ms-2" onclick="toggleDesgloseItem('${item.id_item}')">
+                Ver Componentes
+              </button>
+            ` : ''}
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row mb-2">
+            <div class="col-md-4">
+              <small class="text-muted">Cantidad Item:</small>
+              <strong>${parseFloat(item.cantidad || 0).toFixed(4)} ${unidad}</strong>
+            </div>
+            <div class="col-md-4">
+              <small class="text-muted">Precio Unit.:</small>
+              <strong>$${formatCurrency(item.precio_unitario)}</strong>
+            </div>
+            <div class="col-md-4">
+              <small class="text-muted">Subtotal:</small>
+              <strong>$${formatCurrency(item.subtotal)}</strong>
+            </div>
+          </div>
+
+          ${tieneComponentes ? `
+            <div id="desglose-item-${item.id_item}" style="display: none;" class="mt-3">
+              <hr>
+              <h6 class="text-primary mb-3">Componentes del Item</h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered tabla-componentes-item" data-item-id="${item.id_item}">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Componente</th>
+                      <th>Tipo</th>
+                      <th>Unidad</th>
+                      <th class="text-end">Cant. por Unidad</th>
+                      <th class="text-end">Cant. Total Necesaria</th>
+                      <th class="text-end">Precio Unit.</th>
+                      <th class="text-end">Subtotal</th>
+                      <th class="text-end">Cant. a Pedir</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${componentes.map((comp) => {
+                      const cantidadPorUnidad = parseFloat(comp.cantidad) || 0;
+                      const cantidadTotalNecesaria = cantidadPorUnidad * (parseFloat(item.cantidad) || 0);
+                      const precioUnitario = parseFloat(comp.precio_unitario) || 0;
+                      const subtotal = cantidadTotalNecesaria * precioUnitario;
+                      const unidadComp = comp.unidad || "UND";
+                      const pedidoActual = parseFloat(comp.pedido || 0);
+
+                      return `
+                        <tr>
+                          <td><strong>${comp.descripcion || 'Sin descripción'}</strong></td>
+                          <td><span class="badge ${obtenerClaseBadgeTipo(comp.tipo_componente || 'material')}">${obtenerNombreTipoComponente(comp.tipo_componente || 'material')}</span></td>
+                          <td>${unidadComp}</td>
+                          <td class="text-end">${cantidadPorUnidad.toFixed(4)} ${unidadComp}</td>
+                          <td class="text-end">${cantidadTotalNecesaria.toFixed(4)} ${unidadComp}</td>
+                          <td class="text-end">$${formatCurrency(precioUnitario)}</td>
+                          <td class="text-end">$${formatCurrency(subtotal)}</td>
+                          <td class="text-end" style="width: 150px;">
+                            <div class="input-group input-group-sm">
+                              <input type="number"
+                                     class="form-control form-control-sm cantidad-componente-item-por-item"
+                                     value="${pedidoActual.toFixed(4)}"
+                                     min="0"
+                                     step="0.0001"
+                                     data-item-id="${item.id_item}"
+                                     data-componente-id="${comp.id_componente}"
+                                     data-precio="${precioUnitario}"
+                                     data-unidad="${unidadComp}"
+                                     onchange="actualizarCantidadComponentePorItem(this)">
+                              <span class="input-group-text">${unidadComp}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                  <tfoot class="table-light">
+                    <tr>
+                      <td colspan="6" class="text-end"><strong>Total Componentes:</strong></td>
+                      <td class="text-end"><strong>$${formatCurrency(componentes.reduce((sum, comp) => {
+                        const cantTotal = (parseFloat(comp.cantidad) || 0) * (parseFloat(item.cantidad) || 0);
+                        return sum + (cantTotal * (parseFloat(comp.precio_unitario) || 0));
+                      }, 0))}</strong></td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          ` : '<div class="text-muted small"><i class="bi bi-info-circle"></i> Este item no tiene componentes asociados.</div>'}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+/**
  * Carga el catálogo de proveedores para matching en cotizaciones
  */
 window.filtrarMaterialesPedido = filtrarMaterialesPedido;
+window.cambiarVistaPedido = cambiarVistaPedido;
+window.mostrarItemsPorItem = mostrarItemsPorItem;
+window.mostrarItemsIndividualesEnVista = mostrarItemsIndividualesEnVista;
+window.toggleDesgloseItem = toggleDesgloseItem;
+window.actualizarCantidadComponentePorItem = actualizarCantidadComponentePorItem;
+window.sincronizarPedidoConComponenteAgrupado = sincronizarPedidoConComponenteAgrupado;
