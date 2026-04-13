@@ -1,3 +1,146 @@
+// Clave para localStorage del carrito
+const CARRITO_STORAGE_KEY = 'pedido_carrito_temp';
+
+/**
+ * Guarda el estado del carrito en localStorage
+ */
+function guardarCarritoEnStorage() {
+  try {
+    const carritoData = {
+      proyectoId: seleccionActual?.datos?.proyectoId || null,
+      presupuestoId: seleccionActual?.datos?.presupuestoId || null,
+      componentesAgrupados: itemsData?.componentesAgrupados?.map(c => ({
+        id_componente: c.id_componente,
+        pedido: c.pedido || 0,
+        items_que_usan: c.items_que_usan?.map(i => ({
+          id_item: i.id_item,
+          pedido_actual: i.pedido_actual || 0
+        })) || []
+      })) || [],
+      itemsIndividuales: itemsData?.itemsIndividuales?.map(item => ({
+        id_item: item.id_item,
+        componentes: item.componentes?.map(comp => ({
+          id_componente: comp.id_componente,
+          pedido: comp.pedido || 0
+        })) || []
+      })) || [],
+      materialesExtra: materialesExtra || [],
+      pedidosFueraPresupuesto: pedidosFueraPresupuesto || [],
+      timestamp: new Date().toISOString()
+    };
+    localStorage.setItem(CARRITO_STORAGE_KEY, JSON.stringify(carritoData));
+    console.log('[Carrito] Guardado en localStorage');
+  } catch (error) {
+    console.error('[Carrito] Error guardando en localStorage:', error);
+  }
+}
+
+/**
+ * Carga el estado del carrito desde localStorage
+ * Retorna true si se cargó algo, false si no
+ */
+function cargarCarritoDesdeStorage() {
+  try {
+    const stored = localStorage.getItem(CARRITO_STORAGE_KEY);
+    if (!stored) {
+      console.log('[Carrito] No hay carrito guardado en localStorage');
+      return false;
+    }
+
+    const carritoData = JSON.parse(stored);
+    
+    // Verificar que el carrito corresponda al proyecto/presupuesto actual
+    const currentProyectoId = seleccionActual?.datos?.proyectoId;
+    const currentPresupuestoId = seleccionActual?.datos?.presupuestoId;
+    
+    if (!currentProyectoId || !currentPresupuestoId) {
+      console.log('[Carrito] No hay proyecto/presupuesto seleccionado para cargar carrito');
+      return false;
+    }
+
+    // Verificar que el carrito guardado corresponda al proyecto/presupuesto actual
+    if (String(carritoData.proyectoId) !== String(currentProyectoId) ||
+        String(carritoData.presupuestoId) !== String(currentPresupuestoId)) {
+      console.log('[Carrito] El carrito guardado es de otro proyecto/presupuesto');
+      return false;
+    }
+
+    console.log('[Carrito] Cargando desde localStorage...');
+
+    // Restaurar pedidos en componentes agrupados
+    if (itemsData?.componentesAgrupados && carritoData.componentesAgrupados) {
+      carritoData.componentesAgrupados.forEach(storedComp => {
+        const comp = itemsData.componentesAgrupados.find(
+          c => String(c.id_componente) === String(storedComp.id_componente)
+        );
+        if (comp) {
+          comp.pedido = storedComp.pedido || 0;
+          // Restaurar pedidos en items individuales del desglose
+          if (comp.items_que_usan && storedComp.items_que_usan) {
+            storedComp.items_que_usan.forEach(storedItem => {
+              const item = comp.items_que_usan.find(
+                i => String(i.id_item) === String(storedItem.id_item)
+              );
+              if (item) {
+                item.pedido_actual = storedItem.pedido_actual || 0;
+              }
+            });
+          }
+        }
+      });
+    }
+
+    // Restaurar pedidos en items individuales
+    if (itemsData?.itemsIndividuales && carritoData.itemsIndividuales) {
+      carritoData.itemsIndividuales.forEach(storedItem => {
+        const item = itemsData.itemsIndividuales.find(
+          i => String(i.id_item) === String(storedItem.id_item)
+        );
+        if (item && item.componentes && storedItem.componentes) {
+          storedItem.componentes.forEach(storedComp => {
+            const comp = item.componentes.find(
+              c => String(c.id_componente) === String(storedComp.id_componente)
+            );
+            if (comp) {
+              comp.pedido = storedComp.pedido || 0;
+            }
+          });
+        }
+      });
+    }
+
+    // Restaurar materiales extra
+    if (carritoData.materialesExtra && Array.isArray(carritoData.materialesExtra)) {
+      materialesExtra.length = 0;
+      materialesExtra.push(...carritoData.materialesExtra);
+    }
+
+    // Restaurar pedidos fuera de presupuesto
+    if (carritoData.pedidosFueraPresupuesto && Array.isArray(carritoData.pedidosFueraPresupuesto)) {
+      pedidosFueraPresupuesto.length = 0;
+      pedidosFueraPresupuesto.push(...carritoData.pedidosFueraPresupuesto);
+    }
+
+    console.log('[Carrito] Carrito cargado exitosamente desde localStorage');
+    return true;
+  } catch (error) {
+    console.error('[Carrito] Error cargando desde localStorage:', error);
+    return false;
+  }
+}
+
+/**
+ * Limpia el carrito del localStorage
+ */
+function limpiarCarritoStorage() {
+  try {
+    localStorage.removeItem(CARRITO_STORAGE_KEY);
+    console.log('[Carrito] Carrito eliminado de localStorage');
+  } catch (error) {
+    console.error('[Carrito] Error limpiando localStorage:', error);
+  }
+}
+
 var proyectosData = [];
 var itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
 var materialesExtra = [];
@@ -10,8 +153,6 @@ var vistaActualPedido = 'productos';
 // Control de peticiones concurrentes para evitar condiciones de carrera al cambiar proyecto
 var _presupuestosAbortController = null;
 var _presupuestosRequestToken = 0;
-
-
 
 function resetarGestion() {
   itemsData = { componentesAgrupados: [], itemsIndividuales: [] };
@@ -658,6 +799,9 @@ function actualizarPedidoItemDesdeInput(input, cantidad) {
   }
   actualizarEstadisticas();
   renderMaterialesExtraCard();
+
+  // Guardar carrito en localStorage
+  guardarCarritoEnStorage();
 }
 
 function actualizarTotalesDesglose(componente) {
@@ -1314,7 +1458,16 @@ async function cargarItems() {
 
 
       mostrarItemsConComponentes(items);
-      
+
+      // Cargar carrito guardado desde localStorage (persistencia)
+      const carritoCargado = cargarCarritoDesdeStorage();
+      if (carritoCargado) {
+        // Si se cargó un carrito, actualizar la UI para reflejarlo
+        console.log('[Carrito] Carrito persistido cargado, actualizando UI...');
+        // Re-renderizar para mostrar los valores del carrito cargado
+        filtrarMaterialesPedido();
+      }
+
       // Aplicar filtros automáticamente si hay alguno seleccionado
       setTimeout(filtrarMaterialesPedido, 0);
 
@@ -1793,6 +1946,7 @@ function actualizarEstadisticas() {
   let totalCantidad = 0;
   let valorTotal = 0;
 
+  // Procesar vista de productos agrupados
   if (itemsData && itemsData.componentesAgrupados) {
     itemsData.componentesAgrupados.forEach((componente) => {
       if (componente.pedido > 0) {
@@ -1800,6 +1954,21 @@ function actualizarEstadisticas() {
         totalCantidad += componente.pedido;
         valorTotal += componente.pedido * componente.precio_unitario;
       }
+    });
+  }
+
+  // Procesar vista de items individuales
+  if (itemsData && itemsData.itemsIndividuales && Array.isArray(itemsData.itemsIndividuales)) {
+    itemsData.itemsIndividuales.forEach((item) => {
+      if (!item.componentes || !Array.isArray(item.componentes)) return;
+      item.componentes.forEach((componente) => {
+        const cantidadPedido = parseFloat(componente.pedido) || 0;
+        if (cantidadPedido > 0) {
+          componentesSeleccionados++;
+          totalCantidad += cantidadPedido;
+          valorTotal += cantidadPedido * (parseFloat(componente.precio_unitario) || 0);
+        }
+      });
     });
   }
 
@@ -1849,23 +2018,50 @@ function renderResumenCarrito() {
   const itemsCarrito = [];
   const itemsFueraPresupuesto = [];
 
-  if (itemsData && Array.isArray(itemsData.componentesAgrupados)) {
-    itemsData.componentesAgrupados.forEach((componente) => {
-      if (!Array.isArray(componente.items_que_usan)) return;
-      componente.items_que_usan.forEach((item) => {
-        const cantidad = parseFloat(item.pedido_actual) || 0;
-        if (cantidad <= 0) return;
+  // Determinar qué vista está activa
+  const vistaActual = window.vistaActualPedido || 'productos';
 
-        const precio = parseFloat(componente.precio_unitario) || 0;
-        itemsCarrito.push({
-          titulo: `${item.codigo_item} - ${componente.nombre_componente}`,
-          detalle: item.nombre_item,
-          unidad: componente.unidad_componente || componente.unidad || 'UND',
-          cantidad,
-          subtotal: cantidad * precio,
+  // Procesar según la vista activa
+  if (vistaActual === 'items') {
+    // Vista por items - solo procesar itemsIndividuales
+    if (itemsData && Array.isArray(itemsData.itemsIndividuales)) {
+      itemsData.itemsIndividuales.forEach((item) => {
+        if (!Array.isArray(item.componentes)) return;
+        item.componentes.forEach((componente) => {
+          const cantidad = parseFloat(componente.pedido) || 0;
+          if (cantidad <= 0) return;
+
+          const precio = parseFloat(componente.precio_unitario) || 0;
+          itemsCarrito.push({
+            titulo: `${item.codigo_item} - ${componente.descripcion || componente.nombre_componente}`,
+            detalle: item.nombre_item,
+            unidad: componente.unidad || 'UND',
+            cantidad,
+            subtotal: cantidad * precio,
+          });
         });
       });
-    });
+    }
+  } else {
+    // Vista por productos (agrupada) - solo procesar componentesAgrupados
+    if (itemsData && Array.isArray(itemsData.componentesAgrupados)) {
+      itemsData.componentesAgrupados.forEach((componente) => {
+        if (!Array.isArray(componente.items_que_usan)) return;
+        componente.items_que_usan.forEach((item) => {
+          const cantidad = parseFloat(item.pedido_actual) || 0;
+          if (cantidad <= 0) return;
+
+          const precio = parseFloat(componente.precio_unitario) || 0;
+          itemsCarrito.push({
+            titulo: `${item.codigo_item} - ${componente.nombre_componente}`,
+            detalle: item.nombre_item,
+            unidad: componente.unidad_componente || componente.unidad || 'UND',
+            cantidad,
+            subtotal: cantidad * precio,
+          });
+        });
+      });
+    }
   }
 
   if (Array.isArray(materialesExtra) && materialesExtra.length > 0) {
@@ -2198,6 +2394,9 @@ function eliminarMaterialExtra(index) {
       actualizarCarrito();
     }
     renderMaterialesExtraCard();
+
+    // Guardar carrito en localStorage
+    guardarCarritoEnStorage();
   }
 }
 
@@ -2208,6 +2407,9 @@ function eliminarPedidoExtra(index) {
     if (typeof actualizarCarrito === 'function') {
       actualizarCarrito();
     }
+
+    // Guardar carrito en localStorage
+    guardarCarritoEnStorage();
   }
 }
 
@@ -2347,6 +2549,9 @@ function confirmarPedidoExtra() {
       actualizarCarrito();
     }
 
+    // Guardar carrito en localStorage
+    guardarCarritoEnStorage();
+
     delete window.pedidoExtraTemp;
 
     alert("Pedido fuera de presupuesto agregado. Requiere aprobación.");
@@ -2370,48 +2575,78 @@ async function confirmarPedido() {
 
   const componentesConPedido = [];
 
-  // CAMBIADO: Ahora enviamos los pedidos por ITEM, no por componente agregado
-  if (itemsData.componentesAgrupados) {
-    itemsData.componentesAgrupados.forEach((componente) => {
-      // Verificar si hay pedidos en items individuales (desglose)
-      if (componente.items_que_usan && Array.isArray(componente.items_que_usan)) {
-        componente.items_que_usan.forEach((item) => {
-          const cantidadItem = parseFloat(item.pedido_actual) || 0;
-          if (cantidadItem > 0) {
-            // Usar id_componente_original del item (preservado durante agrupación)
-            // Esto asegura que cada pedido se guarde con el componente correcto
-            const idComponenteParaGuardar = item.id_componente_original || componente.id_componente;
+  // Determinar qué vista está activa
+  const vistaActual = window.vistaActualPedido || 'productos';
 
+  if (vistaActual === 'items') {
+    // VISTA POR ITEMS: Procesar solo itemsIndividuales
+    if (itemsData.itemsIndividuales && Array.isArray(itemsData.itemsIndividuales)) {
+      itemsData.itemsIndividuales.forEach((item) => {
+        if (!item.componentes || !Array.isArray(item.componentes)) return;
+
+        item.componentes.forEach((componente) => {
+          const cantidadPedido = parseFloat(componente.pedido) || 0;
+          if (cantidadPedido > 0) {
             componentesConPedido.push({
-              id_componente: idComponenteParaGuardar, // ID específico del item
-              nombre_componente: componente.nombre_componente,
-              tipo_componente: componente.tipo_componente,
-              unidad_componente: componente.unidad_componente,
-              precio_unitario: componente.precio_unitario,
-              pedido: cantidadItem,
-              id_item: item.id_item, // ¡CRÍTICO! Agregar id_item
-              total_necesario: componente.total_necesario,
-              capitulos: componente.capitulos,
+              id_componente: componente.id_componente,
+              nombre_componente: componente.descripcion || componente.nombre_componente,
+              tipo_componente: componente.tipo_componente || 'material',
+              unidad_componente: componente.unidad || 'UND',
+              precio_unitario: parseFloat(componente.precio_unitario) || 0,
+              pedido: cantidadPedido,
+              id_item: item.id_item,
+              codigo_item: item.codigo_item,
+              nombre_item: item.nombre_item,
+              total_necesario: (parseFloat(componente.cantidad) || 0) * (parseFloat(item.cantidad) || 0),
             });
           }
         });
-      }
-      // Si no hay desglose por items, enviar el pedido agregado (compatibilidad)
-      else if (componente.pedido > 0) {
-        componentesConPedido.push({
-          id_componente: componente.id_componente,
-          nombre_componente: componente.nombre_componente,
-          tipo_componente: componente.tipo_componente,
-          unidad_componente: componente.unidad_componente,
-          precio_unitario: componente.precio_unitario,
-          pedido: componente.pedido,
-          id_item: null, // Sin id_item específico (pedidos antiguos)
-          total_necesario: componente.total_necesario,
-          capitulos: componente.capitulos,
-        });
-      }
-    });
+      });
+    }
+  } else {
+    // VISTA POR PRODUCTOS (agrupada): Procesar solo componentesAgrupados
+    if (itemsData.componentesAgrupados) {
+      itemsData.componentesAgrupados.forEach((componente) => {
+        // Verificar si hay pedidos en items individuales (desglose)
+        if (componente.items_que_usan && Array.isArray(componente.items_que_usan)) {
+          componente.items_que_usan.forEach((item) => {
+            const cantidadItem = parseFloat(item.pedido_actual) || 0;
+            if (cantidadItem > 0) {
+              // Usar id_componente_original del item (preservado durante agrupación)
+              const idComponenteParaGuardar = item.id_componente_original || componente.id_componente;
+
+              componentesConPedido.push({
+                id_componente: idComponenteParaGuardar,
+                nombre_componente: componente.nombre_componente,
+                tipo_componente: componente.tipo_componente,
+                unidad_componente: componente.unidad_componente,
+                precio_unitario: componente.precio_unitario,
+                pedido: cantidadItem,
+                id_item: item.id_item,
+                total_necesario: componente.total_necesario,
+                capitulos: componente.capitulos,
+              });
+            }
+          });
+        }
+        // Si no hay desglose por items, enviar el pedido agregado (compatibilidad)
+        else if (componente.pedido > 0) {
+          componentesConPedido.push({
+            id_componente: componente.id_componente,
+            nombre_componente: componente.nombre_componente,
+            tipo_componente: componente.tipo_componente,
+            unidad_componente: componente.unidad_componente,
+            precio_unitario: componente.precio_unitario,
+            pedido: componente.pedido,
+            id_item: null,
+            total_necesario: componente.total_necesario,
+            capitulos: componente.capitulos,
+          });
+        }
+      });
+    }
   }
+
   if (
     componentesConPedido.length === 0 &&
     materialesExtra.length === 0 &&
@@ -2472,6 +2707,9 @@ async function confirmarPedido() {
           it.componentes?.forEach((c) => (c.pedido = 0))
         );
       }
+
+      // Limpiar carrito de localStorage (persistencia)
+      limpiarCarritoStorage();
 
       if (typeof actualizarCarrito === 'function') {
         actualizarCarrito();
@@ -2670,6 +2908,9 @@ function actualizarCantidadComponenteAgrupado(input) {
   }
   actualizarEstadisticas();
   renderMaterialesExtraCard();
+
+  // Guardar carrito en localStorage
+  guardarCarritoEnStorage();
 }
 
 // FUNCIONES PARA RESUMEN Y EXPORTACIÓN
@@ -4948,6 +5189,7 @@ function mostrarItemsPorItem() {
                       <th class="text-end">Precio Unit.</th>
                       <th class="text-end">Subtotal</th>
                       <th class="text-end">Cant. a Pedir</th>
+                      <th class="text-center">Acción</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4971,17 +5213,25 @@ function mostrarItemsPorItem() {
                           <td class="text-end" style="width: 150px;">
                             <div class="input-group input-group-sm">
                               <input type="number"
-                                     class="form-control form-control-sm cantidad-componente-item-por-item"
-                                     value="${pedidoActual.toFixed(4)}"
-                                     min="0"
-                                     step="0.0001"
-                                     data-item-id="${item.id_item}"
-                                     data-componente-id="${comp.id_componente}"
-                                     data-precio="${precioUnitario}"
-                                     data-unidad="${unidadComp}"
-                                     onchange="actualizarCantidadComponentePorItem(this)">
+                                    class="form-control form-control-sm cantidad-componente-item-por-item"
+                                    value="${pedidoActual.toFixed(4)}"
+                                    min="0"
+                                    max="${cantidadTotalNecesaria.toFixed(4)}"
+                                    step="0.0001"
+                                    data-item-id="${item.id_item}"
+                                    data-componente-id="${comp.id_componente}"
+                                    data-precio="${precioUnitario}"
+                                    data-unidad="${unidadComp}"
+                                    data-max="${cantidadTotalNecesaria.toFixed(4)}"
+                                    onchange="actualizarCantidadComponentePorItem(this)">
                               <span class="input-group-text">${unidadComp}</span>
                             </div>
+                            <small class="text-muted">Máx: ${cantidadTotalNecesaria.toFixed(4)}</small>
+                          </td>
+                          <td class="text-center">
+                            <button class="btn btn-sm btn-outline-success" type="button" onclick="agregarMaximoCantidadPorItem(this)" data-item-id="${item.id_item}" data-componente-id="${comp.id_componente}">
+                              <i class="bi bi-plus-circle"></i>
+                            </button>
                           </td>
                         </tr>
                       `;
@@ -5047,6 +5297,9 @@ function actualizarCantidadComponentePorItem(input) {
 
       // Actualizar estadísticas
       actualizarEstadisticas();
+
+      // Guardar carrito en localStorage
+      guardarCarritoEnStorage();
     }
   }
 }
@@ -5247,6 +5500,7 @@ function mostrarItemsIndividualesEnVista(items) {
                       <th class="text-end">Precio Unit.</th>
                       <th class="text-end">Subtotal</th>
                       <th class="text-end">Cant. a Pedir</th>
+                      <th class="text-center">Acción</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -5273,14 +5527,22 @@ function mostrarItemsIndividualesEnVista(items) {
                                      class="form-control form-control-sm cantidad-componente-item-por-item"
                                      value="${pedidoActual.toFixed(4)}"
                                      min="0"
+                                     max="${cantidadTotalNecesaria.toFixed(4)}"
                                      step="0.0001"
                                      data-item-id="${item.id_item}"
                                      data-componente-id="${comp.id_componente}"
                                      data-precio="${precioUnitario}"
                                      data-unidad="${unidadComp}"
+                                     data-max="${cantidadTotalNecesaria.toFixed(4)}"
                                      onchange="actualizarCantidadComponentePorItem(this)">
                               <span class="input-group-text">${unidadComp}</span>
                             </div>
+                            <small class="text-muted">Máx: ${cantidadTotalNecesaria.toFixed(4)}</small>
+                          </td>
+                          <td class="text-center">
+                            <button class="btn btn-sm btn-outline-success" type="button" onclick="agregarMaximoCantidadPorItem(this)" data-item-id="${item.id_item}" data-componente-id="${comp.id_componente}">
+                              <i class="bi bi-plus-circle"></i>
+                            </button>
                           </td>
                         </tr>
                       `;
@@ -5307,6 +5569,46 @@ function mostrarItemsIndividualesEnVista(items) {
 
   container.innerHTML = html;
 }
+
+/**
+ * Agrega la cantidad máxima permitida al pedido desde la vista por items
+ */
+function agregarMaximoCantidadPorItem(button) {
+  const itemId = button.dataset.itemId;
+  const componenteId = button.dataset.componenteId;
+  
+  // Buscar el item y componente
+  const item = itemsData.itemsIndividuales?.find(i => String(i.id_item) === String(itemId));
+  if (!item || !item.componentes) return;
+  
+  const componente = item.componentes.find(c => String(c.id_componente) === String(componenteId));
+  if (!componente) return;
+  
+  // Calcular cantidad máxima
+  const cantidadPorUnidad = parseFloat(componente.cantidad) || 0;
+  const cantidadItem = parseFloat(item.cantidad) || 0;
+  const cantidadMaxima = cantidadPorUnidad * cantidadItem;
+  
+  // Actualizar el pedido
+  componente.pedido = cantidadMaxima;
+  
+  // Actualizar el input
+  const input = document.querySelector(`input.cantidad-componente-item-por-item[data-item-id="${itemId}"][data-componente-id="${componenteId}"]`);
+  if (input) {
+    input.value = cantidadMaxima.toFixed(4);
+  }
+  
+  // Sincronizar con vista agrupada
+  sincronizarPedidoConComponenteAgrupado(itemId, componenteId, cantidadMaxima);
+  
+  // Actualizar estadísticas y carrito
+  actualizarEstadisticas();
+  
+  // Guardar carrito en localStorage
+  guardarCarritoEnStorage();
+}
+
+window.agregarMaximoCantidadPorItem = agregarMaximoCantidadPorItem;
 
 /**
  * Carga el catálogo de proveedores para matching en cotizaciones
