@@ -121,6 +121,13 @@ function cargarCarritoDesdeStorage() {
       pedidosFueraPresupuesto.push(...carritoData.pedidosFueraPresupuesto);
     }
 
+    // Sincronizar datos entre vistas para mantener consistencia
+    // Si hay datos en agrupados pero no en individuales, o viceversa, sincronizar
+    if (itemsData?.componentesAgrupados && itemsData?.itemsIndividuales) {
+      console.log('[Carrito] Sincronizando datos entre vistas...');
+      sincronizarDatosEntreVistas();
+    }
+
     console.log('[Carrito] Carrito cargado exitosamente desde localStorage');
     return true;
   } catch (error) {
@@ -5106,6 +5113,184 @@ function cambiarVistaPedido(vista) {
 
   // Aplicar filtros para mostrar la vista correspondiente
   filtrarMaterialesPedido();
+
+  // Sincronizar valores del carrito con la nueva vista
+  // Mayor delay para dar tiempo al paginador a renderizar
+  setTimeout(() => sincronizarCarritoConVistaActiva(), 300);
+}
+
+/**
+ * Sincroniza los valores del carrito con la vista activa
+ * Se ejecuta al cambiar entre vistas para mostrar las cantidades pedidas
+ */
+function sincronizarCarritoConVistaActiva() {
+  console.log('[Sincronización] Sincronizando carrito con vista:', vistaActualPedido);
+
+  if (vistaActualPedido === 'items') {
+    // Sincronizar desde componentes agrupados hacia items individuales
+    sincronizarCarritoAVistaItems();
+  } else {
+    // Sincronizar desde items individuales hacia componentes agrupados
+    sincronizarCarritoAVistaAgrupada();
+  }
+  sincronizarDatosEntreVistas();
+}
+
+/**
+ * Sincroniza los datos del carrito entre las dos estructuras de datos
+ * Asegura que componentesAgrupados e itemsIndividuales tengan los mismos valores de pedido
+ */
+function sincronizarDatosEntreVistas() {
+  if (!itemsData?.componentesAgrupados || !itemsData?.itemsIndividuales) return;
+
+  console.log('[Sincronización] Sincronizando datos entre vistas...');
+
+  // Primero, verificar si hay datos en componentes agrupados que deban ir a items individuales
+  let totalSincronizadosAItems = 0;
+  itemsData.componentesAgrupados.forEach(compAgrupado => {
+    if (!compAgrupado.items_que_usan) return;
+
+    compAgrupado.items_que_usan.forEach(uso => {
+      const cantidadPedida = parseFloat(uso.pedido_actual) || 0;
+      if (cantidadPedida === 0) return;
+
+      const item = itemsData.itemsIndividuales.find(it => String(it.id_item) === String(uso.id_item));
+      if (!item || !item.componentes) return;
+
+      item.componentes.forEach(comp => {
+        const esMismoComponente =
+          (uso.id_componente_original && String(comp.id_componente) === String(uso.id_componente_original)) ||
+          (comp.descripcion && compAgrupado.nombre_componente && comp.descripcion === compAgrupado.nombre_componente);
+
+        if (esMismoComponente) {
+          if (parseFloat(comp.pedido || 0) !== cantidadPedida) {
+            comp.pedido = cantidadPedida;
+            totalSincronizadosAItems++;
+          }
+        }
+      });
+    });
+  });
+
+  // Luego, verificar si hay datos en items individuales que deban ir a componentes agrupados
+  let totalSincronizadosAAgrupados = 0;
+  itemsData.itemsIndividuales.forEach(item => {
+    if (!item.componentes) return;
+
+    item.componentes.forEach(comp => {
+      const cantidad = parseFloat(comp.pedido) || 0;
+      if (cantidad === 0) return;
+
+      // Buscar el componente agrupado correspondiente
+      itemsData.componentesAgrupados.forEach(compAgrupado => {
+        const esMismoComponente =
+          comp.descripcion && compAgrupado.nombre_componente && comp.descripcion === compAgrupado.nombre_componente;
+
+        if (esMismoComponente && compAgrupado.items_que_usan) {
+          const uso = compAgrupado.items_que_usan.find(u => String(u.id_item) === String(item.id_item));
+          if (uso) {
+            if (parseFloat(uso.pedido_actual || 0) !== cantidad) {
+              uso.pedido_actual = cantidad;
+              totalSincronizadosAAgrupados++;
+            }
+          }
+        }
+      });
+    });
+  });
+
+  console.log(`[Sincronización] ${totalSincronizadosAItems} componentes actualizados en items individuales, ${totalSincronizadosAAgrupados} en componentes agrupados`);
+}
+
+/**
+ * Sincroniza el carrito hacia la vista por items
+ * Copia los valores de items_que_usan.pedido_actual a los componentes individuales
+ */
+function sincronizarCarritoAVistaItems() {
+  if (!itemsData.componentesAgrupados || !itemsData.itemsIndividuales) return;
+
+  // Para cada componente agrupado, sincronizar sus items
+  itemsData.componentesAgrupados.forEach(compAgrupado => {
+    if (!compAgrupado.items_que_usan) return;
+
+    compAgrupado.items_que_usan.forEach(uso => {
+      const itemId = uso.id_item;
+      const cantidadPedida = parseFloat(uso.pedido_actual) || 0;
+
+      // Buscar el item individual correspondiente
+      const item = itemsData.itemsIndividuales.find(it => String(it.id_item) === String(itemId));
+      if (!item || !item.componentes) return;
+
+      // Buscar el componente dentro del item (por id_componente_original o descripción)
+      item.componentes.forEach(comp => {
+        const esMismoComponente =
+          (uso.id_componente_original && String(comp.id_componente) === String(uso.id_componente_original)) ||
+          (comp.descripcion && compAgrupado.nombre_componente && comp.descripcion === compAgrupado.nombre_componente);
+
+        if (esMismoComponente) {
+          // Actualizar el pedido en el componente del item
+          comp.pedido = cantidadPedida;
+
+          // Actualizar el input si existe en el DOM
+          const input = document.querySelector(
+            `input.cantidad-componente-item-por-item[data-item-id="${itemId}"][data-componente-id="${comp.id_componente}"]`
+          );
+          if (input) {
+            input.value = cantidadPedida.toFixed(4);
+            console.log(`[Sincronización] Input actualizado: Item ${itemId}, Comp ${comp.id_componente} = ${cantidadPedida}`);
+          }
+        }
+      });
+    });
+  });
+
+  actualizarEstadisticas();
+}
+
+/**
+ * Sincroniza el carrito hacia la vista agrupada
+ * Copia los valores de pedido de los items individuales a componentesAgrupados
+ */
+function sincronizarCarritoAVistaAgrupada() {
+  if (!itemsData.componentesAgrupados || !itemsData.itemsIndividuales) return;
+
+  // Crear un mapa de pedidos desde items individuales
+  const pedidosPorComponente = new Map();
+
+  itemsData.itemsIndividuales.forEach(item => {
+    if (!item.componentes) return;
+
+    item.componentes.forEach(comp => {
+      const cantidad = parseFloat(comp.pedido) || 0;
+      if (cantidad > 0) {
+        const clave = comp.descripcion; // Usar descripción como clave
+        if (!pedidosPorComponente.has(clave)) {
+          pedidosPorComponente.set(clave, 0);
+        }
+        pedidosPorComponente.set(clave, pedidosPorComponente.get(clave) + cantidad);
+      }
+    });
+  });
+
+  // Actualizar componentes agrupados y sus inputs
+  itemsData.componentesAgrupados.forEach(compAgrupado => {
+    const pedidoTotal = pedidosPorComponente.get(compAgrupado.nombre_componente) || 0;
+
+    if (pedidoTotal > 0) {
+      compAgrupado.pedido = pedidoTotal;
+
+      // Actualizar input si existe
+      const input = document.querySelector(
+        `input.cantidad-componente[data-componente-id="${compAgrupado.id_componente}"]`
+      );
+      if (input) {
+        input.value = pedidoTotal.toFixed(4);
+        console.log(`[Sincronización] Input agrupado actualizado: Comp ${compAgrupado.id_componente} = ${pedidoTotal}`);
+      }
+    }
+  });
+
+  actualizarEstadisticas();
 }
 
 /**
@@ -5620,3 +5805,7 @@ window.mostrarItemsIndividualesEnVista = mostrarItemsIndividualesEnVista;
 window.toggleDesgloseItem = toggleDesgloseItem;
 window.actualizarCantidadComponentePorItem = actualizarCantidadComponentePorItem;
 window.sincronizarPedidoConComponenteAgrupado = sincronizarPedidoConComponenteAgrupado;
+window.sincronizarCarritoConVistaActiva = sincronizarCarritoConVistaActiva;
+window.sincronizarCarritoAVistaItems = sincronizarCarritoAVistaItems;
+window.sincronizarCarritoAVistaAgrupada = sincronizarCarritoAVistaAgrupada;
+window.sincronizarDatosEntreVistas = sincronizarDatosEntreVistas;
