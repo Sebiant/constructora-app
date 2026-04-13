@@ -15,13 +15,15 @@ function guardarCarritoEnStorage() {
         items_que_usan: c.items_que_usan?.map(i => ({
           id_item: i.id_item,
           pedido_actual: i.pedido_actual || 0
-        })) || []
+        })) || [],
+        anexos: c.anexos || []
       })) || [],
       itemsIndividuales: itemsData?.itemsIndividuales?.map(item => ({
         id_item: item.id_item,
         componentes: item.componentes?.map(comp => ({
           id_componente: comp.id_componente,
-          pedido: comp.pedido || 0
+          pedido: comp.pedido || 0,
+          anexos: comp.anexos || []
         })) || []
       })) || [],
       materialesExtra: materialesExtra || [],
@@ -75,6 +77,10 @@ function cargarCarritoDesdeStorage() {
         );
         if (comp) {
           comp.pedido = storedComp.pedido || 0;
+          // Restaurar anexos
+          if (storedComp.anexos) {
+            comp.anexos = storedComp.anexos;
+          }
           // Restaurar pedidos en items individuales del desglose
           if (comp.items_que_usan && storedComp.items_que_usan) {
             storedComp.items_que_usan.forEach(storedItem => {
@@ -103,6 +109,10 @@ function cargarCarritoDesdeStorage() {
             );
             if (comp) {
               comp.pedido = storedComp.pedido || 0;
+              // Restaurar anexos
+              if (storedComp.anexos) {
+                comp.anexos = storedComp.anexos;
+              }
             }
           });
         }
@@ -145,6 +155,482 @@ function limpiarCarritoStorage() {
     console.log('[Carrito] Carrito eliminado de localStorage');
   } catch (error) {
     console.error('[Carrito] Error limpiando localStorage:', error);
+  }
+}
+
+// ============================================================================
+// SISTEMA DE ANEXOS/ARCHIVOS ADJUNTOS PARA COMPONENTES
+// ============================================================================
+// Permite adjuntar archivos (PDF, Word, imágenes) a componentes específicos
+// Los archivos se guardan en: uploads/pedidos_anexos/{proyecto_id}/{presupuesto_id}/
+
+/**
+ * Abre el modal para gestionar anexos de un componente
+ * @param {string} componenteId - ID del componente
+ * @param {string} nombreComponente - Nombre para mostrar
+ * @param {string} tipoVista - 'agrupada' o 'individual'
+ * @param {string|null} itemId - ID del item (solo para vista individual)
+ */
+function abrirModalAnexos(componenteId, nombreComponente, tipoVista, itemId) {
+  const modal = document.getElementById('modalAnexosComponente');
+  if (!modal) {
+    console.error('[Anexos] Modal no encontrado');
+    return;
+  }
+
+  modal.dataset.componenteId = componenteId;
+  modal.dataset.tipoVista = tipoVista;
+  modal.dataset.itemId = itemId || '';
+
+  const titulo = document.getElementById('tituloModalAnexos');
+  if (titulo) {
+    titulo.textContent = `Anexos: ${nombreComponente}`;
+  }
+
+  cargarListaAnexos(componenteId, tipoVista, itemId);
+
+  const bsModal = new bootstrap.Modal(modal);
+  bsModal.show();
+}
+
+/**
+ * Carga la lista de anexos de un componente
+ */
+function cargarListaAnexos(componenteId, tipoVista, itemId) {
+  const container = document.getElementById('listaAnexosComponente');
+  if (!container) return;
+
+  const anexos = obtenerAnexosComponente(componenteId, tipoVista, itemId);
+
+  if (anexos.length === 0) {
+    container.innerHTML = `
+      <div class="text-center text-muted py-4">
+        <i class="bi bi-paperclip fs-1"></i>
+        <p class="mt-2">No hay anexos para este componente</p>
+        <small class="text-muted">Suba PDF, Word o imágenes para describir el pedido</small>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '<div class="list-group">';
+  anexos.forEach((anexo, index) => {
+    const icono = obtenerIconoPorExtension(anexo.extension);
+    const fecha = new Date(anexo.fecha_subida).toLocaleString('es-ES');
+
+    html += `
+      <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center">
+          <i class="bi ${icono} fs-4 me-3 text-primary"></i>
+          <div>
+            <div class="fw-semibold">${anexo.nombre_original}</div>
+            <small class="text-muted">${fecha} · ${formatearTamanio(anexo.tamanio)}</small>
+            ${anexo.descripcion ? `<div class="small text-muted mt-1">${anexo.descripcion}</div>` : ''}
+          </div>
+        </div>
+        <div class="btn-group">
+          <a href="${anexo.ruta_archivo}" target="_blank" class="btn btn-sm btn-outline-primary" title="Ver archivo">
+            <i class="bi bi-eye"></i>
+          </a>
+          <button class="btn btn-sm btn-outline-danger" onclick="eliminarAnexoComponente('${componenteId}', ${index}, '${tipoVista}', '${itemId || ''}')" title="Eliminar">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  });
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+/**
+ * Obtiene los anexos de un componente específico
+ */
+function obtenerAnexosComponente(componenteId, tipoVista, itemId) {
+  if (!itemsData) return [];
+
+  if (tipoVista === 'individual' && itemId) {
+    const item = itemsData.itemsIndividuales?.find(i => String(i.id_item) === String(itemId));
+    if (!item || !item.componentes) return [];
+
+    const componente = item.componentes.find(c => String(c.id_componente) === String(componenteId));
+    return componente?.anexos || [];
+  } else {
+    const componente = itemsData.componentesAgrupados?.find(c => String(c.id_componente) === String(componenteId));
+    return componente?.anexos || [];
+  }
+}
+
+/**
+ * Guarda un anexo en un componente
+ */
+function guardarAnexoEnComponente(componenteId, anexoData, tipoVista, itemId) {
+  if (!itemsData) return false;
+
+  if (tipoVista === 'individual' && itemId) {
+    const item = itemsData.itemsIndividuales?.find(i => String(i.id_item) === String(itemId));
+    if (!item || !item.componentes) return false;
+
+    const componente = item.componentes.find(c => String(c.id_componente) === String(componenteId));
+    if (!componente) return false;
+
+    if (!componente.anexos) componente.anexos = [];
+    componente.anexos.push(anexoData);
+  } else {
+    const componente = itemsData.componentesAgrupados?.find(c => String(c.id_componente) === String(componenteId));
+    if (!componente) return false;
+
+    if (!componente.anexos) componente.anexos = [];
+    componente.anexos.push(anexoData);
+  }
+
+  sincronizarAnexoEntreVistas(componenteId, anexoData, tipoVista, itemId);
+  return true;
+}
+
+/**
+ * Elimina un anexo de un componente (BD y servidor)
+ */
+function eliminarAnexoComponente(componenteId, indexAnexo, tipoVista, itemId) {
+  if (!confirm('¿Está seguro de eliminar este anexo?')) return;
+
+  const anexos = obtenerAnexosComponente(componenteId, tipoVista, itemId);
+  if (!anexos || anexos.length <= indexAnexo) return;
+
+  const anexo = anexos[indexAnexo];
+
+  // Llamar al backend para eliminar de BD y servidor
+  fetch(`${API_PRESUPUESTOS}?action=eliminarAnexoComponente`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id_anexo: anexo.id_anexo,
+      ruta_archivo: anexo.ruta_archivo,
+      presupuesto_id: seleccionActual?.datos?.presupuestoId,
+      item_id: itemId
+    })
+  })
+  .then(response => response.json())
+  .then(result => {
+    if (result.success) {
+      console.log('[Anexos] Eliminado de BD:', result.id_anexo);
+    } else {
+      console.warn('[Anexos] Error del servidor:', result.error);
+    }
+  })
+  .catch(err => console.error('[Anexos] Error eliminando:', err));
+
+  // Eliminar del estado local
+  if (tipoVista === 'individual' && itemId) {
+    const item = itemsData.itemsIndividuales?.find(i => String(i.id_item) === String(itemId));
+    if (item && item.componentes) {
+      const componente = item.componentes.find(c => String(c.id_componente) === String(componenteId));
+      if (componente && componente.anexos) {
+        componente.anexos.splice(indexAnexo, 1);
+      }
+    }
+  } else {
+    const componente = itemsData.componentesAgrupados?.find(c => String(c.id_componente) === String(componenteId));
+    if (componente && componente.anexos) {
+      componente.anexos.splice(indexAnexo, 1);
+    }
+  }
+
+  guardarCarritoEnStorage();
+  cargarListaAnexos(componenteId, tipoVista, itemId);
+  actualizarIndicadorAnexos(componenteId, tipoVista, itemId);
+
+  console.log('[Anexos] Anexo eliminado:', anexo.nombre_original);
+}
+
+/**
+ * Sincroniza un anexo entre vistas (agrupada e individual)
+ */
+function sincronizarAnexoEntreVistas(componenteId, anexoData, tipoVistaOrigen, itemIdOrigen) {
+  if (!itemsData) return;
+
+  if (tipoVistaOrigen === 'agrupada') {
+    const compAgrupado = itemsData.componentesAgrupados?.find(c => String(c.id_componente) === String(componenteId));
+    if (!compAgrupado || !compAgrupado.items_que_usan) return;
+
+    compAgrupado.items_que_usan.forEach(uso => {
+      const item = itemsData.itemsIndividuales?.find(i => String(i.id_item) === String(uso.id_item));
+      if (!item || !item.componentes) return;
+
+      item.componentes.forEach(comp => {
+        const esMismoComponente =
+          (uso.id_componente_original && String(comp.id_componente) === String(uso.id_componente_original)) ||
+          (comp.descripcion && compAgrupado.nombre_componente && comp.descripcion === compAgrupado.nombre_componente);
+
+        if (esMismoComponente) {
+          if (!comp.anexos) comp.anexos = [];
+          const existe = comp.anexos.some(a => a.ruta_archivo === anexoData.ruta_archivo);
+          if (!existe) {
+            comp.anexos.push({ ...anexoData });
+          }
+        }
+      });
+    });
+  } else if (tipoVistaOrigen === 'individual' && itemIdOrigen) {
+    const item = itemsData.itemsIndividuales?.find(i => String(i.id_item) === String(itemIdOrigen));
+    if (!item || !item.componentes) return;
+
+    const compIndividual = item.componentes.find(c => String(c.id_componente) === String(componenteId));
+    if (!compIndividual) return;
+
+    itemsData.componentesAgrupados?.forEach(compAgrupado => {
+      const esMismoComponente =
+        compIndividual.descripcion && compAgrupado.nombre_componente &&
+        compIndividual.descripcion === compAgrupado.nombre_componente;
+
+      if (esMismoComponente && compAgrupado.items_que_usan) {
+        const uso = compAgrupado.items_que_usan.find(u => String(u.id_item) === String(itemIdOrigen));
+        if (uso) {
+          if (!compAgrupado.anexos) compAgrupado.anexos = [];
+          const existe = compAgrupado.anexos.some(a => a.ruta_archivo === anexoData.ruta_archivo);
+          if (!existe) {
+            compAgrupado.anexos.push({ ...anexoData });
+          }
+        }
+      }
+    });
+  }
+}
+
+/**
+ * Actualiza el indicador visual de anexos en la UI
+ */
+function actualizarIndicadorAnexos(componenteId, tipoVista, itemId) {
+  const anexos = obtenerAnexosComponente(componenteId, tipoVista, itemId);
+  const badge = document.querySelector(`[data-anexo-badge="${componenteId}"]`);
+
+  if (badge) {
+    if (anexos.length > 0) {
+      badge.textContent = anexos.length;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+/**
+ * Maneja la subida de archivos desde el input file
+ */
+function manejarSubidaArchivos(input) {
+  const modal = document.getElementById('modalAnexosComponente');
+  if (!modal) return;
+
+  const componenteId = modal.dataset.componenteId;
+  const tipoVista = modal.dataset.tipoVista;
+  const itemId = modal.dataset.itemId || null;
+
+  const files = input.files;
+  if (!files || files.length === 0) return;
+
+  const descripcion = document.getElementById('descripcionAnexo')?.value || '';
+  const progressContainer = document.getElementById('progressSubidaAnexos');
+  const progressBar = document.getElementById('progressBarAnexos');
+
+  if (progressContainer) progressContainer.style.display = 'block';
+
+  let procesados = 0;
+  const total = files.length;
+
+  Array.from(files).forEach((file) => {
+    subirArchivoComponente(file, componenteId, tipoVista, itemId, descripcion)
+      .then(() => {
+        procesados++;
+        if (progressBar) {
+          progressBar.style.width = `${(procesados / total) * 100}%`;
+          progressBar.textContent = `${Math.round((procesados / total) * 100)}%`;
+        }
+
+        if (procesados === total) {
+          setTimeout(() => {
+            if (progressContainer) progressContainer.style.display = 'none';
+            if (progressBar) progressBar.style.width = '0%';
+            input.value = '';
+            document.getElementById('descripcionAnexo').value = '';
+          }, 500);
+        }
+      })
+      .catch(error => {
+        console.error('[Anexos] Error subiendo archivo:', error);
+        alert(`Error al subir ${file.name}: ${error.message}`);
+        procesados++;
+      });
+  });
+}
+
+/**
+ * Sube un archivo al servidor y guarda en BD
+ */
+async function subirArchivoComponente(file, componenteId, tipoVista, itemId, descripcion) {
+  const proyectoId = seleccionActual?.datos?.proyectoId;
+  const presupuestoId = seleccionActual?.datos?.presupuestoId;
+
+  if (!proyectoId || !presupuestoId) {
+    throw new Error('No hay proyecto o presupuesto seleccionado');
+  }
+
+  if (!itemId) {
+    // Para vista agrupada, necesitamos encontrar un item que use este componente
+    const compAgrupado = itemsData.componentesAgrupados?.find(c => String(c.id_componente) === String(componenteId));
+    if (compAgrupado?.items_que_usan?.length > 0) {
+      itemId = compAgrupado.items_que_usan[0].id_item;
+    }
+  }
+
+  if (!itemId) {
+    throw new Error('No se pudo determinar el item para asociar el anexo');
+  }
+
+  const formData = new FormData();
+  formData.append('archivo', file);
+  formData.append('proyecto_id', proyectoId);
+  formData.append('presupuesto_id', presupuestoId);
+  formData.append('componente_id', componenteId);
+  formData.append('item_id', itemId);
+  formData.append('descripcion', descripcion);
+  formData.append('id_usuario', 1); // TODO: Obtener usuario actual
+
+  const response = await fetch(`${API_PRESUPUESTOS}?action=subirAnexoComponente`, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) {
+    throw new Error('Error en la respuesta del servidor');
+  }
+
+  const result = await response.json();
+
+  if (!result.success) {
+    throw new Error(result.error || 'Error al subir archivo');
+  }
+
+  const anexoData = {
+    id_anexo: result.id_anexo,
+    nombre_original: result.nombre_original || file.name,
+    ruta_archivo: result.ruta_archivo,
+    extension: result.extension,
+    tamanio: result.tamanio || file.size,
+    descripcion: descripcion || result.descripcion,
+    fecha_subida: result.fecha_subida || new Date().toISOString(),
+    tipo_vista_origen: tipoVista,
+    item_id_origen: itemId
+  };
+
+  guardarAnexoEnComponente(componenteId, anexoData, tipoVista, itemId);
+  guardarCarritoEnStorage();
+  cargarListaAnexos(componenteId, tipoVista, itemId);
+  actualizarIndicadorAnexos(componenteId, tipoVista, itemId);
+
+  console.log('[Anexos] Archivo subido y guardado en BD:', file.name, 'ID:', result.id_anexo);
+  return result;
+}
+
+/**
+ * Obtiene el icono de Bootstrap según la extensión del archivo
+ */
+function obtenerIconoPorExtension(extension) {
+  const iconos = {
+    'pdf': 'bi-file-earmark-pdf',
+    'doc': 'bi-file-earmark-word',
+    'docx': 'bi-file-earmark-word',
+    'xls': 'bi-file-earmark-excel',
+    'xlsx': 'bi-file-earmark-excel',
+    'ppt': 'bi-file-earmark-ppt',
+    'pptx': 'bi-file-earmark-ppt',
+    'jpg': 'bi-file-earmark-image',
+    'jpeg': 'bi-file-earmark-image',
+    'png': 'bi-file-earmark-image',
+    'gif': 'bi-file-earmark-image',
+    'bmp': 'bi-file-earmark-image',
+    'zip': 'bi-file-earmark-zip',
+    'rar': 'bi-file-earmark-zip',
+    'txt': 'bi-file-earmark-text',
+    'csv': 'bi-file-earmark-spreadsheet'
+  };
+  return iconos[extension?.toLowerCase()] || 'bi-file-earmark';
+}
+
+/**
+ * Formatea el tamaño del archivo en bytes a legible
+ */
+function formatearTamanio(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Carga los anexos desde la base de datos para un presupuesto
+ * y los asigna a los componentes correspondientes
+ */
+async function cargarAnexosDesdeBD(presupuestoId) {
+  try {
+    console.log('[Anexos] Cargando anexos desde BD para presupuesto:', presupuestoId);
+
+    const response = await fetch(`${API_PRESUPUESTOS}?action=obtenerAnexosComponente&presupuesto_id=${presupuestoId}`);
+    const result = await response.json();
+
+    if (!result.success) {
+      console.warn('[Anexos] Error cargando desde BD:', result.error);
+      return;
+    }
+
+    const anexosOrganizados = result.anexos_organizados || {};
+    let totalAsignados = 0;
+
+    // Asignar anexos a componentes en items individuales
+    if (itemsData?.itemsIndividuales) {
+      itemsData.itemsIndividuales.forEach(item => {
+        if (!item.componentes) return;
+
+        item.componentes.forEach(comp => {
+          const key = `${item.id_item}_${comp.id_componente}`;
+          if (anexosOrganizados[key]) {
+            comp.anexos = anexosOrganizados[key];
+            totalAsignados += anexosOrganizados[key].length;
+          } else {
+            comp.anexos = [];
+          }
+        });
+      });
+    }
+
+    // Asignar anexos a componentes agrupados (copiar desde los items)
+    if (itemsData?.componentesAgrupados) {
+      itemsData.componentesAgrupados.forEach(comp => {
+        if (!comp.items_que_usan || comp.items_que_usan.length === 0) {
+          comp.anexos = [];
+          return;
+        }
+
+        // Tomar los anexos del primer item que use este componente
+        const primerUso = comp.items_que_usan[0];
+        const key = `${primerUso.id_item}_${comp.id_componente}`;
+
+        if (anexosOrganizados[key]) {
+          comp.anexos = anexosOrganizados[key];
+        } else {
+          comp.anexos = [];
+        }
+      });
+    }
+
+    console.log(`[Anexos] Cargados ${result.total} anexos de BD, asignados a ${totalAsignados} componentes`);
+
+    // Guardar en localStorage para persistencia offline
+    guardarCarritoEnStorage();
+
+  } catch (error) {
+    console.error('[Anexos] Error cargando anexos desde BD:', error);
   }
 }
 
@@ -529,6 +1015,10 @@ class PaginadorPresupuestos {
             <button class="btn btn-sm btn-outline-info ms-2" onclick="toggleDesgloseComponente('${comp.id_componente}')">
               Desglose
             </button>
+            <span class="btn btn-sm btn-outline-secondary ms-1 disabled" style="cursor: default; opacity: 0.7;" title="Total anexos del componente (gestión en filas individuales)">
+              <i class="bi bi-paperclip"></i>
+              <span class="badge bg-primary ms-1" data-anexo-badge="${comp.id_componente}" style="display: ${comp.anexos?.length > 0 ? 'inline-block' : 'none'}">${comp.anexos?.length || 0}</span>
+            </span>
           </div>
         </div>
         <div class="card-body">
@@ -684,8 +1174,11 @@ class PaginadorPresupuestos {
                       </td>
                       <td class="text-end subtotal-item">$${formatCurrency(subtotalItem)}</td>
                       <td class="text-center">
-                        <button class="btn btn-sm btn-outline-success" type="button" data-action="max-item">
+                        <button class="btn btn-sm btn-outline-success mb-1" type="button" data-action="max-item" title="Máxima cantidad">
                           <i class="bi bi-plus-circle"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" type="button" onclick="abrirModalAnexos('${comp.id_componente}', '${comp.nombre_componente.replace(/'/g, "\\'")}', 'agrupada')" title="Anexos">
+                          <i class="bi bi-paperclip"></i>
                         </button>
                       </td>
                     </tr>
@@ -1294,7 +1787,89 @@ function _initPedidoComponent() {
         paginacionContainer.style.display = "none";
       }
     }, 100);
+
+    // Crear modal de anexos si no existe
+    crearModalAnexos();
   }
+}
+
+/**
+ * Crea el modal HTML para gestión de anexos dinámicamente
+ */
+function crearModalAnexos() {
+  if (document.getElementById('modalAnexosComponente')) return;
+
+  const modalHTML = `
+    <div class="modal fade" id="modalAnexosComponente" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title" id="tituloModalAnexos">
+              <i class="bi bi-paperclip me-2"></i>Anexos del Componente
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <!-- Formulario de subida -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">
+                <strong><i class="bi bi-cloud-upload me-2"></i>Subir Nuevos Archivos</strong>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label for="descripcionAnexo" class="form-label">Descripción (opcional):</label>
+                  <textarea class="form-control form-control-sm" id="descripcionAnexo" rows="2"
+                    placeholder="Describa el contenido de los archivos o información relevante del pedido..."></textarea>
+                </div>
+                <div class="mb-2">
+                  <label for="inputArchivosAnexo" class="form-label">Seleccionar archivos:</label>
+                  <input type="file" class="form-control form-control-sm" id="inputArchivosAnexo" multiple
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar,.txt,.csv"
+                    onchange="manejarSubidaArchivos(this)">
+                  <div class="form-text">
+                    Formatos permitidos: PDF, Word, Excel, PowerPoint, imágenes, ZIP, TXT.<br>
+                    Tamaño máximo: 10MB por archivo.
+                  </div>
+                </div>
+                <!-- Barra de progreso -->
+                <div id="progressSubidaAnexos" style="display: none;">
+                  <div class="progress" style="height: 25px;">
+                    <div id="progressBarAnexos" class="progress-bar progress-bar-striped progress-bar-animated"
+                      role="progressbar" style="width: 0%">0%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lista de anexos existentes -->
+            <div class="card">
+              <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <strong><i class="bi bi-folder me-2"></i>Archivos Adjuntos</strong>
+                <span class="badge bg-secondary" id="contadorAnexos">0</span>
+              </div>
+              <div class="card-body p-0">
+                <div id="listaAnexosComponente" style="max-height: 300px; overflow-y: auto;">
+                  <!-- Los anexos se cargan dinámicamente -->
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              <i class="bi bi-x-lg me-1"></i>Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Insertar al final del body
+  const div = document.createElement('div');
+  div.innerHTML = modalHTML;
+  document.body.appendChild(div.firstElementChild);
+
+  console.log('[Anexos] Modal creado exitosamente');
 }
 
 // Inicializar proyecto usando PROYECTO_ID pasado desde PHP
@@ -1465,6 +2040,9 @@ async function cargarItems() {
 
 
       mostrarItemsConComponentes(items);
+
+      // Cargar anexos desde la base de datos
+      await cargarAnexosDesdeBD(presupuestoId);
 
       // Cargar carrito guardado desde localStorage (persistencia)
       const carritoCargado = cargarCarritoDesdeStorage();
@@ -5809,3 +6387,17 @@ window.sincronizarCarritoConVistaActiva = sincronizarCarritoConVistaActiva;
 window.sincronizarCarritoAVistaItems = sincronizarCarritoAVistaItems;
 window.sincronizarCarritoAVistaAgrupada = sincronizarCarritoAVistaAgrupada;
 window.sincronizarDatosEntreVistas = sincronizarDatosEntreVistas;
+
+// Exportar funciones de anexos
+window.abrirModalAnexos = abrirModalAnexos;
+window.cargarListaAnexos = cargarListaAnexos;
+window.obtenerAnexosComponente = obtenerAnexosComponente;
+window.guardarAnexoEnComponente = guardarAnexoEnComponente;
+window.eliminarAnexoComponente = eliminarAnexoComponente;
+window.sincronizarAnexoEntreVistas = sincronizarAnexoEntreVistas;
+window.actualizarIndicadorAnexos = actualizarIndicadorAnexos;
+window.manejarSubidaArchivos = manejarSubidaArchivos;
+window.subirArchivoComponente = subirArchivoComponente;
+window.obtenerIconoPorExtension = obtenerIconoPorExtension;
+window.formatearTamanio = formatearTamanio;
+window.cargarAnexosDesdeBD = cargarAnexosDesdeBD;

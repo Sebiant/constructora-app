@@ -2770,6 +2770,415 @@ try {
             }
             break;
 
+        case 'subirAnexoComponente':
+            try {
+                $proyectoId = $_POST['proyecto_id'] ?? null;
+                $presupuestoId = $_POST['presupuesto_id'] ?? null;
+                $componenteId = $_POST['componente_id'] ?? null;
+                $itemId = $_POST['item_id'] ?? null;
+                $descripcion = $_POST['descripcion'] ?? '';
+                $idUsuario = $_POST['id_usuario'] ?? 1; // Usuario por defecto si no se envía
+
+                if (!$proyectoId || !$presupuestoId || !$componenteId || !$itemId) {
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Faltan parámetros requeridos (proyecto_id, presupuesto_id, componente_id, item_id)'
+                    ]);
+                    break;
+                }
+
+                if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'No se recibió ningún archivo o hubo un error en la subida'
+                    ]);
+                    break;
+                }
+
+                $archivo = $_FILES['archivo'];
+                $nombreOriginal = $archivo['name'];
+                $extension = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
+
+                // Validar extensión
+                $extensionesPermitidas = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'zip', 'rar', 'txt', 'csv'];
+                if (!in_array($extension, $extensionesPermitidas)) {
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Tipo de archivo no permitido. Extensiones válidas: ' . implode(', ', $extensionesPermitidas)
+                    ]);
+                    break;
+                }
+
+                // Validar tamaño (10MB máximo)
+                $tamanioMaximo = 10 * 1024 * 1024; // 10MB en bytes
+                if ($archivo['size'] > $tamanioMaximo) {
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'El archivo excede el tamaño máximo permitido (10MB)'
+                    ]);
+                    break;
+                }
+
+                // Crear directorio si no existe: uploads/pedidos_anexos/{presupuesto_id}/{item_id}/
+                $uploadDir = __DIR__ . '/../../../uploads/pedidos_anexos/' . $presupuestoId . '/' . $itemId . '/';
+
+                // Definir rutas de directorios intermedios
+                $dirBase = __DIR__ . '/../../../uploads/pedidos_anexos/';
+                $dirPresupuesto = $dirBase . $presupuestoId . '/';
+                $dirItem = $dirPresupuesto . $itemId . '/';
+
+                // Verificar directorio padre existe
+                $uploadsPadre = __DIR__ . '/../../../uploads/';
+                if (!is_dir($uploadsPadre)) {
+                    error_log("[subirAnexo] ERROR: Directorio uploads/ no existe: " . $uploadsPadre);
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Directorio uploads/ no existe en el servidor',
+                        'debug_dir_padre' => $uploadsPadre
+                    ]);
+                    break;
+                }
+
+                if (!is_writable($uploadsPadre)) {
+                    error_log("[subirAnexo] ERROR: Directorio uploads/ no tiene permisos de escritura: " . $uploadsPadre);
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Directorio uploads/ sin permisos de escritura',
+                        'debug_dir_padre' => $uploadsPadre
+                    ]);
+                    break;
+                }
+
+                // Limpiar caché de estado de archivos
+                clearstatcache(true);
+
+                // Crear directorio base (pedidos_anexos) - FORZADO
+                if (!file_exists($dirBase)) {
+                    error_log("[subirAnexo] Creando directorio base: " . $dirBase);
+                    $creado = mkdir($dirBase, 0755, true);
+                    if (!$creado) {
+                        $error = error_get_last();
+                        error_log("[subirAnexo] ERROR CRITICO: No se pudo crear dirBase: " . $dirBase . " - " . ($error['message'] ?? 'Desconocido'));
+                        echo json_encode([
+                            'success' => false,
+                            'error' => 'No se pudo crear directorio base',
+                            'debug_dir' => $dirBase,
+                            'debug_error' => $error['message'] ?? 'Desconocido'
+                        ]);
+                        break;
+                    }
+                    error_log("[subirAnexo] ✅ dirBase creado");
+                }
+
+                // Crear directorio del presupuesto - FORZADO
+                if (!file_exists($dirPresupuesto)) {
+                    error_log("[subirAnexo] Creando directorio presupuesto: " . $dirPresupuesto);
+                    $creado = mkdir($dirPresupuesto, 0755, true);
+                    if (!$creado) {
+                        $error = error_get_last();
+                        error_log("[subirAnexo] ERROR CRITICO: No se pudo crear dirPresupuesto: " . $dirPresupuesto . " - " . ($error['message'] ?? 'Desconocido'));
+                        echo json_encode([
+                            'success' => false,
+                            'error' => 'No se pudo crear directorio de presupuesto',
+                            'debug_dir' => $dirPresupuesto,
+                            'debug_error' => $error['message'] ?? 'Desconocido'
+                        ]);
+                        break;
+                    }
+                    error_log("[subirAnexo] ✅ dirPresupuesto creado");
+                }
+
+                // Crear directorio del item - FORZADO
+                if (!file_exists($dirItem)) {
+                    error_log("[subirAnexo] Creando directorio item: " . $dirItem);
+                    $creado = mkdir($dirItem, 0755, true);
+                    if (!$creado) {
+                        $error = error_get_last();
+                        error_log("[subirAnexo] ERROR CRITICO: No se pudo crear dirItem: " . $dirItem . " - " . ($error['message'] ?? 'Desconocido'));
+                        echo json_encode([
+                            'success' => false,
+                            'error' => 'No se pudo crear directorio de item',
+                            'debug_dir' => $dirItem,
+                            'debug_error' => $error['message'] ?? 'Desconocido'
+                        ]);
+                        break;
+                    }
+                    error_log("[subirAnexo] ✅ dirItem creado");
+                }
+
+                // Verificación FINAL exhaustiva
+                clearstatcache(true);
+                if (!file_exists($dirItem) || !is_dir($dirItem)) {
+                    error_log("[subirAnexo] ERROR CRITICO: El directorio destino NO EXISTE después de crearlo: " . $dirItem);
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Fallo verificación final del directorio',
+                        'debug_dir' => $dirItem,
+                        'debug_exists' => file_exists($dirItem),
+                        'debug_is_dir' => is_dir($dirItem)
+                    ]);
+                    break;
+                }
+
+                error_log("[subirAnexo] ✅ Todos los directorios verificados");
+
+                if (!is_writable($uploadDir)) {
+                    error_log("[subirAnexo] ERROR: El directorio no tiene permisos de escritura: " . $uploadDir);
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'El directorio de destino no tiene permisos de escritura',
+                        'debug_dir' => $uploadDir
+                    ]);
+                    break;
+                }
+
+                error_log("[subirAnexo] Directorio destino: " . $uploadDir);
+                error_log("[subirAnexo] Archivo temp: " . $archivo['tmp_name']);
+
+                // Generar nombre único para el archivo
+                $nombreUnico = uniqid() . '_' . preg_replace('/[^a-zA-Z0-9.-]/', '_', $nombreOriginal);
+                $rutaArchivo = $uploadDir . $nombreUnico;
+                $rutaWeb = '/sgigescon/uploads/pedidos_anexos/' . $presupuestoId . '/' . $itemId . '/' . $nombreUnico;
+
+                // Verificar que el archivo temporal existe
+                if (!file_exists($archivo['tmp_name'])) {
+                    error_log("[subirAnexo] ERROR: El archivo temporal no existe: " . $archivo['tmp_name']);
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'El archivo temporal de subida no existe',
+                        'debug_tmp' => $archivo['tmp_name']
+                    ]);
+                    break;
+                }
+
+                // Mover archivo
+                $movido = @move_uploaded_file($archivo['tmp_name'], $rutaArchivo);
+                error_log("[subirAnexo] move_uploaded_file resultado: " . ($movido ? 'OK' : 'FALLO') . " - Destino: " . $rutaArchivo);
+
+                // Verificar que el archivo realmente se movió
+                $archivoExiste = file_exists($rutaArchivo);
+                error_log("[subirAnexo] Archivo existe después de mover: " . ($archivoExiste ? 'SI' : 'NO') . " - Ruta: " . $rutaArchivo);
+
+                if ($movido && $archivoExiste) {
+                    error_log("[subirAnexo] Archivo movido exitosamente a: " . $rutaArchivo);
+
+                    // Guardar registro en la base de datos
+                    $sql = "INSERT INTO pedidos_componentes_anexos 
+                            (id_presupuesto, id_item, id_componente, nombre_archivo, ruta_archivo, extension, tamanio_bytes, descripcion, idusuario, fechareg) 
+                            VALUES (:id_presupuesto, :id_item, :id_componente, :nombre_archivo, :ruta_archivo, :extension, :tamanio_bytes, :descripcion, :idusuario, NOW())";
+                    
+                    $stmt = $connection->prepare($sql);
+                    $stmt->execute([
+                        'id_presupuesto' => $presupuestoId,
+                        'id_item' => $itemId,
+                        'id_componente' => $componenteId,
+                        'nombre_archivo' => $nombreOriginal,
+                        'ruta_archivo' => $rutaWeb,
+                        'extension' => $extension,
+                        'tamanio_bytes' => $archivo['size'],
+                        'descripcion' => $descripcion,
+                        'idusuario' => $idUsuario
+                    ]);
+                    
+                    $idAnexo = $connection->lastInsertId();
+
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Archivo subido exitosamente',
+                        'id_anexo' => $idAnexo,
+                        'ruta_archivo' => $rutaWeb,
+                        'extension' => $extension,
+                        'nombre_original' => $nombreOriginal,
+                        'tamanio' => $archivo['size'],
+                        'descripcion' => $descripcion,
+                        'fecha_subida' => date('Y-m-d H:i:s')
+                    ]);
+                } else {
+                    $errorInfo = error_get_last();
+                    error_log("[subirAnexo] ERROR: Falló move_uploaded_file o archivo no existe después de mover");
+                    error_log("[subirAnexo] - move_uploaded_file retornó: " . ($movido ? 'true' : 'false'));
+                    error_log("[subirAnexo] - file_exists retornó: " . ($archivoExiste ? 'true' : 'false'));
+                    error_log("[subirAnexo] - Ruta destino: " . $rutaArchivo);
+                    error_log("[subirAnexo] - Error PHP: " . ($errorInfo['message'] ?? 'Ninguno'));
+
+                    // Verificar si el directorio tiene permisos
+                    $dirPermisos = is_dir($uploadDir) ? substr(sprintf('%o', fileperms($uploadDir)), -4) : 'N/A';
+                    error_log("[subirAnexo] - Permisos del directorio: " . $dirPermisos);
+
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Error al guardar el archivo físico en el servidor',
+                        'debug_movido' => $movido,
+                        'debug_existe' => $archivoExiste,
+                        'debug_ruta' => $rutaArchivo,
+                        'debug_dir' => $uploadDir,
+                        'debug_permisos_dir' => $dirPermisos,
+                        'debug_php_error' => $errorInfo['message'] ?? 'Ninguno'
+                    ]);
+                }
+            } catch (\Exception $e) {
+                error_log('[Anexos] Error subiendo archivo: ' . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Error interno al subir archivo: ' . $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'eliminarAnexoComponente':
+            try {
+                $data = json_decode(file_get_contents('php://input'), true);
+                $idAnexo = $data['id_anexo'] ?? null;
+                $rutaArchivo = $data['ruta_archivo'] ?? null;
+                $presupuestoId = $data['presupuesto_id'] ?? null;
+                $itemId = $data['item_id'] ?? null;
+
+                if (!$idAnexo && !$rutaArchivo) {
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Falta id_anexo o ruta_archivo para identificar el anexo'
+                    ]);
+                    break;
+                }
+
+                // Obtener información del anexo desde la BD
+                $sql = "SELECT * FROM pedidos_componentes_anexos WHERE 
+                        (id_anexo = :id_anexo OR ruta_archivo = :ruta_archivo) 
+                        AND estado = 1";
+                $stmt = $connection->prepare($sql);
+                $stmt->execute([
+                    'id_anexo' => $idAnexo,
+                    'ruta_archivo' => $rutaArchivo
+                ]);
+                $anexo = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+                if (!$anexo) {
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Anexo no encontrado en la base de datos'
+                    ]);
+                    break;
+                }
+
+                // Validar que pertenezca al presupuesto correcto
+                if ($presupuestoId && $anexo['id_presupuesto'] != $presupuestoId) {
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'El anexo no pertenece al presupuesto especificado'
+                    ]);
+                    break;
+                }
+
+                // Marcar como eliminado en la base de datos
+                $sqlUpdate = "UPDATE pedidos_componentes_anexos SET estado = 0 WHERE id_anexo = :id_anexo";
+                $stmtUpdate = $connection->prepare($sqlUpdate);
+                $stmtUpdate->execute(['id_anexo' => $anexo['id_anexo']]);
+
+                // Eliminar archivo físico
+                $rutaFisica = str_replace('/sgigescon/', __DIR__ . '/../../../../', $anexo['ruta_archivo']);
+                $archivoEliminado = false;
+                if (file_exists($rutaFisica)) {
+                    $archivoEliminado = unlink($rutaFisica);
+                }
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Anexo eliminado exitosamente',
+                    'id_anexo' => $anexo['id_anexo'],
+                    'archivo_fisico_eliminado' => $archivoEliminado
+                ]);
+            } catch (\Exception $e) {
+                error_log('[Anexos] Error eliminando archivo: ' . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Error interno al eliminar archivo: ' . $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'obtenerAnexosComponente':
+            try {
+                $presupuestoId = $_GET['presupuesto_id'] ?? $_POST['presupuesto_id'] ?? null;
+                $itemId = $_GET['item_id'] ?? $_POST['item_id'] ?? null;
+                $componenteId = $_GET['componente_id'] ?? $_POST['componente_id'] ?? null;
+
+                if (!$presupuestoId) {
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Falta presupuesto_id'
+                    ]);
+                    break;
+                }
+
+                // Construir query según los parámetros recibidos
+                $sql = "SELECT 
+                            id_anexo,
+                            id_presupuesto,
+                            id_item,
+                            id_componente,
+                            nombre_archivo,
+                            ruta_archivo,
+                            extension,
+                            tamanio_bytes,
+                            descripcion,
+                            id_pedido,
+                            idusuario,
+                            fechareg as fecha_subida
+                        FROM pedidos_componentes_anexos 
+                        WHERE id_presupuesto = :presupuesto_id 
+                        AND estado = 1";
+                
+                $params = ['presupuesto_id' => $presupuestoId];
+
+                if ($itemId) {
+                    $sql .= " AND id_item = :item_id";
+                    $params['item_id'] = $itemId;
+                }
+
+                if ($componenteId) {
+                    $sql .= " AND id_componente = :componente_id";
+                    $params['componente_id'] = $componenteId;
+                }
+
+                $sql .= " ORDER BY fechareg DESC";
+
+                $stmt = $connection->prepare($sql);
+                $stmt->execute($params);
+                $anexos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // Organizar anexos por item y componente para facilitar uso en frontend
+                $anexosOrganizados = [];
+                foreach ($anexos as $anexo) {
+                    $key = $anexo['id_item'] . '_' . $anexo['id_componente'];
+                    if (!isset($anexosOrganizados[$key])) {
+                        $anexosOrganizados[$key] = [];
+                    }
+                    $anexosOrganizados[$key][] = [
+                        'id_anexo' => $anexo['id_anexo'],
+                        'nombre_original' => $anexo['nombre_archivo'],
+                        'ruta_archivo' => $anexo['ruta_archivo'],
+                        'extension' => $anexo['extension'],
+                        'tamanio' => (int)$anexo['tamanio_bytes'],
+                        'descripcion' => $anexo['descripcion'],
+                        'fecha_subida' => $anexo['fecha_subida']
+                    ];
+                }
+
+                echo json_encode([
+                    'success' => true,
+                    'anexos' => $anexos,
+                    'anexos_organizados' => $anexosOrganizados,
+                    'total' => count($anexos)
+                ]);
+            } catch (\Exception $e) {
+                error_log('[Anexos] Error obteniendo anexos: ' . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Error al obtener anexos: ' . $e->getMessage()
+                ]);
+            }
+            break;
+
         default:
 
             http_response_code(404);
@@ -2796,7 +3205,10 @@ try {
                     'getDetallePedido' => 'Obtener detalles completos de un pedido específico (NUEVO)',
                     'getItemDetails' => 'Obtener detalles de un ítem por ID',
                     'getItemDetailsByCode' => 'Obtener detalles de un ítem por código',
-                    'getItemsByPresupuesto' => 'Obtener ítems con componentes por presupuesto'
+                    'getItemsByPresupuesto' => 'Obtener ítems con componentes por presupuesto',
+                    'subirAnexoComponente' => 'Subir archivo anexo a un componente de pedido',
+                    'eliminarAnexoComponente' => 'Eliminar archivo anexo de un componente de pedido',
+                    'obtenerAnexosComponente' => 'Obtener anexos de componentes por presupuesto'
                 ]
             ]);
     }
