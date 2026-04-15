@@ -3179,6 +3179,293 @@ try {
             }
             break;
 
+        // ================================================================
+        // CARRITO EN BASE DE DATOS
+        // Persistencia del carrito de pedido por presupuesto usando BD
+        // en lugar de localStorage, para soporte multi-dispositivo.
+        // ================================================================
+
+        case 'guardarCarritoBD':
+            /**
+             * Guarda (INSERT o UPDATE) las cantidades del carrito para un presupuesto.
+             * Recibe un array de items: [{id_componente, id_item, cantidad, tipo_vista}]
+             * Los registros con cantidad=0 se eliminan automáticamente.
+             */
+            try {
+                $data = json_decode(file_get_contents('php://input'), true);
+
+                $idPresupuesto = isset($data['id_presupuesto']) ? (int)$data['id_presupuesto'] : 0;
+                $items         = $data['items'] ?? [];
+
+                if (!$idPresupuesto) {
+                    throw new \Exception('id_presupuesto requerido');
+                }
+
+                // Verificar que el presupuesto existe
+                $stmtCheck = $connection->prepare(
+                    "SELECT id_presupuesto FROM presupuestos WHERE id_presupuesto = ? AND idestado = 1"
+                );
+                $stmtCheck->execute([$idPresupuesto]);
+                if (!$stmtCheck->fetch()) {
+                    throw new \Exception('Presupuesto no encontrado o inactivo');
+                }
+
+                if (session_status() === PHP_SESSION_NONE) session_start();
+                $idUsuario = (int)($_SESSION['u_id'] ?? 1);
+
+                $connection->beginTransaction();
+
+                $sqlUpsert = "INSERT INTO presupuesto_carrito
+                                (id_presupuesto, id_componente, id_item, cantidad, tipo_vista, idusuario)
+                              VALUES
+                                (:id_presupuesto, :id_componente, :id_item, :cantidad, :tipo_vista, :idusuario)
+                              ON DUPLICATE KEY UPDATE
+                                cantidad     = VALUES(cantidad),
+                                tipo_vista   = VALUES(tipo_vista),
+                                idusuario    = VALUES(idusuario),
+                                fechaupdate  = NOW()";
+
+                $sqlDelete = "DELETE FROM presupuesto_carrito
+                              WHERE id_presupuesto = :id_presupuesto
+                                AND id_componente  = :id_componente
+                                AND (id_item IS NULL AND :id_item IS NULL OR id_item = :id_item2)";
+
+                $stmtUpsert = $connection->prepare($sqlUpsert);
+                $stmtDelete = $connection->prepare($sqlDelete);
+
+                $procesados = 0;
+
+                foreach ($items as $item) {
+                    $idComponente = (int)($item['id_componente'] ?? 0);
+                    $idItem       = isset($item['id_item']) && $item['id_item'] !== null && $item['id_item'] !== '' ? (int)$item['id_item'] : null;
+                    $cantidad     = (float)($item['cantidad'] ?? 0);
+                    $tipoVista    = in_array($item['tipo_vista'] ?? '', ['agrupada','individual']) ? $item['tipo_vista'] : 'agrupada';
+
+                    if (!$idComponente) continue;
+
+                    if ($cantidad <= 0) {
+                        // Eliminar el ítem del carrito si cantidad es 0
+                        $stmtDelete->execute([
+                            'id_presupuesto' => $idPresupuesto,
+                            'id_componente'  => $idComponente,
+                            'id_item'        => $idItem,
+                            'id_item2'       => $idItem,
+                        ]);
+                    } else {
+                        $stmtUpsert->execute([
+                            'id_presupuesto' => $idPresupuesto,
+                            'id_componente'  => $idComponente,
+                            'id_item'        => $idItem,
+                            'cantidad'       => $cantidad,
+                            'tipo_vista'     => $tipoVista,
+                            'idusuario'      => $idUsuario,
+                        ]);
+                    }
+                    $procesados++;
+                }
+
+                $connection->commit();
+
+                echo json_encode([
+                    'success'    => true,
+                    'procesados' => $procesados,
+                    'message'    => 'Carrito guardado en BD'
+                ]);
+
+            } catch (\Exception $e) {
+                if ($connection->inTransaction()) $connection->rollBack();
+                error_log('[CarritoBD] Error en guardarCarritoBD: ' . $e->getMessage());
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
+        case 'cargarCarritoBD':
+            /**
+             * Carga el carrito guardado para un presupuesto específico.
+             * Devuelve items del carrito principal y extras agrupados.
+             */
+            try {
+                $idPresupuesto = isset($_GET['id_presupuesto']) ? (int)$_GET['id_presupuesto'] : 0;
+
+                if (!$idPresupuesto) {
+                    throw new \Exception('id_presupuesto requerido');
+                }
+
+                // Carrito principal (componentes dentro del presupuesto)
+                $sqlCarrito = "SELECT
+                                  id_carrito,
+                                  id_presupuesto,
+                                  id_componente,
+                                  id_item,
+                                  cantidad,
+                                  tipo_vista,
+                                  fechaupdate
+                               FROM presupuesto_carrito
+                               WHERE id_presupuesto = ?
+                                 AND cantidad > 0
+                               ORDER BY id_componente, id_item";
+
+                $stmtCarrito = $connection->prepare($sqlCarrito);
+                $stmtCarrito->execute([$idPresupuesto]);
+                $itemsCarrito = $stmtCarrito->fetchAll(\PDO::FETCH_ASSOC);
+
+                // Extras del carrito
+                $sqlExtras = "SELECT *
+                              FROM presupuesto_carrito_extra
+                              WHERE id_presupuesto = ?
+                              ORDER BY tipo, fechareg";
+
+                $stmtExtras = $connection->prepare($sqlExtras);
+                $stmtExtras->execute([$idPresupuesto]);
+                $itemsExtras = $stmtExtras->fetchAll(\PDO::FETCH_ASSOC);
+
+                // Decodificar datos_json si existe
+                foreach ($itemsExtras as &$extra) {
+                    if (!empty($extra['datos_json'])) {
+                        $extra['datos_json'] = json_decode($extra['datos_json'], true);
+                    }
+                }
+                unset($extra);
+
+                echo json_encode([
+                    'success'      => true,
+                    'carrito'      => $itemsCarrito,
+                    'extras'       => $itemsExtras,
+                    'total_items'  => count($itemsCarrito),
+                    'total_extras' => count($itemsExtras),
+                ]);
+
+            } catch (\Exception $e) {
+                error_log('[CarritoBD] Error en cargarCarritoBD: ' . $e->getMessage());
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
+        case 'limpiarCarritoBD':
+            /**
+             * Elimina completamente el carrito de un presupuesto (después de confirmar pedido).
+             */
+            try {
+                $data = json_decode(file_get_contents('php://input'), true);
+                $idPresupuesto = isset($data['id_presupuesto']) ? (int)$data['id_presupuesto'] : 0;
+
+                if (!$idPresupuesto) {
+                    throw new \Exception('id_presupuesto requerido');
+                }
+
+                $connection->beginTransaction();
+
+                $connection->prepare("DELETE FROM presupuesto_carrito WHERE id_presupuesto = ?")
+                           ->execute([$idPresupuesto]);
+
+                $connection->prepare("DELETE FROM presupuesto_carrito_extra WHERE id_presupuesto = ?")
+                           ->execute([$idPresupuesto]);
+
+                $connection->commit();
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Carrito eliminado de BD'
+                ]);
+
+            } catch (\Exception $e) {
+                if ($connection->inTransaction()) $connection->rollBack();
+                error_log('[CarritoBD] Error en limpiarCarritoBD: ' . $e->getMessage());
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
+        case 'guardarCarritoExtraBD':
+            /**
+             * Sincroniza los items extras (materialesExtra y pedidosFueraPresupuesto)
+             * del carrito en BD. Reemplaza todos los extras del presupuesto.
+             */
+            try {
+                $data = json_decode(file_get_contents('php://input'), true);
+                $idPresupuesto        = isset($data['id_presupuesto']) ? (int)$data['id_presupuesto'] : 0;
+                $materialesExtra      = $data['materialesExtra'] ?? [];
+                $pedidosFuera         = $data['pedidosFueraPresupuesto'] ?? [];
+
+                if (!$idPresupuesto) {
+                    throw new \Exception('id_presupuesto requerido');
+                }
+
+                if (session_status() === PHP_SESSION_NONE) session_start();
+                $idUsuario = (int)($_SESSION['u_id'] ?? 1);
+
+                $connection->beginTransaction();
+
+                // Limpiar extras actuales del presupuesto
+                $connection->prepare("DELETE FROM presupuesto_carrito_extra WHERE id_presupuesto = ?")
+                           ->execute([$idPresupuesto]);
+
+                $sqlExtra = "INSERT INTO presupuesto_carrito_extra
+                               (id_presupuesto, tipo, id_material, id_componente, id_item,
+                                descripcion, codigo, unidad, cantidad, precio_unitario,
+                                justificacion, datos_json, idusuario)
+                             VALUES
+                               (:id_presupuesto, :tipo, :id_material, :id_componente, :id_item,
+                                :descripcion, :codigo, :unidad, :cantidad, :precio_unitario,
+                                :justificacion, :datos_json, :idusuario)";
+
+                $stmtExtra = $connection->prepare($sqlExtra);
+
+                foreach ($materialesExtra as $m) {
+                    $cantidad = (float)($m['cantidad'] ?? 0);
+                    if ($cantidad <= 0) continue;
+                    $stmtExtra->execute([
+                        'id_presupuesto' => $idPresupuesto,
+                        'tipo'           => 'material_extra',
+                        'id_material'    => isset($m['id_material']) ? (int)$m['id_material'] : null,
+                        'id_componente'  => null,
+                        'id_item'        => null,
+                        'descripcion'    => $m['descripcion'] ?? '',
+                        'codigo'         => $m['codigo'] ?? null,
+                        'unidad'         => $m['unidad'] ?? 'UND',
+                        'cantidad'       => $cantidad,
+                        'precio_unitario'=> (float)($m['precio_unitario'] ?? 0),
+                        'justificacion'  => null,
+                        'datos_json'     => json_encode($m),
+                        'idusuario'      => $idUsuario,
+                    ]);
+                }
+
+                foreach ($pedidosFuera as $p) {
+                    $cantidad = (float)($p['cantidad_extra'] ?? $p['cantidad_solicitada'] ?? 0);
+                    if ($cantidad <= 0) continue;
+                    $stmtExtra->execute([
+                        'id_presupuesto' => $idPresupuesto,
+                        'tipo'           => 'pedido_fuera',
+                        'id_material'    => null,
+                        'id_componente'  => isset($p['id_componente']) ? (int)$p['id_componente'] : null,
+                        'id_item'        => isset($p['id_item']) ? (int)$p['id_item'] : null,
+                        'descripcion'    => $p['descripcion_componente'] ?? $p['descripcion'] ?? '',
+                        'codigo'         => $p['codigo_item'] ?? null,
+                        'unidad'         => $p['unidad'] ?? 'UND',
+                        'cantidad'       => $cantidad,
+                        'precio_unitario'=> (float)($p['precio_unitario'] ?? 0),
+                        'justificacion'  => $p['justificacion'] ?? null,
+                        'datos_json'     => json_encode($p),
+                        'idusuario'      => $idUsuario,
+                    ]);
+                }
+
+                $connection->commit();
+
+                echo json_encode([
+                    'success'  => true,
+                    'message'  => 'Extras del carrito guardados en BD',
+                    'materiales_extra' => count($materialesExtra),
+                    'pedidos_fuera'    => count($pedidosFuera),
+                ]);
+
+            } catch (\Exception $e) {
+                if ($connection->inTransaction()) $connection->rollBack();
+                error_log('[CarritoBD] Error en guardarCarritoExtraBD: ' . $e->getMessage());
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+            break;
+
         default:
 
             http_response_code(404);

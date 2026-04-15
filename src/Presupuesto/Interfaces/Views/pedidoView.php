@@ -184,9 +184,13 @@ if ($proyectoId > 0) {
                                                 <strong id="statPendientesAutorizacion">0</strong> pedidos fuera de presupuesto
                                             </small>
                                         </div>
+                                        <button class="btn btn-outline-danger w-100 mb-2" onclick="vaciarCarritoUI()" id="btnVaciarCarrito" disabled>
+                                            <i class="bi bi-trash"></i> Vaciar Carrito
+                                        </button>
                                         <button class="btn btn-success w-100" onclick="confirmarPedido()" id="btnConfirmarPedido" disabled>
                                             <i class="bi bi-check-circle"></i> Confirmar Pedido
                                         </button>
+
                                     </div>
                                 </div>
                             </div>

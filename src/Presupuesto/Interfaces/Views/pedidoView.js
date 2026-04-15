@@ -1,162 +1,397 @@
-// Clave para localStorage del carrito
-const CARRITO_STORAGE_KEY = 'pedido_carrito_temp';
+// Control de debounce para evitar demasiadas peticiones a BD al tipear
+let _carritoSaveTimer = null;
+const CARRITO_DEBOUNCE_MS = 800; // Esperar 800ms tras el último cambio antes de guardar en BD
+
+// ============================================================================
+// FUNCIONES DE PERSISTENCIA EN BASE DE DATOS
+// El carrito funciona exclusivamente con la base de datos para soporte multi-dispositivo.
+// ============================================================================
 
 /**
- * Guarda el estado del carrito en localStorage
+ * Construye el array de items del carrito en formato para BD
+ */
+function _buildCarritoItemsParaBD() {
+  const mapaItems = new Map(); // key: "comp_item"
+
+  // Vista agrupada: componentesAgrupados -> items_que_usan
+  if (itemsData?.componentesAgrupados) {
+    itemsData.componentesAgrupados.forEach(comp => {
+      if (comp.items_que_usan && Array.isArray(comp.items_que_usan)) {
+        comp.items_que_usan.forEach(itemUso => {
+          const cantidad = parseFloat(itemUso.pedido_actual) || 0;
+          const key = `${comp.id_componente}_${itemUso.id_item}`;
+          if (!mapaItems.has(key) || cantidad > 0) {
+            mapaItems.set(key, {
+              id_componente: comp.id_componente,
+              id_item: itemUso.id_item,
+              cantidad: cantidad,
+              tipo_vista: 'agrupada'
+            });
+          }
+        });
+      } else if ((parseFloat(comp.pedido) || 0) > 0) {
+        // Componente sin desglose por item
+        const key = `${comp.id_componente}_null`;
+        mapaItems.set(key, {
+          id_componente: comp.id_componente,
+          id_item: null,
+          cantidad: parseFloat(comp.pedido) || 0,
+          tipo_vista: 'agrupada'
+        });
+      }
+    });
+  }
+
+  // Vista individual: itemsIndividuales -> componentes
+  if (itemsData?.itemsIndividuales) {
+    itemsData.itemsIndividuales.forEach(item => {
+      if (!item.componentes) return;
+      item.componentes.forEach(comp => {
+        const cantidad = parseFloat(comp.pedido) || 0;
+        const key = `${comp.id_componente}_${item.id_item}`;
+        if (cantidad > 0) {
+          mapaItems.set(key, {
+            id_componente: comp.id_componente,
+            id_item: item.id_item,
+            cantidad: cantidad,
+            tipo_vista: 'individual'
+          });
+        } else if (!mapaItems.has(key)) {
+          mapaItems.set(key, {
+            id_componente: comp.id_componente,
+            id_item: item.id_item,
+            cantidad: 0,
+            tipo_vista: 'individual'
+          });
+        }
+      });
+    });
+  }
+
+  return Array.from(mapaItems.values());
+}
+
+/**
+ * Guarda el carrito actual exclusivamente en la Base de Datos.
+ * Usa debounce para evitar múltiples peticiones al tipear rápido.
  */
 function guardarCarritoEnStorage() {
+  if (_carritoSaveTimer) clearTimeout(_carritoSaveTimer);
+  _carritoSaveTimer = setTimeout(() => {
+    _guardarCarritoEnBD();
+  }, CARRITO_DEBOUNCE_MS);
+}
+
+/**
+ * Persistencia en BD (asíncrono, no bloqueante)
+ */
+async function _guardarCarritoEnBD() {
+  const presupuestoId = seleccionActual?.datos?.presupuestoId;
+  if (!presupuestoId) return;
+
   try {
-    const carritoData = {
-      proyectoId: seleccionActual?.datos?.proyectoId || null,
-      presupuestoId: seleccionActual?.datos?.presupuestoId || null,
-      componentesAgrupados: itemsData?.componentesAgrupados?.map(c => ({
-        id_componente: c.id_componente,
-        pedido: c.pedido || 0,
-        items_que_usan: c.items_que_usan?.map(i => ({
-          id_item: i.id_item,
-          pedido_actual: i.pedido_actual || 0
-        })) || [],
-        anexos: c.anexos || []
-      })) || [],
-      itemsIndividuales: itemsData?.itemsIndividuales?.map(item => ({
-        id_item: item.id_item,
-        componentes: item.componentes?.map(comp => ({
-          id_componente: comp.id_componente,
-          pedido: comp.pedido || 0,
-          anexos: comp.anexos || []
-        })) || []
-      })) || [],
-      materialesExtra: materialesExtra || [],
-      pedidosFueraPresupuesto: pedidosFueraPresupuesto || [],
-      timestamp: new Date().toISOString()
-    };
-    localStorage.setItem(CARRITO_STORAGE_KEY, JSON.stringify(carritoData));
-    console.log('[Carrito] Guardado en localStorage');
+    const items = _buildCarritoItemsParaBD();
+
+    const response = await fetch(`${API_PRESUPUESTOS}?action=guardarCarritoBD`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id_presupuesto: presupuestoId,
+        items: items
+      })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      console.log(`[CarritoBD] Guardado en BD exitosamente`);
+    } else {
+      console.warn('[CarritoBD] Error guardando en BD:', result.error);
+    }
+
+    // Guardar también extras
+    const tieneExtras = (materialesExtra && materialesExtra.length > 0) ||
+                        (pedidosFueraPresupuesto && pedidosFueraPresupuesto.length > 0);
+    if (tieneExtras) {
+      _guardarCarritoExtrasEnBD();
+    }
+
   } catch (error) {
-    console.error('[Carrito] Error guardando en localStorage:', error);
+    console.warn('[CarritoBD] Error de red guardando carrito:', error);
   }
 }
 
 /**
- * Carga el estado del carrito desde localStorage
- * Retorna true si se cargó algo, false si no
+ * Guarda los extras del carrito
  */
-function cargarCarritoDesdeStorage() {
+async function _guardarCarritoExtrasEnBD() {
+  const presupuestoId = seleccionActual?.datos?.presupuestoId;
+  if (!presupuestoId) return;
+
   try {
-    const stored = localStorage.getItem(CARRITO_STORAGE_KEY);
-    if (!stored) {
-      console.log('[Carrito] No hay carrito guardado en localStorage');
+    const response = await fetch(`${API_PRESUPUESTOS}?action=guardarCarritoExtraBD`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id_presupuesto: presupuestoId,
+        materialesExtra: materialesExtra || [],
+        pedidosFueraPresupuesto: pedidosFueraPresupuesto || []
+      })
+    });
+
+    const result = await response.json();
+    if (!result.success) {
+      console.warn('[CarritoBD] Error guardando extras en BD:', result.error);
+    }
+  } catch (error) {
+    console.warn('[CarritoBD] Error de red guardando extras:', error);
+  }
+}
+
+/**
+ * Carga el carrito desde la Base de Datos para el presupuesto actual.
+ */
+async function cargarCarritoDesdeDB(presupuestoId) {
+  if (!presupuestoId) return false;
+
+  try {
+    console.log('[CarritoBD] Cargando carrito desde BD para presupuesto:', presupuestoId);
+
+    const response = await fetch(`${API_PRESUPUESTOS}?action=cargarCarritoBD&id_presupuesto=${presupuestoId}`);
+    const result = await response.json();
+
+    if (!result.success) {
+      console.warn('[CarritoBD] Error cargando desde BD:', result.error);
       return false;
     }
 
-    const carritoData = JSON.parse(stored);
-    
-    // Verificar que el carrito corresponda al proyecto/presupuesto actual
-    const currentProyectoId = seleccionActual?.datos?.proyectoId;
-    const currentPresupuestoId = seleccionActual?.datos?.presupuestoId;
-    
-    if (!currentProyectoId || !currentPresupuestoId) {
-      console.log('[Carrito] No hay proyecto/presupuesto seleccionado para cargar carrito');
+    const itemsCarrito = result.carrito || [];
+    const itemsExtras  = result.extras  || [];
+
+    if (itemsCarrito.length === 0 && itemsExtras.length === 0) {
+      console.log('[CarritoBD] Carrito vacío en BD');
       return false;
     }
 
-    // Verificar que el carrito guardado corresponda al proyecto/presupuesto actual
-    if (String(carritoData.proyectoId) !== String(currentProyectoId) ||
-        String(carritoData.presupuestoId) !== String(currentPresupuestoId)) {
-      console.log('[Carrito] El carrito guardado es de otro proyecto/presupuesto');
-      return false;
-    }
-
-    console.log('[Carrito] Cargando desde localStorage...');
-
-    // Restaurar pedidos en componentes agrupados
-    if (itemsData?.componentesAgrupados && carritoData.componentesAgrupados) {
-      carritoData.componentesAgrupados.forEach(storedComp => {
+    // Aplicar cantidades sobre componentesAgrupados
+    if (itemsData?.componentesAgrupados) {
+      itemsCarrito.forEach(row => {
         const comp = itemsData.componentesAgrupados.find(
-          c => String(c.id_componente) === String(storedComp.id_componente)
+          c => String(c.id_componente) === String(row.id_componente)
         );
         if (comp) {
-          comp.pedido = storedComp.pedido || 0;
-          // Restaurar anexos
-          if (storedComp.anexos) {
-            comp.anexos = storedComp.anexos;
-          }
-          // Restaurar pedidos en items individuales del desglose
-          if (comp.items_que_usan && storedComp.items_que_usan) {
-            storedComp.items_que_usan.forEach(storedItem => {
-              const item = comp.items_que_usan.find(
-                i => String(i.id_item) === String(storedItem.id_item)
-              );
-              if (item) {
-                item.pedido_actual = storedItem.pedido_actual || 0;
-              }
-            });
-          }
-        }
-      });
-    }
-
-    // Restaurar pedidos en items individuales
-    if (itemsData?.itemsIndividuales && carritoData.itemsIndividuales) {
-      carritoData.itemsIndividuales.forEach(storedItem => {
-        const item = itemsData.itemsIndividuales.find(
-          i => String(i.id_item) === String(storedItem.id_item)
-        );
-        if (item && item.componentes && storedItem.componentes) {
-          storedItem.componentes.forEach(storedComp => {
-            const comp = item.componentes.find(
-              c => String(c.id_componente) === String(storedComp.id_componente)
+          if (row.id_item && comp.items_que_usan) {
+            const itemUso = comp.items_que_usan.find(
+              i => String(i.id_item) === String(row.id_item)
             );
-            if (comp) {
-              comp.pedido = storedComp.pedido || 0;
-              // Restaurar anexos
-              if (storedComp.anexos) {
-                comp.anexos = storedComp.anexos;
-              }
+            if (itemUso) {
+              itemUso.pedido_actual = parseFloat(row.cantidad) || 0;
             }
-          });
+          } else {
+            comp.pedido = parseFloat(row.cantidad) || 0;
+          }
         }
       });
     }
 
-    // Restaurar materiales extra
-    if (carritoData.materialesExtra && Array.isArray(carritoData.materialesExtra)) {
-      materialesExtra.length = 0;
-      materialesExtra.push(...carritoData.materialesExtra);
+    // Aplicar cantidades sobre itemsIndividuales
+    if (itemsData?.itemsIndividuales) {
+      itemsCarrito.forEach(row => {
+        if (!row.id_item) return;
+        const item = itemsData.itemsIndividuales.find(
+          i => String(i.id_item) === String(row.id_item)
+        );
+        if (item && item.componentes) {
+          const comp = item.componentes.find(
+            c => String(c.id_componente) === String(row.id_componente)
+          );
+          if (comp) {
+            comp.pedido = parseFloat(row.cantidad) || 0;
+          }
+        }
+      });
     }
 
-    // Restaurar pedidos fuera de presupuesto
-    if (carritoData.pedidosFueraPresupuesto && Array.isArray(carritoData.pedidosFueraPresupuesto)) {
-      pedidosFueraPresupuesto.length = 0;
-      pedidosFueraPresupuesto.push(...carritoData.pedidosFueraPresupuesto);
+    // Restaurar extras
+    if (result.extras) {
+        materialesExtra.length = 0;
+        pedidosFueraPresupuesto.length = 0;
+
+        itemsExtras.forEach(e => {
+            if (e.tipo === 'material_extra') {
+                materialesExtra.push(e.datos_json);
+            } else {
+                pedidosFueraPresupuesto.push(e.datos_json);
+            }
+        });
     }
 
-    // Sincronizar datos entre vistas para mantener consistencia
-    // Si hay datos en agrupados pero no en individuales, o viceversa, sincronizar
     if (itemsData?.componentesAgrupados && itemsData?.itemsIndividuales) {
-      console.log('[Carrito] Sincronizando datos entre vistas...');
       sincronizarDatosEntreVistas();
     }
 
-    console.log('[Carrito] Carrito cargado exitosamente desde localStorage');
+    console.log('[CarritoBD] Carrito cargado exitosamente');
     return true;
+
   } catch (error) {
-    console.error('[Carrito] Error cargando desde localStorage:', error);
+    console.error('[CarritoBD] Error de red cargando carrito:', error);
     return false;
   }
 }
 
 /**
- * Limpia el carrito del localStorage
+ * Limpia el carrito exclusivamente de la BD.
  */
-function limpiarCarritoStorage() {
+async function limpiarCarritoStorage() {
+  const presupuestoId = seleccionActual?.datos?.presupuestoId;
+  if (!presupuestoId) return;
+
   try {
-    localStorage.removeItem(CARRITO_STORAGE_KEY);
-    console.log('[Carrito] Carrito eliminado de localStorage');
+    const response = await fetch(`${API_PRESUPUESTOS}?action=limpiarCarritoBD`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_presupuesto: presupuestoId })
+    });
+    const result = await response.json();
+    if (result.success) {
+      console.log('[CarritoBD] Carrito eliminado de BD');
+    }
   } catch (error) {
-    console.error('[Carrito] Error limpiando localStorage:', error);
+    console.warn('[CarritoBD] Error al limpiar carrito de BD:', error);
   }
 }
+
+/**
+ * Función de interfaz para vaciar el carrito con confirmación del usuario.
+ */
+async function vaciarCarritoUI() {
+  if (!confirm("¿Está seguro de que desea vaciar completamente el carrito? Esta acción no se puede deshacer.")) {
+    return;
+  }
+
+  const btn = document.getElementById("btnVaciarCarrito");
+  const originalHtml = btn ? btn.innerHTML : null;
+  
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Vaciando...';
+    }
+
+    // 1. Limpiar en Base de Datos
+    await limpiarCarritoStorage();
+
+    // 2. Limpiar en Memoria
+    materialesExtra.length = 0;
+    pedidosFueraPresupuesto.length = 0;
+
+    if (itemsData.componentesAgrupados) {
+      itemsData.componentesAgrupados.forEach(c => {
+        c.pedido = 0;
+        if (c.items_que_usan) {
+          c.items_que_usan.forEach(i => { i.pedido_actual = 0; });
+        }
+      });
+    }
+
+    if (itemsData.itemsIndividuales) {
+      itemsData.itemsIndividuales.forEach(item => {
+        if (item.componentes) {
+          item.componentes.forEach(c => { c.pedido = 0; });
+        }
+      });
+    }
+
+    // 3. Actualizar UI
+    filtrarMaterialesPedido();
+    actualizarEstadisticas();
+    renderMaterialesExtraCard();
+
+    alert("El carrito se ha vaciado correctamente.");
+
+  } catch (error) {
+    console.error("[Carrito] Error al vaciar:", error);
+    alert("Hubo un error al intentar vaciar el carrito.");
+  } finally {
+    if (btn) {
+      btn.innerHTML = originalHtml;
+      // El estado disabled se recalculará en actualizarEstadisticas
+    }
+  }
+}
+
+/**
+ * Elimina un ítem específico del carrito.
+ * @param {string} idComponente ID del componente (puede ser string 'null')
+ * @param {string} idItem ID del ítem (puede ser string 'null')
+ * @param {string|null} tipoExtra Tipo de extra (material_extra, pedido_fuera o null)
+ * @param {number|null} indexExtra Índice en el array de extras si aplica
+ */
+async function eliminarItemCarrito(idComponente, idItem, tipoExtra = 'null', indexExtra = null) {
+  // Normalizar valores 'null' de string a null real
+  const compId = idComponente === 'null' ? null : idComponente;
+  const itemId = idItem === 'null' ? null : idItem;
+  const extraType = tipoExtra === 'null' ? null : tipoExtra;
+
+  console.log(`[Carrito] Eliminando ítem: Comp=${compId}, Item=${itemId}, TipoExtra=${extraType}`);
+
+  // 1. ELIMINAR EXTRAS
+  if (extraType === 'material_extra' && indexExtra !== null) {
+    if (materialesExtra[indexExtra]) {
+      materialesExtra[indexExtra].en_pedido_actual = false;
+      materialesExtra[indexExtra].cantidad = 0;
+      // Opcional: eliminar del array si prefieres no mantenerlo
+      materialesExtra.splice(indexExtra, 1);
+    }
+  } 
+  else if (extraType === 'pedido_fuera' && indexExtra !== null) {
+    if (pedidosFueraPresupuesto[indexExtra]) {
+      pedidosFueraPresupuesto.splice(indexExtra, 1);
+    }
+  }
+  // 2. ELIMINAR ÍTEMS NORMALES
+  else {
+    // Buscar en componentesAgrupados
+    if (itemsData.componentesAgrupados) {
+      const comp = itemsData.componentesAgrupados.find(c => String(c.id_componente) === String(compId));
+      if (comp) {
+        if (itemId && comp.items_que_usan) {
+          const u = comp.items_que_usan.find(i => String(i.id_item) === String(itemId));
+          if (u) u.pedido_actual = 0;
+        } else {
+          comp.pedido = 0;
+        }
+      }
+    }
+
+    // Buscar en itemsIndividuales (sincronizar)
+    if (itemsData.itemsIndividuales && itemId) {
+      const item = itemsData.itemsIndividuales.find(i => String(i.id_item) === String(itemId));
+      if (item && item.componentes) {
+        const c = item.componentes.find(comp => String(comp.id_componente) === String(compId));
+        if (c) c.pedido = 0;
+      }
+    }
+  }
+
+  // 3. Persistir en Base de Datos
+  // guardarCarritoEnStorage ya tiene el debounce y usa _guardarCarritoEnBD
+  guardarCarritoEnStorage();
+
+  // 4. Actualizar Interfaz
+  filtrarMaterialesPedido();
+  actualizarEstadisticas();
+  renderMaterialesExtraCard();
+  
+  // Si estamos en la vista de ítems, el input correspondiente debe resetearse visualmente
+  const input = document.querySelector(`input[data-componente-id="${compId}"][data-item-id="${itemId}"]`);
+  if (input) input.value = 0;
+  
+  const inputAgrupado = document.querySelector(`input.cantidad-pedido[data-componente-id="${compId}"]`);
+  if (inputAgrupado && !itemId) inputAgrupado.value = 0;
+}
+
+
+
 
 // ============================================================================
 // SISTEMA DE ANEXOS/ARCHIVOS ADJUNTOS PARA COMPONENTES
@@ -2044,17 +2279,15 @@ async function cargarItems() {
       // Cargar anexos desde la base de datos
       await cargarAnexosDesdeBD(presupuestoId);
 
-      // Cargar carrito guardado desde localStorage (persistencia)
-      const carritoCargado = cargarCarritoDesdeStorage();
-      if (carritoCargado) {
-        // Si se cargó un carrito, actualizar la UI para reflejarlo
-        console.log('[Carrito] Carrito persistido cargado, actualizando UI...');
-        // Re-renderizar para mostrar los valores del carrito cargado
-        filtrarMaterialesPedido();
+      // Cargar carrito desde Base de Datos (persistencia mutli-dispositivo)
+      const carritoEncontrado = await cargarCarritoDesdeDB(presupuestoId);
+      if (carritoEncontrado) {
+        console.log('[CarritoBD] Carrito de BD aplicado, actualizando UI...');
       }
-
-      // Aplicar filtros automáticamente si hay alguno seleccionado
+      
+      // Aplicar filtros o renderizar vista limpia
       setTimeout(filtrarMaterialesPedido, 0);
+
 
       actualizarEstadisticas();
       mostrarInformacionProyecto(proyecto || { nombre: proyectoNombre }, presupuesto || {});
@@ -2586,12 +2819,20 @@ function actualizarEstadisticas() {
   }
 
   const btnConfirmar = document.getElementById("btnConfirmarPedido");
+  const btnVaciar = document.getElementById("btnVaciarCarrito");
+  
+  const haySeleccion = componentesSeleccionados > 0 || 
+                      (pedidosFueraPresupuesto && pedidosFueraPresupuesto.length > 0) ||
+                      (materialesExtra && materialesExtra.length > 0);
+
   if (btnConfirmar) {
-    const btnDisabled =
-      componentesSeleccionados === 0 &&
-      (!pedidosFueraPresupuesto || pedidosFueraPresupuesto.length === 0);
-    btnConfirmar.disabled = btnDisabled;
+    btnConfirmar.disabled = !haySeleccion;
   }
+  
+  if (btnVaciar) {
+    btnVaciar.disabled = !haySeleccion;
+  }
+
 
   renderResumenCarrito();
 }
@@ -2618,6 +2859,9 @@ function renderResumenCarrito() {
 
           const precio = parseFloat(componente.precio_unitario) || 0;
           itemsCarrito.push({
+            id_componente: componente.id_componente,
+            id_item: item.id_item,
+            tipo_extra: null,
             titulo: `${item.codigo_item} - ${componente.descripcion || componente.nombre_componente}`,
             detalle: item.nombre_item,
             unidad: componente.unidad || 'UND',
@@ -2638,6 +2882,9 @@ function renderResumenCarrito() {
 
           const precio = parseFloat(componente.precio_unitario) || 0;
           itemsCarrito.push({
+            id_componente: componente.id_componente,
+            id_item: item.id_item,
+            tipo_extra: null,
             titulo: `${item.codigo_item} - ${componente.nombre_componente}`,
             detalle: item.nombre_item,
             unidad: componente.unidad_componente || componente.unidad || 'UND',
@@ -2650,12 +2897,16 @@ function renderResumenCarrito() {
   }
 
   if (Array.isArray(materialesExtra) && materialesExtra.length > 0) {
-    materialesExtra.forEach((extra) => {
+    materialesExtra.forEach((extra, idx) => {
       if (!extra || extra.en_pedido_actual !== true) return;
       const cantidad = parseFloat(extra.cantidad) || 0;
       if (cantidad <= 0) return;
       const precio = parseFloat(extra.precio_unitario) || 0;
       itemsCarrito.push({
+        id_componente: null,
+        id_item: null,
+        tipo_extra: 'material_extra',
+        index_extra: idx,
         titulo: `${extra.codigo || 'EXTRA'} - ${extra.descripcion || ''}`,
         detalle: 'Material extra',
         unidad: extra.unidad || 'UND',
@@ -2666,12 +2917,16 @@ function renderResumenCarrito() {
   }
 
   if (Array.isArray(pedidosFueraPresupuesto) && pedidosFueraPresupuesto.length > 0) {
-    pedidosFueraPresupuesto.forEach((p) => {
+    pedidosFueraPresupuesto.forEach((p, idx) => {
       if (!p) return;
       const cantidad = parseFloat(p.cantidad_extra ?? p.cantidad_solicitada ?? 0) || 0;
       if (cantidad <= 0) return;
       const precio = parseFloat(p.precio_unitario) || 0;
       itemsFueraPresupuesto.push({
+        id_componente: p.id_componente,
+        id_item: p.id_item,
+        tipo_extra: 'pedido_fuera',
+        index_extra: idx,
         titulo: `${p.codigo_item || ''} - ${p.descripcion_componente || ''}`.trim(),
         detalle: `${p.nombre_item || ''} (pendiente aprobación)`.trim(),
         unidad: p.unidad || 'UND',
@@ -2683,7 +2938,7 @@ function renderResumenCarrito() {
 
   if (itemsCarrito.length === 0 && itemsFueraPresupuesto.length === 0) {
     container.innerHTML = `
-      <div class="text-muted small">
+      <div class="text-muted small text-center py-3">
         <i class="bi bi-cart"></i> Carrito vacío
       </div>
     `;
@@ -2695,34 +2950,35 @@ function renderResumenCarrito() {
 
   const filas = itemsCarrito
     .sort((a, b) => (b.subtotal || 0) - (a.subtotal || 0))
-    .slice(0, 8)
+    .slice(0, 10)
     .map((it) => {
       return `
-        <div class="d-flex justify-content-between align-items-start mb-2">
-          <div class="me-2" style="min-width: 0;">
-            <div class="small fw-semibold text-truncate">${it.titulo}</div>
-            <div class="small text-muted text-truncate">${it.detalle}</div>
-            <div class="small text-muted">${it.cantidad.toFixed(4)} ${it.unidad}</div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="me-2" style="min-width: 0; flex-grow: 1;">
+            <div class="small fw-semibold text-truncate" title="${it.titulo}">${it.titulo}</div>
+            <div class="small text-muted text-truncate" style="font-size: 0.75rem;">${it.detalle}</div>
+            <div class="small text-muted" style="font-size: 0.75rem;">${it.cantidad.toFixed(4)} ${it.unidad} x $${formatCurrency(it.subtotal/it.cantidad)}</div>
           </div>
-          <div class="small fw-bold text-end">$${formatCurrency(it.subtotal)}</div>
+          <div class="d-flex align-items-center">
+            <div class="small fw-bold text-end me-2">$${formatCurrency(it.subtotal)}</div>
+            <button class="btn btn-sm btn-link text-danger p-0" 
+                    onclick="eliminarItemCarrito('${it.id_componente}', '${it.id_item}', '${it.tipo_extra}', ${it.index_extra ?? 'null'})"
+                    title="Eliminar ítem">
+              <i class="bi bi-x-circle-fill"></i>
+            </button>
+          </div>
         </div>
       `;
     })
     .join('');
 
-  const extraCount = Math.max(0, itemsCarrito.length - 8);
+  const extraCount = Math.max(0, itemsCarrito.length - 10);
 
   const filasFuera = itemsFueraPresupuesto
     .sort((a, b) => (b.subtotal || 0) - (a.subtotal || 0))
     .slice(0, 5)
     .map((it) => {
       return `
-        <div class="d-flex justify-content-between align-items-start mb-2">
-          <div class="me-2" style="min-width: 0;">
-            <div class="small fw-semibold text-truncate">${it.titulo}</div>
-            <div class="small text-muted text-truncate">${it.detalle}</div>
-            <div class="small text-muted">${it.cantidad.toFixed(4)} ${it.unidad}</div>
-          </div>
           <div class="small fw-bold text-end">$${formatCurrency(it.subtotal)}</div>
         </div>
       `;
@@ -3280,7 +3536,13 @@ async function confirmarPedido() {
       materialesExtra = [];
       pedidosFueraPresupuesto = [];
       if (itemsData.componentesAgrupados) {
-        itemsData.componentesAgrupados.forEach((c) => (c.pedido = 0));
+        itemsData.componentesAgrupados.forEach((c) => {
+          c.pedido = 0;
+          // Limpiar también el desglose por item dentro del componente agrupado
+          if (c.items_que_usan) {
+            c.items_que_usan.forEach(i => { i.pedido_actual = 0; });
+          }
+        });
       }
       // Limpiar también los componentes individuales si existen
       if (Array.isArray(itemsData)) {
@@ -3293,8 +3555,9 @@ async function confirmarPedido() {
         );
       }
 
-      // Limpiar carrito de localStorage (persistencia)
-      limpiarCarritoStorage();
+
+      // Limpiar carrito de BD y localStorage (persistencia multi-dispositivo)
+      await limpiarCarritoStorage();
 
       if (typeof actualizarCarrito === 'function') {
         actualizarCarrito();
