@@ -1,0 +1,4218 @@
+[06-Apr-2026 19:05:33 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:05:33 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:07:53 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:07:53 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:08:10 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:08:10 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:09:54 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:09:54 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:11:20 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:11:20 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:14:26 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:14:27 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:22:37 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:22:38 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:27:38 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:27:39 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 1121233.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:28:31 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:28:31 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:34:04 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:34:04 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:34:26 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:34:26 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:36:25 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:36:25 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:54:40 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 19:54:40 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:03:33 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:03:33 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:04:40 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:04:40 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:08:34 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:08:34 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:26:02 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 6
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 10.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 5589010.00
+            [mejor_precio_cotizado] => 550000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 10.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 10.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:26:03 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 6
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 10.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 5589010.00
+            [mejor_precio_cotizado] => 550000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 10.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 10.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:26:33 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 550000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:26:33 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 550000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:27:14 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 550000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:27:14 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 550000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:27:41 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 6
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 10.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 5589010.00
+            [mejor_precio_cotizado] => 550000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 10.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 10.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:27:42 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 6
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 10.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 5589010.00
+            [mejor_precio_cotizado] => 550000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 10.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 10.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:46:52 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:46:52 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:51:58 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:51:58 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:52:52 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[06-Apr-2026 20:52:52 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 06:57:51 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 06:57:51 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:02:51 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:02:51 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:03:08 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:03:08 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:05:39 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:05:39 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:05:49 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:05:49 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:07:30 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:07:30 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:08:47 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:08:48 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:18:30 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:18:30 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:20:57 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:20:57 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:26:24 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:26:24 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:26:41 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:26:41 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:31:26 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:31:27 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:31:37 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:31:37 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:32:55 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:32:55 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:33:11 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:33:11 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 1
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 7152.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 30396000.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 7152.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 7152.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [1] => Array
+        (
+            [id_det_pedido] => 2
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 119220.00
+            [precio_unitario] => 74.00
+            [subtotal] => 8822280.00
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 119220.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 119220.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+    [2] => Array
+        (
+            [id_det_pedido] => 3
+            [id_componente] => 4150
+            [descripcion] => AGUA
+            [unidad] => LT
+            [cantidad] => 59610.40
+            [precio_unitario] => 74.00
+            [subtotal] => 4411169.60
+            [mejor_precio_cotizado] => 123.0000
+            [mejor_proveedor_nombre] => Proveedor Genérico
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 59610.4000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 59610.4000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:35:25 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:35:25 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:36:55 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:36:55 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:37:22 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:37:22 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:39:21 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:39:21 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:44:24 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:44:24 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:49:54 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:49:54 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:50:19 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:50:19 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:53:28 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:53:29 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:56:39 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:56:39 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:59:20 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 07:59:21 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 08:00:39 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 08:00:39 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 08:00:52 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 08:00:52 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 55000.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 08:01:33 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 13000.0000
+            [mejor_proveedor_nombre] => electricos tulua
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 08:01:33 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 8
+            [id_componente] => 4918
+            [descripcion] => FORMALETA PARA CUNETA Y/O BORDILLO DE CONCRETO
+            [unidad] => M2
+            [cantidad] => 1228.50
+            [precio_unitario] => 14073.00
+            [subtotal] => 17288680.50
+            [mejor_precio_cotizado] => 13000.0000
+            [mejor_proveedor_nombre] => electricos tulua
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 1228.5000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 1228.5000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 08:06:13 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 08:06:13 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 08:06:13 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 08:06:32 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[07-Apr-2026 08:06:32 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[09-Apr-2026 14:33:32 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[09-Apr-2026 14:35:56 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 5
+            [id_componente] => 6454
+            [descripcion] => ACERO DE REFUERZO 60.000 PSI 420 MPA
+            [unidad] => KG
+            [cantidad] => 10.00
+            [precio_unitario] => 4250.00
+            [subtotal] => 42500.00
+            [mejor_precio_cotizado] => 4250.0000
+            [mejor_proveedor_nombre] => Materiales Ejemplo
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 10.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 10.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[09-Apr-2026 14:36:10 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[09-Apr-2026 14:37:21 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[09-Apr-2026 14:37:22 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 7
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 15.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 8383515.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 15.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 15.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[09-Apr-2026 14:37:48 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 6
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 10.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 5589010.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 10.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 10.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+
+[09-Apr-2026 14:37:49 UTC] getProductosPedido - Productos originales: Array
+(
+    [0] => Array
+        (
+            [id_det_pedido] => 6
+            [id_componente] => 4917
+            [descripcion] => CONCRETO RESISTENCIA 21 MPA (PREMEZCLADO)
+            [unidad] => M3
+            [cantidad] => 10.00
+            [precio_unitario] => 558901.00
+            [subtotal] => 5589010.00
+            [mejor_precio_cotizado] => 545000.0000
+            [mejor_proveedor_nombre] => electricos buga
+            [cantidad_comprada] => 0.0000
+            [cantidad_disponible] => 10.0000
+            [estado_producto] => disponible
+            [cantidad_maxima_seleccionable] => 10.0000
+            [minimo_comercial] => 1.000
+            [presentacion_comercial] => Unidad
+        )
+
+)
+

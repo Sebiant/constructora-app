@@ -1,0 +1,2119 @@
+const OrdenesCompraUI = (() => {
+  const state = {
+    ordenes: [],
+    ordenesFiltradas: [],
+    pedidos: [],
+    proveedores: [],
+    productosSeleccionados: new Map(),
+    modalOrden: null,
+    modalDetalle: null,
+    vistaActual: 'tabla',
+    isCargandoProductos: false,
+    inicializado: false
+  };
+
+  const API_ORDENES = '/sgigescon/src/OrdenesCompra/Interfaces/OrdenesCompraController.php';
+
+  const selectores = {
+    tablaOrdenes: '#tablaOrdenesBody',
+    contenedorTarjetas: '#contenedorTarjetas',
+    modalOrden: '#modalOrdenCompra',
+    modalDetalle: '#modalDetalleOrden',
+    formOrden: '#formOrdenCompra',
+    contadorOrdenes: '#contadorOrdenes',
+    totalPendientes: '#totalPendientes',
+    totalAprobadas: '#totalAprobadas',
+    totalCompradas: '#totalCompradas',
+    montoTotal: '#montoTotal'
+  };
+
+  // Estado adicional para cotizaciones
+  state.gruposCotizacion = [];  // [{id_provedor, nombre_proveedor, productos:[...]}]
+
+  // Inicialización
+  async function init() {
+    if (state.inicializado) {
+      console.log('ℹ️ OrdenesCompraUI ya estaba inicializado.');
+      return;
+    }
+    console.log('🚀 Inicializando OrdenesCompraUI...');
+    try {
+      const modalOrdenEl = document.querySelector(selectores.modalOrden);
+      const modalDetalleEl = document.querySelector(selectores.modalDetalle);
+
+      if (modalOrdenEl) state.modalOrden = new bootstrap.Modal(modalOrdenEl);
+      if (modalDetalleEl) state.modalDetalle = new bootstrap.Modal(modalDetalleEl);
+
+      console.log('✅ Modales inicializados');
+
+      // Event listeners principales
+      document.getElementById('btnRefrescar')?.addEventListener('click', cargarOrdenes);
+      document.getElementById('btnNuevaOrden')?.addEventListener('click', mostrarModalNuevaOrden);
+      document.getElementById('btnBuscar')?.addEventListener('click', filtrarOrdenes);
+      document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') filtrarOrdenes();
+      });
+
+      // Filtros
+      document.getElementById('filterEstado')?.addEventListener('change', filtrarOrdenes);
+      document.getElementById('filterProveedor')?.addEventListener('change', filtrarOrdenes);
+      document.getElementById('fechaDesde')?.addEventListener('change', filtrarOrdenes);
+      document.getElementById('fechaHasta')?.addEventListener('change', filtrarOrdenes);
+
+      // Vista toggle
+      document.querySelectorAll('[data-view]').forEach(btn => {
+        btn.addEventListener('click', (e) => cambiarVista(e.target.dataset.view));
+      });
+
+      // Al cambiar pedido: cargar productos y habilitar boton cotización
+      document.getElementById('idPedido')?.addEventListener('change', async (e) => {
+        const idPedido = e.target.value;
+        const btn = document.getElementById('btnAbrirCotizacion');
+        if (btn) btn.disabled = !idPedido;
+
+        if (idPedido) {
+          await cargarProductosPedido();
+        } else {
+          document.getElementById('tablaProductosBody').innerHTML = '';
+          document.getElementById('contadorProductos').textContent = '0 productos';
+          _ocultarResumenCotizacion();
+        }
+
+        // Resetear cotización previa
+        state.gruposCotizacion = [];
+        const btnGuardar = document.getElementById('btnGuardarOrden');
+        if (btnGuardar) btnGuardar.disabled = true;
+      });
+
+      // Botón reabrir/editar cotización (ya no se usa el anterior pero mantenemos compatibilidad por si acaso)
+      document.getElementById('btnReabrirCotizacion')?.addEventListener('click', _abrirCotizacion);
+
+      // Botón guardar (genera las órdenes agrupadas)
+      document.getElementById('btnGuardarOrden')?.addEventListener('click', guardarOrden);
+
+      document.getElementById('selectAll')?.addEventListener('change', seleccionarTodosProductos);
+
+      // Event listener para recargar proveedores cuando se cierra el modal de agregar proveedor
+      const modalProveedor = document.getElementById('modalAgregarProveedor');
+      if (modalProveedor) {
+        modalProveedor.addEventListener('hidden.bs.modal', function () {
+          cargarProveedores();
+        });
+      }
+
+      await Promise.all([
+        cargarProveedores(),
+        cargarPedidos(),
+        cargarOrdenes()
+      ]);
+
+      // Inicializar módulo de cotización
+      if (typeof CotizacionModal !== 'undefined') {
+        CotizacionModal.init();
+      }
+
+      // Marcar inicialización completa
+      state.inicializado = true;
+      console.log('✨ OrdenesCompraUI inicializado correctamente');
+    } catch (error) {
+      console.error('❌ Error durante la inicialización:', error);
+    }
+  }
+
+  // Cargar datos principales
+  async function cargarOrdenes() {
+    try {
+      const response = await fetch(`${API_ORDENES}?action=getOrdenesCompra`);
+      const result = await response.json();
+
+      if (!result.success) throw new Error(result.error || 'Error al cargar órdenes');
+
+      state.ordenes = result.data || [];
+      state.ordenesFiltradas = [];
+      renderizarOrdenes();
+      actualizarResumen();
+    } catch (error) {
+      console.error('Error cargando órdenes:', error);
+      mostrarError('Error al cargar las órdenes de compra');
+    }
+  }
+
+  async function cargarProveedores() {
+    try {
+      const response = await fetch(`${API_ORDENES}?action=getProveedores`);
+      const result = await response.json();
+
+      if (result.success) {
+        state.proveedores = result.data || [];
+        // Solo llenar el filtro del listado principal, no el select de proveedor
+        // porque ahora se usa el modal de cotización
+        llenarSelect('filterProveedor', state.proveedores, 'id_provedor', 'nombre');
+      }
+    } catch (error) {
+      console.error('Error cargando proveedores:', error);
+    }
+  }
+
+  async function cargarPedidos() {
+    try {
+      console.log('📡 Cargando pedidos disponibles...');
+      const response = await fetch(`${API_ORDENES}?action=getPedidosDisponibles`);
+      const result = await response.json();
+
+      console.log('📥 Respuesta de pedidos:', result);
+
+      if (result.success) {
+        console.log('✅ Pedidos cargados:', result.data);
+        state.pedidos = result.data || [];
+        llenarSelect('idPedido', state.pedidos, 'id_pedido', 'descripcion_pedido');
+      } else {
+        console.error('âŒ Error en API de pedidos:', result.error);
+        mostrarError(result.error || 'Error al cargar pedidos');
+      }
+    } catch (error) {
+      console.error('âŒ Error cargando pedidos:', error);
+      mostrarError('Error de conexión al cargar pedidos');
+    }
+  }
+
+  async function cargarProductosPedido() {
+    const idPedido = document.getElementById('idPedido').value;
+    console.log('ðŸ” Cargando productos para pedido ID:', idPedido);
+
+    if (!idPedido) {
+      console.log('âŒ No se seleccionó pedido');
+      return;
+    }
+
+    // Verificar si el pedido ya tiene una orden de compra
+    try {
+      console.log('ðŸ” Verificando si el pedido ya tiene orden de compra...');
+      const response = await fetch(`${API_ORDENES}?action=verificarOrdenExistente&id_pedido=${idPedido}`);
+      const result = await response.json();
+
+      console.log('📥 Respuesta de verificación:', result);
+
+      if (result.success && result.tieneOrdenCompleto) {
+        console.log('âš ï¸ El pedido ya está completamente ordenado (faltante_total=0)');
+        alert('Este pedido ya está completamente ordenado. Seleccione otro pedido con faltantes.');
+
+        // Limpiar selección
+        document.getElementById('idPedido').value = '';
+        document.getElementById('tablaProductosBody').innerHTML = '';
+        document.getElementById('contadorProductos').textContent = '0 productos';
+
+        // Deshabilitar el botón de guardar
+        const btnGuardar = document.getElementById('btnGuardarOrden');
+        if (btnGuardar) {
+          btnGuardar.disabled = true;
+          btnGuardar.innerHTML = '<i class="bi bi-lock"></i> Pedido sin faltantes';
+          btnGuardar.className = 'btn btn-secondary w-100';
+        }
+
+        return;
+      } else {
+        // Rehabilitar botón guardar si hay posibilidad de comprar
+        const btnGuardar = document.getElementById('btnGuardarOrden');
+        if (btnGuardar) {
+          btnGuardar.disabled = false;
+          btnGuardar.innerHTML = '<i class="bi bi-check-circle"></i> Guardar Orden';
+          btnGuardar.className = 'btn btn-primary';
+        }
+      }
+    } catch (error) {
+      console.error('Error al verificar orden existente:', error);
+      // Si hay error, continuar con la carga normal
+    }
+
+    if (state.isCargandoProductos) {
+      console.log('â³ Ya hay una carga de productos en curso, se omite esta llamada');
+      return;
+    }
+
+    state.isCargandoProductos = true;
+    try {
+      console.log('📡 Haciendo llamada a API...');
+      const url = `${API_ORDENES}?action=getProductosPedido&id_pedido=${idPedido}`;
+      console.log('ðŸŒ URL de llamada:', url);
+
+      const response = await fetch(url);
+      const raw = await response.text();
+      let result;
+      try {
+        result = JSON.parse(raw);
+      } catch (e) {
+        console.error('âŒ Respuesta no JSON desde el servidor:', raw);
+        throw new Error('Respuesta inválida del servidor');
+      }
+
+      console.log('📥 Respuesta de API:', result);
+      console.log('📊 Status HTTP:', response.status);
+      console.log('📊 Headers:', response.headers);
+
+      if (result.success) {
+        console.log('✅ Productos cargados:', result.data);
+        console.log('📊 Cantidad de productos:', result.data ? result.data.length : 0);
+        state.productos = result.data || [];
+        state.productosSeleccionados.clear();
+        renderizarTablaProductos();
+        actualizarTotales();
+        actualizarContadorProductos();
+        actualizarResumen();
+
+        // ⚠️ Habilitar botón de cotización si hay productos y pedido
+        const btnCot = document.getElementById('btnAbrirCotizacion');
+        if (btnCot) btnCot.disabled = !idPedido;
+
+      } else {
+        console.error('âŒ Error en API:', result.error);
+        mostrarError(result.error || 'Error al cargar productos del pedido');
+      }
+    } catch (error) {
+      console.error('âŒ Error en la llamada:', error);
+      console.error('📊 Stack trace:', error.stack);
+      mostrarError('Error de conexión al cargar productos');
+    } finally {
+      state.isCargandoProductos = false;
+    }
+  }
+
+  // Renderizado
+  function renderizarOrdenes() {
+    const datos = state.ordenesFiltradas.length ? state.ordenesFiltradas : state.ordenes;
+
+    if (state.vistaActual === 'tabla') {
+      renderizarVistaTabla(datos);
+    } else {
+      renderizarVistaTarjetas(datos);
+    }
+
+    actualizarContador(datos.length);
+  }
+
+  function renderizarVistaTabla(ordenes) {
+    const tbody = document.querySelector(selectores.tablaOrdenes);
+
+    if (!ordenes.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="text-center py-4">
+            <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+            <p class="mb-0 mt-2 text-muted">No hay órdenes de compra registradas</p>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = ordenes.map(orden => `
+      <tr>
+        <td class="fw-semibold">${orden.numero_orden}</td>
+        <td>
+          <a href="#" class="text-decoration-none" onclick="OrdenesCompraUI.verDetallePedido(${orden.id_pedido})">
+            #${orden.id_pedido}
+          </a>
+        </td>
+        <td>${orden.nombre_proveedor || '-'}</td>
+        <td>${formatDate(orden.fecha_orden)}</td>
+        <td>${getBadgeEstado(orden.estado)}</td>
+        <td class="text-end fw-semibold">$${formatCurrency(orden.total)}</td>
+        <td>${orden.numero_factura || '<span class="text-muted">Sin factura</span>'}</td>
+        <td class="text-center">
+          <button class="btn btn-outline-info btn-sm" title="Inspeccionar orden" 
+                  onclick="OrdenesCompraUI.verDetalle(${orden.id_orden_compra})">
+            <i class="bi bi-eye"></i> Inspeccionar
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderizarVistaTarjetas(ordenes) {
+    const contenedor = document.querySelector(selectores.contenedorTarjetas);
+
+    if (!ordenes.length) {
+      contenedor.innerHTML = `
+        <div class="col-12 text-center py-4">
+          <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+          <p class="mb-0 mt-2 text-muted">No hay órdenes de compra registradas</p>
+        </div>
+      `;
+      return;
+    }
+
+    contenedor.innerHTML = ordenes.map(orden => `
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <strong>${orden.numero_orden}</strong>
+            ${getBadgeEstado(orden.estado)}
+          </div>
+          
+          <div class="card-body">
+            <div class="mb-2">
+              <small class="text-muted">Pedido:</small>
+              <div>#${orden.id_pedido}</div>
+            </div>
+            
+            <div class="mb-2">
+              <small class="text-muted">Proveedor:</small>
+              <div>${orden.nombre_proveedor || '-'}</div>
+            </div>
+            
+            <div class="mb-2">
+              <small class="text-muted">Fecha:</small>
+              <div>${formatDate(orden.fecha_orden)}</div>
+            </div>
+            
+            <div class="mb-3">
+              <small class="text-muted">Total:</small>
+              <div class="h5 text-primary mb-0">$${formatCurrency(orden.total)}</div>
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button class="btn btn-outline-info btn-sm" 
+                      onclick="OrdenesCompraUI.verDetalle(${orden.id_orden_compra})">
+                <i class="bi bi-eye"></i> Inspeccionar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderizarTablaProductos() {
+    const contenedor = document.getElementById('tablaProductosBody');
+    const contador = document.getElementById('contadorProductos');
+
+    if (!contenedor) {
+      return;
+    }
+
+    if (!state.productos || state.productos.length === 0) {
+      contenedor.innerHTML = `
+        <tr>
+          <td colspan="10" class="text-center py-3 text-muted">
+            <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+            <p class="mb-0 mt-2">Seleccione un pedido para ver sus productos</p>
+          </td>
+        </tr>
+      `;
+      if (contador) contador.textContent = '0 productos';
+      return;
+    }
+
+    let html = state.productos.map((producto, index) => {
+      const cantPedida = Number(producto.cantidad_solicitada ?? producto.cantidad ?? 0);
+      const cantOC = Number(producto.cantidad_comprada ?? 0);
+      const precio = Number(producto.precio_unitario ?? 0);
+      const mejorPrecio = producto.mejor_precio_cotizado ? Number(producto.mejor_precio_cotizado) : null;
+      const mejorProv = producto.mejor_proveedor_nombre ?? '';
+
+      const subtotal = Number(producto.subtotal ?? (cantOC * precio));
+      const disponible = Number(producto.cantidad_disponible ?? 0);
+      const minimoComercial = Number(producto.minimo_comercial ?? 1.0);
+
+      // Calcular cantidad real a comprar con mínimo comercial
+      const cantNecesaria = Math.min(disponible, cantPedida - cantOC);
+      const unidadesMinimas = Math.ceil(cantNecesaria / minimoComercial);
+      const cantComprar = unidadesMinimas * minimoComercial;
+      const desperdicio = cantComprar - cantNecesaria;
+      const porcentajeDesperdicio = cantNecesaria > 0 ? (desperdicio / cantNecesaria) * 100 : 0;
+
+      // Obtener IDs originales para el checkbox y otros elementos
+      // Para cotizaciones usamos id_componente, para otras operaciones usamos id_det_pedido
+      const idsOriginales = producto.id_componente ? [producto.id_componente] : (Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido : [producto.id_det_pedido]);
+      const primerId = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido[0] : producto.id_det_pedido; // Para checkbox usamos id_det_pedido
+
+      // Indicador visual si hay múltiples productos agrupados
+      const indicadorAgrupado = idsOriginales.length > 1 ?
+        '<span class="badge bg-info ms-1" title="Productos agrupados"><i class="bi bi-layers"></i></span>' : '';
+
+      // Indicador de desperdicio
+      const indicadorDesperdicio = desperdicio > 0.01 ?
+        `<span class="badge bg-warning ms-1" title="Desperdicio: ${desperdicio.toFixed(2)} (${porcentajeDesperdicio.toFixed(1)}%)"><i class="bi bi-exclamation-triangle"></i> ${desperdicio.toFixed(2)}</span>` : '';
+
+      // Información de presentación comercial
+      const presentacionInfo = producto.presentacion_comercial && producto.presentacion_comercial !== 'Unidad' ?
+        `<br><small class="text-muted">${producto.presentacion_comercial}</small>` : '';
+
+      console.log(`ðŸ“¦ Producto ${index + 1}:`, {
+        ids_originales: idsOriginales,
+        valores_ids_originales: idsOriginales.map(id => `${id} (${typeof id})`),
+        id_componente: producto.id_componente,
+        id_det_pedido: producto.id_det_pedido,
+        descripcion: producto.descripcion,
+        cantPedida,
+        cantOC,
+        disponible,
+        minimoComercial,
+        cantNecesaria,
+        cantComprar,
+        desperdicio,
+        porcentajeDesperdicio
+      });
+
+      // Logging adicional para depuración
+      console.log(`🔍 Producto ${index + 1} - Detalle IDs:`, {
+        'ids_originales completo': JSON.stringify(idsOriginales),
+        'primer valor ids_originales': idsOriginales[0],
+        'producto.id_componente': producto.id_componente,
+        'producto.id_det_pedido': producto.id_det_pedido,
+        'producto completo claves': Object.keys(producto)
+      });
+
+      // Mostrar todos los valores del producto para encontrar el id_componente
+      console.log(`📋 Producto ${index + 1} - Todos los campos:`, producto);
+
+      return `
+        <tr data-id-det-pedido="${primerId}">
+          <td width="5%">
+            <input type="checkbox" class="form-check-input producto-checkbox" 
+                   data-id="${primerId}" 
+                   data-ids-originales='${escapeHtml(JSON.stringify(idsOriginales))}'
+                   data-disponible="${disponible}"
+                   data-cant-comprar="${cantComprar}"
+                   data-desperdicio="${desperdicio}"
+                   ${cantComprar <= 0 ? 'disabled' : ''}>
+          </td>
+          <td>
+            ${escapeHtml(producto.descripcion)}
+            ${indicadorAgrupado}
+            ${indicadorDesperdicio}
+            ${presentacionInfo}
+          </td>
+          <td class="text-center">${escapeHtml(producto.unidad || '')}</td>
+          <td class="text-center">${cantPedida.toFixed(2)}</td>
+          <td class="text-center">${cantOC.toFixed(2)}</td>
+          <td class="text-center">${disponible.toFixed(2)}</td>
+          <td class="text-center">
+            <div class="input-group input-group-sm">
+              <input type="number" 
+                     class="form-control form-control-sm text-center cantidad-comprar" 
+                     min="0" 
+                     step="any"
+                     max="${cantComprar}" 
+                     value="${cantComprar}"
+                     data-id="${primerId}"
+                     data-ids-originales='${escapeHtml(JSON.stringify(idsOriginales))}'
+                     data-cant-pedida="${cantPedida}"
+                     data-cant-necesaria="${cantNecesaria}"
+                     data-minimo-comercial="${minimoComercial}">
+              <button class="btn btn-outline-primary btn-sm btn-autofill-mini" type="button"
+                      title="Usar cantidad calculada con mínimo comercial"
+                      data-id="${primerId}">
+                <i class="bi bi-arrow-repeat"></i>
+              </button>
+            </div>
+            ${desperdicio > 0.01 ? `<small class="text-warning d-block mt-1">+${desperdicio.toFixed(2)} (${porcentajeDesperdicio.toFixed(1)}%)</small>` : ''}
+          </td>
+          <td class="text-center">
+            ${desperdicio > 0.01 ?
+          `<span class="badge bg-warning" title="Desperdicio: ${desperdicio.toFixed(2)} (${porcentajeDesperdicio.toFixed(1)}%)">
+                <i class="bi bi-exclamation-triangle"></i> ${desperdicio.toFixed(2)}
+              </span>` :
+          '<span class="text-muted">-</span>'
+        }
+          </td>
+          <td class="text-end">
+            <small class="text-muted" title="Precio presupuestado">
+              <i class="bi bi-calculator me-1"></i>Presupuestado
+            </small>
+            <div class="fw-bold">${formatMoney(producto.precio_presupuestado_original || precio)}</div>
+          </td>
+          <td class="text-end">
+            <small class="text-muted" title="Precio cotizado">
+              <i class="bi bi-shop me-1"></i>Cotizado
+            </small>
+            <div class="d-flex align-items-center justify-content-end gap-1">
+              ${mejorPrecio !== null ? `
+                <span class="fw-bold ${mejorPrecio > (producto.precio_presupuestado_original || precio) ? 'text-danger' : 'text-success'}" 
+                      title="Proveedor: ${escapeHtml(mejorProv)}">
+                  ${formatMoney(mejorPrecio)}
+                </span>
+              ` : '<small class="text-muted italic">Sin cotizar</small>'}
+              <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1" 
+                      style="font-size: 0.65rem;"
+                      onclick="OrdenesCompraUI.verDesglose(${primerId}, ${escapeHtml(JSON.stringify(idsOriginales))})"
+                      title="Ver todas las ofertas para este producto">
+                <i class="bi bi-three-dots-vertical"></i>
+              </button>
+            </div>
+            ${mejorProv ? `<small class="text-truncate d-block text-muted mt-1" style="max-width:150px; font-size:0.65rem;">
+              <i class="bi bi-person me-1"></i>${escapeHtml(mejorProv)}
+            </small>` : ''}
+          </td>
+          <td class="text-end subtotal-producto">${formatMoney(subtotal)}</td>
+        </tr>
+        <tr id="desglose_${primerId}" class="d-none table-light">
+          <td colspan="10" class="p-0 border-top-0">
+             <div id="contenido_desglose_${primerId}" class="px-3 py-2 bg-light border-bottom shadow-inner"></div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    console.log('📊 HTML generado, longitud:', html.length);
+    contenedor.innerHTML = html;
+
+    // Agregar event listeners manuales para mayor confiabilidad
+    contenedor.querySelectorAll('.producto-checkbox').forEach(cb => {
+      cb.addEventListener('change', (e) => actualizarProductoSeleccionado(e.target.dataset.id, e.target));
+    });
+
+    contenedor.querySelectorAll('.cantidad-comprar').forEach(input => {
+      // Usar change y keyup para capturar cambios inmediatos
+      const handler = (e) => actualizarCantidadComprar(e.target);
+      input.addEventListener('change', handler);
+      input.addEventListener('input', handler);
+    });
+
+    contenedor.querySelectorAll('.btn-autofill-mini').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        autofillCantidadPedida(id);
+      });
+    });
+
+    if (contador) contador.textContent = `${state.productos.length} productos`;
+  }
+
+  function renderizarProductosPedido(productos) {
+    const tbody = document.getElementById('tablaProductosBody');
+    state.productosSeleccionados.clear();
+
+    if (!productos.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="9" class="text-center py-3 text-muted">
+            El pedido no tiene productos disponibles para órdenes de compra
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = productos.map(producto => `
+      <tr data-id-det-pedido="${producto.id_det_pedido}">
+        <td>
+          <input type="checkbox" class="form-check-input producto-checkbox" 
+                 data-id="${producto.id_det_pedido}" 
+                 ${producto.cantidad_maxima_seleccionable <= 0 ? 'disabled' : ''} />
+        </td>
+        <td>
+          <div>${producto.descripcion}</div>
+          <small class="text-muted">Estado: ${getBadgeEstadoProducto(producto.estado_producto)}</small>
+        </td>
+        <td class="text-center">${producto.unidad || '-'}</td>
+        <td class="text-center">
+          <div class="fw-semibold">${producto.cantidad}</div>
+        </td>
+        <td class="text-center">
+          <div class="text-info">${producto.cantidad_comprada}</div>
+        </td>
+        <td class="text-center">
+          <div class="text-success fw-bold">${producto.cantidad_disponible}</div>
+        </td>
+        <td class="text-center">
+          <div class="input-group input-group-sm">
+            <input type="number" class="form-control form-control-sm text-center cantidad-comprar" 
+                   data-id="${producto.id_det_pedido}" 
+                   value="${producto.cantidad_disponible}" 
+                   min="0" 
+                   max="${producto.cantidad_maxima_seleccionable}"
+                   step="0.01"
+                   ${producto.cantidad_maxima_seleccionable <= 0 ? 'disabled' : ''} />
+            <button class="btn btn-outline-primary btn-sm btn-autofill" 
+                    type="button" 
+                    data-id="${producto.id_det_pedido}"
+                    data-cantidad="${producto.cantidad_disponible}"
+                    title="Poner cantidad disponible">
+              <i class="bi bi-arrow-right"></i>
+            </button>
+          </div>
+        </td>
+        <td class="text-end">$${formatCurrency(producto.precio_unitario)}</td>
+        <td class="text-end subtotal-producto">$${formatCurrency(producto.subtotal)}</td>
+      </tr>
+    `).join('');
+
+    // Event listeners para productos
+    document.querySelectorAll('.producto-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => {
+        console.log('📦 Checkbox cambiado:', e.target.dataset.id, e.target.checked);
+        // Usar la función unificada
+        actualizarProductoSeleccionado(e.target.dataset.id, e.target);
+      });
+    });
+
+    document.querySelectorAll('.cantidad-comprar').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const id = e.target.dataset.id;
+        const max = parseFloat(e.target.max);
+        const value = parseFloat(e.target.value) || 0;
+
+        // Validar que no exceda el máximo disponible
+        if (value > max) {
+          e.target.value = max;
+        }
+
+        if (state.productosSeleccionados.has(id)) {
+          const producto = state.productosSeleccionados.get(id);
+          producto.cantidad_comprar = parseFloat(e.target.value) || 0;
+          actualizarTotales();
+        }
+      });
+    });
+
+    // Event listeners para botones de autofill
+    document.querySelectorAll('.btn-autofill').forEach(button => {
+      button.addEventListener('click', (e) => {
+        const id = e.target.dataset.id;
+        const cantidad = e.target.dataset.cantidad;
+        const input = document.querySelector(`.cantidad-comprar[data-id="${id}"]`);
+
+        if (input) {
+          input.value = cantidad;
+          input.dispatchEvent(new Event('input'));
+        }
+      });
+    });
+
+    actualizarContadorProductos();
+  }
+
+  function getBadgeEstadoProducto(estado) {
+    const badges = {
+      'disponible': '<span class="badge bg-success">Disponible</span>',
+      'parcialmente_comprado': '<span class="badge bg-warning">Parcialmente comprado</span>',
+      'comprado': '<span class="badge bg-secondary">Comprado</span>'
+    };
+    return badges[estado] || '<span class="badge bg-secondary">Desconocido</span>';
+  }
+
+  // Funciones de UI
+  function mostrarModalNuevaOrden() {
+    // Verificar que los datos estén cargados antes de mostrar el modal
+    if (!state.productos || state.productos.length === 0) {
+      // Si no hay productos, cargar datos básicos primero
+      cargarProveedores();
+      cargarOrdenes();
+      cargarPedidos();
+
+      // Mostrar mensaje de carga
+      showToast('Cargando datos, espere un momento...', 'info');
+
+      // Esperar un poco y verificar de nuevo
+      setTimeout(() => {
+        if (!state.productos || state.productos.length === 0) {
+          mostrarError('No se pudieron cargar los datos. Por favor recargue la página.');
+          return;
+        }
+        // Si ya hay datos, mostrar el modal
+        mostrarModalConDatos();
+      }, 2000);
+      return;
+    }
+
+    mostrarModalConDatos();
+  }
+
+  function mostrarModalConDatos() {
+    // Verificar si hay parámetros en la URL (viene desde notificación)
+    const urlParams = new URLSearchParams(window.location.search);
+    const idPedidoDesdeURL = urlParams.get('id_pedido');
+
+    // Resetear formulario completamente
+    const form = document.querySelector(selectores.formOrden);
+    if (form) {
+      form.reset();
+    }
+
+    // Limpiar campos manualmente para asegurar limpieza completa
+    const idPedido = document.getElementById('idPedido');
+    const idProveedor = document.getElementById('idProveedor');
+    const contenidoProductos = document.getElementById('contenidoProductos');
+    const subtotalOrden = document.getElementById('subtotalOrden');
+    const impuestosOrden = document.getElementById('impuestosOrden');
+    const totalOrden = document.getElementById('totalOrden');
+
+    if (idPedido) idPedido.value = '';
+    if (idProveedor) idProveedor.value = '';
+    if (contenidoProductos) contenidoProductos.innerHTML = '';
+
+    // Resetear estado de productos seleccionados
+    state.productosSeleccionados.clear();
+    if (document.getElementById('selectAll')) {
+      document.getElementById('selectAll').checked = false;
+    }
+
+    // Resetear totales
+    if (subtotalOrden) subtotalOrden.textContent = '$0.00';
+    if (impuestosOrden) impuestosOrden.textContent = '$0.00';
+    if (totalOrden) totalOrden.textContent = '$0.00';
+
+    // ⚠️ Resetear estado de botón cotización
+    const btnCot = document.getElementById('btnAbrirCotizacion');
+    if (btnCot) btnCot.disabled = true;
+
+    // Si viene desde notificación con id_pedido, autocompletar datos
+    if (idPedidoDesdeURL) {
+      if (idPedido) {
+        idPedido.value = idPedidoDesdeURL;
+        // Habilitar botón inmediatamente
+        if (btnCot) btnCot.disabled = false;
+        // Disparar evento change para gatillar cargarProductosPedido UNA SOLA VEZ
+        idPedido.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+
+    // Mostrar modal limpio
+    const modalTitle = document.getElementById('modalOrdenTitle');
+    if (modalTitle) {
+      modalTitle.innerHTML = '<i class="bi bi-clipboard-plus"></i> Nueva Orden de Compra';
+    }
+
+    // Verificar si el modal existe
+    const modalElement = document.getElementById('modalOrdenCompra');
+    if (modalElement) {
+      try {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+      } catch (error) {
+        console.error('Error al mostrar modal:', error);
+        mostrarError('Error al abrir el modal de nueva orden');
+      }
+    } else {
+      mostrarError('No se encontró el modal de nueva orden');
+    }
+  }
+
+  function cambiarVista(vista) {
+    state.vistaActual = vista;
+
+    // Actualizar botones
+    document.querySelectorAll('[data-view]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.view === vista);
+    });
+
+    // Mostrar/ocultar vistas
+    document.getElementById('vistaTabla').classList.toggle('d-none', vista !== 'tabla');
+    document.getElementById('vistaTarjetas').classList.toggle('d-none', vista !== 'tarjetas');
+
+    renderizarOrdenes();
+  }
+
+  function filtrarOrdenes() {
+    const estado = document.getElementById('filterEstado').value;
+    const proveedor = document.getElementById('filterProveedor').value;
+    const fechaDesde = document.getElementById('fechaDesde').value;
+    const fechaHasta = document.getElementById('fechaHasta').value;
+    const busqueda = document.getElementById('searchInput').value.toLowerCase();
+
+    state.ordenesFiltradas = state.ordenes.filter(orden => {
+      // Filtro por estado
+      if (estado && orden.estado !== estado) return false;
+
+      // Filtro por proveedor
+      if (proveedor && orden.id_provedor != proveedor) return false;
+
+      // Filtro por fechas
+      if (fechaDesde && orden.fecha_orden < fechaDesde) return false;
+      if (fechaHasta && orden.fecha_orden > fechaHasta) return false;
+
+      // Búsqueda general
+      if (busqueda) {
+        const searchText = `${orden.numero_orden} ${orden.id_pedido} ${orden.numero_factura} ${orden.nombre_proveedor}`.toLowerCase();
+        if (!searchText.includes(busqueda)) return false;
+      }
+
+      return true;
+    });
+
+    renderizarOrdenes();
+  }
+
+  function seleccionarTodosProductos(e) {
+    const isChecked = e.target.checked;
+    const checkboxes = document.querySelectorAll('.producto-checkbox:not(:disabled)');
+
+    checkboxes.forEach(checkbox => {
+      // Forzar el estado del checkbox
+      checkbox.checked = isChecked;
+
+      // Llamar a la función de actualización para cada checkbox
+      actualizarProductoSeleccionado(checkbox.dataset.id, checkbox);
+    });
+  }
+
+  function actualizarTotales() {
+    let subtotal = 0;
+
+    state.productosSeleccionados.forEach((producto, id) => {
+      const cantidad = parseFloat(producto.cantidad_comprar) || 0;
+      const precio = parseFloat(producto.precio_unitario) || 0;
+      const subtotalProducto = cantidad * precio;
+      subtotal += subtotalProducto;
+
+      // Actualizar subtotal en la tabla
+      const idABuscar = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido[0] : producto.id_det_pedido;
+      const row = document.querySelector(`tr[data-id-det-pedido="${idABuscar}"]`);
+      if (row) {
+        const subtotalCell = row.querySelector('.subtotal-producto');
+        if (subtotalCell) {
+          subtotalCell.textContent = formatMoney(subtotalProducto);
+        }
+      }
+    });
+
+    const impuestos = subtotal * 0.16; // 16% IVA
+    const total = subtotal + impuestos;
+
+    // Actualizar elementos del DOM con verificación
+    const subtotalElement = document.getElementById('subtotalOrden');
+    const impuestosElement = document.getElementById('impuestosOrden');
+    const totalElement = document.getElementById('totalOrden');
+
+    if (subtotalElement) subtotalElement.textContent = formatMoney(subtotal);
+    if (impuestosElement) impuestosElement.textContent = formatMoney(impuestos);
+    if (totalElement) totalElement.textContent = formatMoney(total);
+
+    // Actualizar contador de productos
+    actualizarContadorProductos();
+  }
+
+  function actualizarContadorProductos() {
+    const total = document.querySelectorAll('.producto-checkbox').length;
+    const seleccionados = state.productosSeleccionados.size;
+    document.getElementById('contadorProductos').textContent = `${seleccionados} de ${total} productos`;
+  }
+
+  function actualizarContador(cantidad) {
+    document.querySelector(selectores.contadorOrdenes).textContent =
+      `${cantidad} orden${cantidad !== 1 ? 'es' : ''} encontrada${cantidad !== 1 ? 's' : ''}`;
+  }
+
+  function actualizarResumen() {
+    const pendientes = state.ordenes.filter(o => o.estado === 'pendiente').length;
+    const aprobadas = state.ordenes.filter(o => o.estado === 'aprobada').length;
+    const compradas = state.ordenes.filter(o => o.estado === 'comprada').length;
+    const montoTotal = state.ordenes.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+
+    document.getElementById('totalPendientes').textContent = pendientes;
+    document.getElementById('totalAprobadas').textContent = aprobadas;
+    document.getElementById('totalCompradas').textContent = compradas;
+    document.getElementById('montoTotal').textContent = `$${formatCurrency(montoTotal)}`;
+  }
+
+  /* ====================================================================
+   * FUNCIONES DE COTIZACIÓN
+   * ==================================================================== */
+
+  function _abrirCotizacion() {
+    if (!state.productos || state.productos.length === 0) {
+      mostrarError('Primero seleccione un pedido con productos disponibles');
+      return;
+    }
+
+    if (!state.proveedores || state.proveedores.length === 0) {
+      mostrarError('No hay proveedores disponibles. Registre proveedores primero.');
+      return;
+    }
+
+    // Si hay cotización previa, se reabre para editar
+    const idPedido = document.getElementById('idPedido')?.value;
+    if (!idPedido) {
+      showToast('Seleccione un pedido primero', 'warning');
+      return;
+    }
+
+    if (typeof CotizacionModal !== 'undefined') {
+      CotizacionModal.abrir(
+        idPedido,
+        state.productos,
+        state.proveedores,
+        _onCotizacionConfirmada
+      );
+    } else {
+      mostrarError('El módulo de cotización no está disponible');
+    }
+  }
+
+  function _onCotizacionConfirmada(grupos) {
+    state.gruposCotizacion = grupos;
+    _mostrarResumenCotizacion(grupos);
+
+    // Habilitar botón de guardar
+    const btnGuardar = document.getElementById('btnGuardarOrden');
+    if (btnGuardar) {
+      btnGuardar.disabled = false;
+    }
+  }
+
+  function _mostrarResumenCotizacion(grupos) {
+    const panel = document.getElementById('panelResumenCotizacion');
+    const tbody = document.getElementById('tablaResumenCotBody');
+    const totalEl = document.getElementById('totalGeneralCot');
+
+    if (!panel || !tbody) return;
+
+    let totalGeneral = 0;
+
+    tbody.innerHTML = grupos.map(g => {
+      const subtotalGrupo = g.productos.reduce(
+        (s, p) => s + (parseFloat(p.precio_unitario_cotizado) * parseFloat(p.cantidad_comprar || 0)), 0
+      );
+      totalGeneral += subtotalGrupo;
+
+      // Detalle de productos
+      const detalleId = `det_cot_${g.id_provedor}`;
+      const detalleHtml = g.productos.map(p => `
+        <tr class="table-light">
+          <td colspan="2" class="ps-4 small">
+            <i class="bi bi-chevron-right text-muted me-1"></i>
+            ${p.descripcion ?? ''}
+            <span class="text-muted ms-2">(${parseFloat(p.cantidad_comprar).toFixed(2)} ${p.unidad ?? ''})</span>
+          </td>
+          <td class="text-end small">$${_fmt(parseFloat(p.precio_unitario_cotizado) * parseFloat(p.cantidad_comprar))}</td>
+          <td></td>
+        </tr>`).join('');
+
+      return `
+        <tr class="fw-semibold">
+          <td>
+            <button type="button" class="btn btn-link btn-sm p-0 me-1"
+                    onclick="document.getElementById('${detalleId}').classList.toggle('d-none')"
+                    title="Ver detalle">
+              <i class="bi bi-chevron-down"></i>
+            </button>
+            <i class="bi bi-shop me-1 text-primary"></i>${g.nombre_proveedor}
+          </td>
+          <td class="text-center">
+            <span class="badge bg-primary rounded-pill">${g.productos.length}</span>
+          </td>
+          <td class="text-end text-success fw-bold">$${_fmt(subtotalGrupo)}</td>
+          <td class="text-center">
+            <span class="badge bg-success">Lista</span>
+          </td>
+        </tr>
+        <tbody id="${detalleId}" class="d-none">
+          ${detalleHtml}
+        </tbody>`;
+    }).join('');
+
+    if (totalEl) totalEl.textContent = `$${_fmt(totalGeneral)}`;
+    panel.classList.remove('d-none');
+  }
+
+  function _fmt(n) {
+    return parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function _ocultarResumenCotizacion() {
+    const panel = document.getElementById('panelResumenCotizacion');
+    if (panel) panel.classList.add('d-none');
+  }
+
+  /* ====================================================================
+   * GUARDAR ORDEN(ES) - Ahora genera múltiples si hay varios proveedores
+   * ==================================================================== */
+  async function guardarOrden() {
+    console.log('💾 Intentando guardar orden(es)...');
+
+    const idPedido = document.getElementById('idPedido')?.value;
+    if (!idPedido) {
+      mostrarError('Seleccione un pedido');
+      return;
+    }
+
+    if (state.productosSeleccionados.size === 0) {
+      mostrarError('Seleccione al menos un producto');
+      return;
+    }
+
+    // Verificar que todos los seleccionados tengan un proveedor asignado
+    const incompletos = Array.from(state.productosSeleccionados.values())
+      .filter(p => !p.id_provedor);
+
+    if (incompletos.length > 0) {
+      mostrarError(`Debe usar el botón de desglose para asignar un proveedor a: \n- ${incompletos.map(p => p.descripcion).join('\n- ')}`);
+      return;
+    }
+
+    // Agrupar productos seleccionados por proveedor
+    const grupos = {};
+    state.productosSeleccionados.forEach(p => {
+      const idProv = p.id_provedor;
+      if (!grupos[idProv]) {
+        grupos[idProv] = {
+          id_provedor: idProv,
+          nombre_proveedor: p.nombre_proveedor || `Proveedor #${idProv}`,
+          productos: []
+        };
+      }
+      grupos[idProv].productos.push(p);
+    });
+
+    const gruposArray = Object.values(grupos);
+    const observaciones = document.getElementById('observaciones')?.value ?? '';
+
+    const btnGuardar = document.getElementById('btnGuardarOrden');
+    if (btnGuardar) {
+      btnGuardar.disabled = true;
+      btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generando...';
+    }
+
+    const errores = [];
+    const ordenesCreadas = [];
+
+    for (const grupo of gruposArray) {
+      // Usar siempre el precio de cotización seleccionado (ya actualizado en seleccionarDeDesglose)
+      const subtotal = grupo.productos.reduce((s, p) => {
+        const precioCotizacion = parseFloat(p.precio_unitario) || 0;
+        const cantidad = parseFloat(p.cantidad_comprar) || 0;
+        return s + (cantidad * precioCotizacion);
+      }, 0);
+      const impuestos = subtotal * 0.16;
+      const total = subtotal + impuestos;
+
+      const ordenData = {
+        id_pedido: idPedido,
+        id_provedor: grupo.id_provedor,
+        observaciones: observaciones + (gruposArray.length > 1
+          ? ` [Orden ${ordenesCreadas.length + 1}/${gruposArray.length} de pedido agrupado]` : ''),
+        productos: grupo.productos.map(p => ({
+          ...p,
+          // Asegurar que se use el precio de cotización
+          precio_unitario: parseFloat(p.precio_unitario) || 0,
+          subtotal: (parseFloat(p.cantidad_comprar) || 0) * (parseFloat(p.precio_unitario) || 0)
+        })),
+        subtotal: subtotal.toFixed(2),
+        impuestos: impuestos.toFixed(2),
+        total: total.toFixed(2)
+      };
+
+      try {
+        const response = await fetch(`${API_ORDENES}?action=guardarOrdenCompra`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ordenData)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || 'Error al guardar');
+        ordenesCreadas.push(result.numero_orden);
+      } catch (err) {
+        errores.push(`Proveedor "${grupo.nombre_proveedor}": ${err.message}`);
+      }
+    }
+
+    if (btnGuardar) {
+      btnGuardar.disabled = false;
+      btnGuardar.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Generar Orden(es) de Compra';
+    }
+
+    if (errores.length > 0) {
+      mostrarError('Errores al generar órdenes:\n' + errores.join('\n'));
+    }
+
+    if (ordenesCreadas.length > 0) {
+      mostrarExito(
+        ordenesCreadas.length === 1
+          ? `Orden ${ordenesCreadas[0]} generada correctamente`
+          : `${ordenesCreadas.length} órdenes generadas: ${ordenesCreadas.join(', ')}`
+      );
+
+      if (state.modalOrden) state.modalOrden.hide();
+
+      await Promise.all([
+        cargarOrdenes(),
+        cargarPedidos()
+      ]);
+      actualizarNotificacionPedidos();
+    }
+  }
+
+  async function verDesglose(idDetPedido, idsOriginales) {
+    const rowDesglose = document.getElementById(`desglose_${idDetPedido}`);
+    const contDesglose = document.getElementById(`contenido_desglose_${idDetPedido}`);
+
+    if (rowDesglose.classList.contains('d-none')) {
+
+      let producto = state.productos.find(p => {
+        const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+        return pIds.some(pid => String(pid) === String(idDetPedido));
+      });
+
+      if (!producto && state.productosSeleccionados.has(String(idDetPedido))) {
+        producto = state.productosSeleccionados.get(String(idDetPedido));
+      }
+
+      if (!producto) {
+        console.error('❌ No se encontró el producto con ID:', idDetPedido);
+        return;
+      }
+
+      const ids = Array.isArray(producto.id_componente)
+        ? producto.id_componente
+        : [producto.id_componente];
+
+      const idsStr = ids.join(',');
+
+      contDesglose.innerHTML = `
+      <div class="text-center p-3 small">
+        <div class="spinner-border spinner-border-sm me-1"></div>
+        Buscando todas las cotizaciones...
+      </div>
+    `;
+      rowDesglose.classList.remove('d-none');
+
+      try {
+        const resp = await fetch(`/sgigescon/src/Cotizacion/Interfaces/CotizacionController.php?action=getDetallePreciosRecurso&ids=${idsStr}`);
+        const res = await resp.json();
+
+        if (res.success && res.data.length > 0) {
+
+          // usamos SIEMPRE "nombre" (no nombre_proveedor)
+          const grupos = res.data.reduce((acc, item) => {
+            const key = item.id_real_proveedor ?? item.id_cot_prov;
+
+            if (!acc[key]) {
+              acc[key] = {
+                id_provedor: key,
+                nombre: item.nombre || "Proveedor sin nombre",
+                productos: []
+              };
+            }
+
+            acc[key].productos.push(item);
+            return acc;
+          }, {});
+
+          const contenido = Object.values(grupos).map(g => `
+          <div class="mb-3">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover">
+                <thead class="table-light">
+                  <tr>
+                    <th colspan="4" class="text-primary">
+                      <i class="bi bi-shop me-2"></i>${escapeHtml(g.nombre)}
+                    </th>
+                  </tr>
+                  <tr>
+                    <th>Precio Cotizado</th>
+                    <th>Nombre Cotización</th>
+                    <th>Fecha</th>
+                    <th class="text-center">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${g.productos.map(item => {
+            // Obtener el precio presupuestado del producto original
+            const productoOriginal = state.productos.find(p => {
+              const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+              return pIds.some(pid => String(pid) === String(idDetPedido));
+            });
+
+            return `
+                      <tr>
+                        <td class="text-end fw-bold text-success" style="min-width: 120px;">
+                          $${formatMoney(item.precio_unitario)}
+                        </td>
+                        <td class="text-muted small" style="min-width: 200px;">
+                          ${escapeHtml(item.nombre_cotizacion)} (${item.fecha_cotizacion})
+                        </td>
+                        <td class="text-muted small" style="min-width: 100px;">
+                          ${item.fecha_cotizacion}
+                        </td>
+                        <td class="text-center" style="min-width: 100px;">
+                          <button class="btn btn-sm btn-primary py-0 px-2"
+                            onclick="OrdenesCompraUI.seleccionarDeDesglose(${idDetPedido}, ${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                            Seleccionar
+                          </button>
+                        </td>
+                      </tr>
+                    `;
+          }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `).join('');
+
+          contDesglose.innerHTML = contenido;
+
+        } else {
+          contDesglose.innerHTML = `
+          <div class="alert alert-info py-2 mb-0 small">
+            No se encontraron cotizaciones activas para este producto.
+          </div>
+        `;
+        }
+
+      } catch (e) {
+        console.error("Error fetch:", e);
+        contDesglose.innerHTML = `
+        <div class="alert alert-danger py-2 mb-0 small">
+          Error al conectar con el servidor para obtener precios.
+        </div>
+      `;
+      }
+
+    } else {
+      rowDesglose.classList.add('d-none');
+    }
+  }
+
+  function showToast(message, type = 'info') {
+    // Crear toast si no existe un contenedor
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+      toastContainer = document.createElement('div');
+      toastContainer.id = 'toastContainer';
+      toastContainer.className = 'position-fixed top-0 end-0 p-3';
+      toastContainer.style.zIndex = '1050';
+      document.body.appendChild(toastContainer);
+    }
+
+    const toastId = 'toast_' + Date.now();
+    const bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : type === 'warning' ? 'bg-warning' : 'bg-info';
+
+    const toastHTML = `
+      <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+        <div class="d-flex">
+          <div class="toast-body">
+            ${message}
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>
+    `;
+
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, {
+      autohide: true,
+      delay: 3000
+    });
+
+    toast.show();
+
+    // Limpiar después de ocultar
+    toastElement.addEventListener('hidden.bs.toast', () => {
+      toastElement.remove();
+    });
+  }
+
+  function seleccionarDeDesglose(idDetPedido, item) {
+    // 1. Actualizar el producto en la lista original de productos del estado
+    const idStr = String(idDetPedido);
+    const productoObj = state.productos.find(p => {
+      const ids = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+      return ids.some(id => String(id) === idStr);
+    });
+
+    if (productoObj) {
+      // Guardar el precio presupuestado original si no existe
+      if (!productoObj.precio_presupuestado_original) {
+        productoObj.precio_presupuestado_original = productoObj.precio_unitario;
+      }
+
+      // Actualizar con los datos de la cotización seleccionada
+      productoObj.precio_unitario = parseFloat(item.precio_unitario);
+      productoObj.id_provedor = item.id_real_proveedor || item.id_cot_prov;
+      productoObj.nombre_proveedor = item.nombre; // Usar item.nombre que viene de la cotización
+      productoObj.mejor_precio_cotizado = item.precio_unitario;
+      productoObj.mejor_proveedor_nombre = item.nombre;
+    }
+
+    // 2. Si el producto ya está seleccionado en el checkbox, actualizar sus datos para el envío
+    if (state.productosSeleccionados.has(idStr)) {
+      const seleccionado = state.productosSeleccionados.get(idStr);
+      seleccionado.precio_unitario = parseFloat(item.precio_unitario);
+      seleccionado.id_provedor = item.id_real_proveedor || item.id_cot_prov;
+      seleccionado.nombre_proveedor = item.nombre; // Usar item.nombre
+      state.productosSeleccionados.set(idStr, seleccionado);
+    } else {
+      // Si no está seleccionado, seleccionarlo automáticamente al elegir un precio
+      const checkbox = document.querySelector(`.producto-checkbox[data-id="${idStr}"]`);
+      if (checkbox) {
+        checkbox.checked = true;
+        actualizarProductoSeleccionado(idStr, checkbox);
+      }
+    }
+
+    // 3. Notificar éxito, actualizar UI y cerrar desglose
+    renderizarTablaProductos();
+    actualizarTotales();
+
+    // 4. Cerrar el desglose automáticamente después de seleccionar
+    const rowDesglose = document.getElementById(`desglose_${idStr}`);
+    if (rowDesglose) {
+      rowDesglose.classList.add('d-none');
+    }
+
+    // 5. Mostrar notificación de éxito
+    showToast(`Cotización seleccionada: ${item.nombre} - $${formatMoney(item.precio_unitario)}`, 'success');
+  }
+
+  async function verDetalle(idOrden) {
+    console.log('ðŸ” Botón inspeccionar presionado. ID Orden:', idOrden);
+
+    try {
+      console.log('📡 Haciendo llamada a la API...');
+
+      const response = await fetch(`${API_ORDENES}?action=getDetalleOrden&id_orden_compra=${idOrden}`);
+      console.log('📡 Response status:', response.status);
+
+      const result = await response.json();
+      console.log('📊 Resultado de la API:', result);
+
+      if (result.success) {
+        console.log('✅ API exitosa, mostrando modal...');
+        mostrarModalDetalle(result.data);
+      } else {
+        console.error('âŒ Error en API:', result.error);
+        mostrarError('Error al cargar el detalle: ' + (result.error || 'Error desconocido'));
+      }
+    } catch (error) {
+      console.error('âŒ Error en la llamada:', error);
+      mostrarError('Error al cargar el detalle de la orden');
+    }
+  }
+
+  function mostrarModalDetalle(orden) {
+    console.log('Renderizando modal con datos:', orden);
+
+    const contenido = document.getElementById('contenidoDetalle');
+    if (!contenido) {
+      console.error('No se encontró el elemento #contenidoDetalle');
+      return;
+    }
+
+    console.log('ðŸ“ Escribiendo HTML en el modal...');
+
+    // Generar HTML para órdenes relacionadas
+    let htmlOrdenesRelacionadas = '';
+    if (orden.ordenes_relacionadas && orden.ordenes_relacionadas.length > 0) {
+      htmlOrdenesRelacionadas = `
+        <div class="alert alert-info mb-3">
+          <h6 class="alert-heading"><i class="bi bi-link-45deg"></i> Órdenes Relacionadas</h6>
+          <div class="mb-2">
+            ${orden.ordenes_relacionadas.map(rel => {
+        const badgeClass = rel.tipo === 'original' ? 'bg-primary' : 'bg-warning';
+        const icon = rel.tipo === 'original' ? 'bi-arrow-left-circle' : 'bi-arrow-right-circle';
+        return `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div>
+                    <span class="badge ${badgeClass} me-2">
+                      <i class="bi ${icon}"></i> ${rel.tipo === 'original' ? 'Original' : 'Complementaria'}
+                    </span>
+                    <strong>${rel.numero_orden}</strong>
+                    ${rel.motivo ? `<br><small class="text-muted">${rel.motivo}</small>` : ''}
+                  </div>
+                  <div>
+                    ${getBadgeEstado(rel.estado)}
+                  </div>
+                </div>
+              `;
+      }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    contenido.innerHTML = `
+      ${htmlOrdenesRelacionadas}
+      
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <strong>Número de Orden:</strong> ${orden.numero_orden}
+          ${orden.es_complementaria ? '<span class="badge bg-warning ms-2">Complementaria</span>' : ''}
+        </div>
+        <div class="col-md-6">
+          <strong>Estado:</strong> ${getBadgeEstado(orden.estado)}
+        </div>
+      </div>
+      
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <strong>Pedido:</strong> #${orden.id_pedido}
+        </div>
+        <div class="col-md-6">
+          <strong>Proveedor:</strong> ${orden.nombre_proveedor}
+        </div>
+      </div>
+      
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <strong>Fecha Orden:</strong> ${formatDate(orden.fecha_orden)}
+        </div>
+        <div class="col-md-6">
+          <strong>Factura:</strong> ${orden.numero_factura || 'Sin factura'}
+        </div>
+      </div>
+      
+      ${orden.fecha_factura ? `
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <strong>Fecha Factura:</strong> ${formatDate(orden.fecha_factura)}
+          </div>
+          <div class="col-md-6">
+            <strong></strong>
+          </div>
+        </div>
+      ` : ''}
+      
+      ${orden.observaciones ? `
+        <div class="row mb-3">
+          <div class="col-12">
+            <strong>Observaciones:</strong>
+            <div class="mt-1 p-2 bg-light rounded">${orden.observaciones.replace(/\n/g, '<br>')}</div>
+          </div>
+        </div>
+      ` : ''}
+      
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <strong>Subtotal:</strong> $${parseFloat(orden.subtotal || 0).toFixed(2)}
+        </div>
+        <div class="col-md-4">
+          <strong>Impuestos:</strong> $${parseFloat(orden.impuestos || 0).toFixed(2)}
+        </div>
+        <div class="col-md-4">
+          <strong>Total:</strong> $${parseFloat(orden.total || 0).toFixed(2)}
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-12">
+          <h6 class="fw-bold mb-3">Productos de la Orden</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-striped">
+              <thead>
+                <tr>
+                  <th>Descripción</th>
+                  <th class="text-center">Unidad</th>
+                  <th class="text-end">Cant. Solicitada</th>
+                  <th class="text-end">Cant. Comprada</th>
+                  <th class="text-end">Cant. Recibida</th>
+                  <th class="text-end">Precio Unitario</th>
+                  <th class="text-end">Subtotal</th>
+                  <th class="text-center">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(() => {
+        // Agrupar productos por descripción antes de mostrarlos
+        const productosAgrupados = agruparProductosPorDescripcion(orden.productos);
+
+        return productosAgrupados.map(producto => {
+          const solicitada = parseFloat(producto.cantidad_solicitada || 0);
+          const comprada = parseFloat(producto.cantidad_comprada || 0);
+          const recibida = parseFloat(producto.cantidad_recibida || 0);
+          const precio = parseFloat(producto.precio_unitario || 0);
+          const subtotal = parseFloat(producto.subtotal || 0);
+
+          // Determinar estado según si es orden original o complementaria
+          const esOrdenOriginal = !orden.es_complementaria;
+          let estadoBadge;
+
+          if (esOrdenOriginal) {
+            // Orden original: estados más definitivos
+            estadoBadge = '<span class="badge bg-danger">No recibido</span>';
+            if (recibida >= solicitada) {
+              estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
+            } else if (recibida > 0) {
+              estadoBadge = '<span class="badge bg-warning text-dark">Recibido parcial</span>';
+            } else if (comprada > 0) {
+              estadoBadge = '<span class="badge bg-warning">Comprado, no recibido</span>';
+            }
+          } else {
+            // Orden complementaria: estados más temporales
+            estadoBadge = '<span class="badge bg-secondary">Pendiente</span>';
+            if (recibida >= solicitada) {
+              estadoBadge = '<span class="badge bg-success">Recibido completo</span>';
+            } else if (recibida > 0) {
+              estadoBadge = '<span class="badge bg-warning text-dark">Recibido parcial</span>';
+            } else if (comprada > 0) {
+              estadoBadge = '<span class="badge bg-info">Comprado, pendiente recepción</span>';
+            }
+          }
+
+          // Si hay múltiples IDs originales, mostrar un indicador
+          const indicadorAgrupado = producto.ids_originales.length > 1 ?
+            '<span class="badge bg-info ms-1" title="Productos agrupados"><i class="bi bi-layers"></i></span>' : '';
+
+          return `
+                      <tr>
+                        <td>
+                          ${producto.descripcion}
+                          ${indicadorAgrupado}
+                        </td>
+                        <td class="text-center">${producto.unidad}</td>
+                        <td class="text-end">${solicitada.toFixed(2)}</td>
+                        <td class="text-end">${comprada.toFixed(2)}</td>
+                        <td class="text-end">${recibida.toFixed(2)}</td>
+                        <td class="text-end">$${precio.toFixed(2)}</td>
+                        <td class="text-end">$${subtotal.toFixed(2)}</td>
+                        <td class="text-center">${estadoBadge}</td>
+                      </tr>
+                    `;
+        }).join('');
+      })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      ${orden.historial_recepciones && orden.historial_recepciones.length > 0 ? `
+        <div class="row mt-4">
+          <div class="col-12">
+            <h6 class="fw-bold mb-3">
+              <i class="bi bi-clock-history"></i> Historial de Recepciones (${orden.historial_recepciones.length})
+            </h6>
+            <div class="accordion" id="accordionHistorial">
+              ${orden.historial_recepciones.map((recepcion, index) => {
+        const fecha = new Date(recepcion.fecha_compra).toLocaleString('es-CO');
+        const itemsRecibidos = recepcion.items_recibidos || [];
+        const numeroRecepcion = index + 1; // Numeración secuencial que se reinicia para cada orden
+
+        return `
+                  <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading${index}">
+                      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}" aria-expanded="false" aria-controls="collapse${index}">
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                          <div>
+                            <strong>Recepción #${numeroRecepcion}</strong>
+                            <span class="badge bg-success ms-2">$${parseFloat(recepcion.total_recepcion || 0).toFixed(2)}</span>
+                            <small class="text-muted ms-2">(ID: ${recepcion.id_compra})</small>
+                          </div>
+                          <div class="text-end">
+                            <small class="text-muted">${fecha}</small>
+                            ${recepcion.numero_factura ? `<span class="ms-2">Factura: ${recepcion.numero_factura}</span>` : ''}
+                          </div>
+                        </div>
+                      </button>
+                    </h2>
+                    <div id="collapse${index}" class="accordion-collapse collapse" aria-labelledby="heading${index}" data-bs-parent="#accordionHistorial">
+                      <div class="accordion-body">
+                        <div class="row mb-2">
+                          <div class="col-md-6">
+                            <small class="text-muted">Registrado por:</small><br>
+                            <strong>${recepcion.nombre_usuario || 'Sistema'}</strong>
+                          </div>
+                          <div class="col-md-6 text-end">
+                            <small class="text-muted">Total recepción:</small><br>
+                            <strong class="text-success">$${parseFloat(recepcion.total_recepcion || 0).toFixed(2)}</strong>
+                          </div>
+                        </div>
+                        ${recepcion.observaciones ? `
+                          <div class="mb-2">
+                            <small class="text-muted">Observaciones:</small><br>
+                            <div>${recepcion.observaciones.replace(/\n/g, '<br>')}</div>
+                          </div>
+                        ` : ''}
+                        ${recepcion.advertencia ? `
+                          <div class="alert alert-warning py-2">
+                            <small><i class="bi bi-exclamation-triangle"></i> ${recepcion.advertencia}</small>
+                          </div>
+                        ` : ''}
+                        ${itemsRecibidos.length > 0 ? `
+                          <div class="table-responsive mt-2">
+                            <table class="table table-sm">
+                              <thead class="table-light">
+                                <tr>
+                                  <th>Item</th>
+                                  <th class="text-end">Cantidad</th>
+                                  <th class="text-end">Vr. Unitario</th>
+                                  <th class="text-end">Subtotal</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${itemsRecibidos.map(item => `
+                                  <tr>
+                                    <td>
+                                      <div>${item.descripcion}</div>
+                                      <small class="text-muted">${item.unidad || ''}</small>
+                                    </td>
+                                    <td class="text-end">${parseFloat(item.cantidad_recibida).toFixed(2)}</td>
+                                    <td class="text-end">$${parseFloat(item.precio_unitario).toFixed(2)}</td>
+                                    <td class="text-end fw-bold">$${parseFloat(item.subtotal_item).toFixed(2)}</td>
+                                  </tr>
+                                `).join('')}
+                              </tbody>
+                            </table>
+                          </div>
+                        ` : '<div class="text-muted">No hay detalles de items en esta recepción.</div>'}
+                      </div>
+                    </div>
+                  </div>
+                `;
+      }).join('')}
+            </div>
+          </div>
+        </div>
+      ` : ''}
+    `;
+
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalDetalleOrden'));
+    modal.show();
+  }
+
+  function editarOrden(idOrden) {
+    // Implementar edición
+    console.log('Editar orden:', idOrden);
+    mostrarError('Función de edición en desarrollo');
+  }
+
+  function convertirEnCompra(idOrden) {
+    // Implementar conversión a compra
+    console.log('Convertir en compra:', idOrden);
+    mostrarError('Función de conversión en desarrollo');
+  }
+
+  function verDetallePedido(idPedido) {
+    // Implementar vista de detalle de pedido
+    console.log('Ver detalle pedido:', idPedido);
+    mostrarError('Función en desarrollo');
+  }
+
+  // Utilidades
+  function getBadgeEstado(estado) {
+    const badges = {
+      '': '<span class="badge bg-secondary">Sin Estado</span>',
+      'pendiente': '<span class="badge bg-warning">Pendiente</span>',
+      'aprobada': '<span class="badge bg-info">Aprobada</span>',
+      'comprada': '<span class="badge bg-success">Comprada</span>',
+      'recibida': '<span class="badge bg-primary">Recibida</span>',
+      'parcialmente_recibida': '<span class="badge bg-warning text-dark">Parcialmente Recibida</span>',
+      'parcialmente_comprada': '<span class="badge bg-warning text-dark">Parcialmente Comprada</span>',
+      'cancelada': '<span class="badge bg-danger">Cancelada</span>'
+    };
+    return badges[estado] || '<span class="badge bg-secondary">Desconocido</span>';
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES');
+  }
+
+  function formatCurrency(amount) {
+    return parseFloat(amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function formatMoney(amount) {
+    return `${formatCurrency(amount)}`;
+  }
+
+  function escapeHtml(text) {
+    if (text === undefined || text === null) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function agruparProductosPorDescripcion(productos) {
+    // Los productos ya vienen agrupados desde el backend, solo necesitamos
+    // asegurar que los datos estén correctos para el frontend
+    return productos.map(producto => ({
+      ...producto,
+      ids_originales: producto.id_componente ? [producto.id_componente] : (Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido : [producto.id_det_pedido])
+    }));
+  }
+
+  function llenarSelect(id, data, valueField, labelField) {
+    const select = document.getElementById(id);
+    if (!select) return;
+
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">Seleccione...</option>';
+
+    data.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item[valueField];
+      option.textContent = item[labelField];
+      select.appendChild(option);
+    });
+
+    // Restaurar valor seleccionado
+    if (currentValue) {
+      select.value = currentValue;
+    }
+  }
+
+  function mostrarExito(mensaje) {
+    // Implementar notificación de éxito
+    alert(mensaje);
+  }
+
+  function mostrarError(mensaje) {
+    // Implementar notificación de error
+    alert(mensaje);
+  }
+
+  // Actualización de selección y cantidades desde handlers inline
+  function actualizarProductoSeleccionado(idDetPedido, checkboxEl) {
+    const cantidadInput = document.querySelector(`.cantidad-comprar[data-id="${idDetPedido}"]`);
+
+    // Obtener todos los IDs originales del checkbox
+    const idsOriginalesStr = checkboxEl.dataset.idsOriginales;
+    const idsOriginales = idsOriginalesStr ? JSON.parse(idsOriginalesStr) : [idDetPedido];
+
+    // Buscar el producto en el estado global - el idDetPedido es el primerId que se usó en data-id
+    let producto = (state.productos || []).find(p => {
+      const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
+      // Buscar si el idDetPedido está en los IDs del producto O si coincide con el primer ID original
+      return pIds.some(pid => String(pid) === String(idDetPedido)) ||
+        idsOriginales.some(oid => String(oid) === String(idDetPedido));
+    });
+
+    if (!producto) {
+      return;
+    }
+
+    if (checkboxEl.checked) {
+      if (cantidadInput) cantidadInput.disabled = false;
+      const cantidad = cantidadInput ? parseFloat(cantidadInput.value) || 0 : 0;
+
+      // Guardar el producto con todos sus datos
+      state.productosSeleccionados.set(String(idDetPedido), {
+        ...producto,
+        cantidad_comprar: cantidad,
+        ids_originales: idsOriginales
+      });
+    } else {
+      if (cantidadInput) cantidadInput.disabled = true;
+      state.productosSeleccionados.delete(String(idDetPedido));
+    }
+
+    actualizarTotales();
+    actualizarContadorProductos();
+  }
+
+  function actualizarCantidadComprar(inputEl) {
+    const id = inputEl.dataset.id;
+    const max = parseFloat(inputEl.max);
+    let value = parseFloat(inputEl.value);
+    if (isNaN(value)) value = 0;
+    if (!isNaN(max) && value > max) { value = max; inputEl.value = max; }
+    if (value < 0) { value = 0; inputEl.value = 0; }
+
+    if (state.productosSeleccionados.has(String(id))) {
+      const producto = state.productosSeleccionados.get(String(id));
+      // Si el valor es cero, avisar al usuario pero permitir que lo escriba 
+      // La validación final se hace al guardar
+      producto.cantidad_comprar = value;
+      state.productosSeleccionados.set(String(id), producto);
+      actualizarTotales();
+    }
+  }
+
+  function autofillCantidadPedida(idDetPedido) {
+    const input = document.querySelector(`.cantidad-comprar[data-id="${idDetPedido}"]`);
+    if (!input) return;
+
+    // Obtener datos del cálculo comercial
+    const cantNecesariaAttr = input.getAttribute('data-cant-necesaria');
+    const cantComprarAttr = input.getAttribute('data-cant-comprar');
+    const minimoComercialAttr = input.getAttribute('data-minimo-comercial');
+
+    let cantNecesaria = parseFloat(cantNecesariaAttr) || 0;
+    let cantComprar = parseFloat(cantComprarAttr) || 0;
+    let minimoComercial = parseFloat(minimoComercialAttr) || 1.0;
+
+    // Usar la cantidad calculada con mínimo comercial
+    input.value = cantComprar;
+    actualizarCantidadComprar(input);
+
+    // Mostrar información del cálculo en consola
+    console.log(`ðŸ”„ Autofill con mínimo comercial:`, {
+      idDetPedido,
+      cantNecesaria,
+      minimoComercial,
+      cantComprar,
+      desperdicio: cantComprar - cantNecesaria
+    });
+
+    // Marcar/asegurar selección del producto si no lo está
+    const checkbox = document.querySelector(`.producto-checkbox[data-id="${idDetPedido}"]`);
+    if (checkbox && !checkbox.checked) {
+      checkbox.checked = true;
+      actualizarProductoSeleccionado(idDetPedido, checkbox);
+    }
+  }
+
+  // Exponer funciones públicas
+  async function abrirNuevaOrdenConPedido(idPedidoPreseleccionado) {
+    // Asegurar que el modal y los datos base estén listos
+    const form = document.querySelector(selectores.formOrden);
+    if (form) form.reset();
+
+    // Limpiar estados y totales
+    state.productosSeleccionados.clear();
+    const subtotalOrden = document.getElementById('subtotalOrden');
+    const impuestosOrden = document.getElementById('impuestosOrden');
+    const totalOrden = document.getElementById('totalOrden');
+    if (subtotalOrden) subtotalOrden.textContent = '$0.00';
+    if (impuestosOrden) impuestosOrden.textContent = '$0.00';
+    if (totalOrden) totalOrden.textContent = '$0.00';
+
+    const idPedidoSelect = document.getElementById('idPedido');
+    if (!idPedidoSelect) {
+      console.error('No se encontró el select #idPedido');
+      return;
+    }
+
+    // Asegurar que los pedidos estén cargados
+    if (state.pedidos.length === 0) {
+      try { await cargarPedidos(); } catch (e) { console.warn('No se pudo recargar pedidos antes del autollenado', e); }
+    }
+
+    // Si aún no está el option cargado, intentar breve reintento
+    const setPedidoYDisparar = () => {
+      idPedidoSelect.value = String(idPedidoPreseleccionado);
+      const changeEvent = new Event('change', { bubbles: true });
+      idPedidoSelect.dispatchEvent(changeEvent);
+      // Cargar explícitamente productos como refuerzo
+      try { cargarProductosPedido(); } catch (e) { }
+      setTimeout(() => {
+        try { cargarProductosPedido(); } catch (e) { }
+      }, 150);
+    };
+
+    if (!Array.from(idPedidoSelect.options).some(op => op.value == idPedidoPreseleccionado)) {
+      // Reintentar una vez tras un pequeño delay por si el listado de pedidos está terminando de cargarse
+      setTimeout(() => setPedidoYDisparar(), 150);
+    } else {
+      setPedidoYDisparar();
+    }
+
+    // Título del modal y mostrarlo
+    const modalTitle = document.getElementById('modalOrdenTitle');
+    if (modalTitle) {
+      modalTitle.innerHTML = '<i class="bi bi-clipboard-plus"></i> Nueva Orden de Compra';
+    }
+    const modalElement = document.getElementById('modalOrdenCompra');
+    if (modalElement) {
+      try {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+      } catch (e) {
+        console.error('Error mostrando modal', e);
+      }
+    }
+  }
+
+  // Función para actualizar la notificación de pedidos sin orden dinámicamente
+  async function actualizarNotificacionPedidos() {
+    try {
+      console.log('Actualizando notificación de pedidos sin orden...');
+      const response = await fetch(`${API_ORDENES}?action=getPedidosSinOrden`);
+      const result = await response.json();
+
+      if (!result.success) return;
+
+      console.log('Notificación actualizada:', result.data);
+
+      // Actualizar el contador en la notificación
+      const notificacionBadge = document.querySelector('.notificacion-badge strong');
+      if (notificacionBadge) {
+        const totalPedidos = result.data.total || 0;
+        notificacionBadge.textContent = totalPedidos;
+
+        const notificacionText = notificacionBadge.parentElement;
+        if (totalPedidos > 0) {
+          notificacionText.innerHTML =
+            '<strong>' + totalPedidos + '</strong> pedido' + (totalPedidos > 1 ? 's' : '') + ' aprobado' + (totalPedidos > 1 ? 's' : '') + ' sin orden de compra';
+        } else {
+          const notificacionContainer = document.querySelector('.notificacion-pedidos');
+          if (notificacionContainer) {
+            notificacionContainer.style.display = 'none';
+          }
+        }
+      }
+
+      // Actualizar el contenido desplegable si existe
+      const contenidoNotificacion = document.getElementById('notificacionContenido');
+      if (contenidoNotificacion && result.data.detalles) {
+        location.reload();
+      }
+
+    } catch (error) {
+      console.error('Error actualizando notificación:', error);
+    }
+  }
+  return {
+    init,
+    cargarOrdenes,
+    cargarProveedores,
+    verDetalle,
+    editarOrden,
+    convertirEnCompra,
+    abrirNuevaOrdenConPedido,
+    verDesglose,
+    seleccionarDeDesglose,
+    actualizarNotificacionPedidos,
+    state
+  };
+})();
+
+// Event listener para el botón de cerrar del modal
+document.addEventListener('click', function (e) {
+  if (e.target.hasAttribute('data-bs-dismiss') || e.target.closest('[data-bs-dismiss]')) {
+    if (OrdenesCompraUI.state?.modalOrden) {
+      OrdenesCompraUI.state.modalOrden.hide();
+    }
+    if (OrdenesCompraUI.state?.modalDetalle) {
+      OrdenesCompraUI.state.modalDetalle.hide();
+    }
+  }
+});
+
+// Exponer en window para uso en handlers inline
+window.OrdenesCompraUI = OrdenesCompraUI;
+
+// El componente se inicializa mediante layoutView.js llamando a OrdenesCompraUI.init()
+
+// ============================================
+// FUNCIONES PARA GESTIÓN DE PROVEEDORES
+// ============================================
+
+// La constante API_PROVEDORES ya está definida arriba, no duplicar
+
+/**
+ * Prepara el modal para crear un nuevo proveedor
+ */
+function cargarModalCrearProvedor() {
+  document.getElementById('formProveedores').reset();
+  document.getElementById('id_proveedor').value = '';
+  document.getElementById('accion_proveedor').value = 'crear';
+  document.getElementById('estado_proveedor').value = '1';
+
+  document.getElementById('modalAgregarProveedorLabel').textContent = 'Crear Proveedor';
+  document.getElementById('btnGuardarProveedor').style.display = 'inline-block';
+  document.getElementById('btnActualizarProveedor').style.display = 'none';
+}
+
+/**
+ * Guarda un nuevo proveedor
+ */
+function guardarProveedor() {
+  const payload = {
+    nombre: document.getElementById('nombre_proveedor').value,
+    telefono: document.getElementById('telefono_proveedor').value || null,
+    email: document.getElementById('email_proveedor').value || null,
+    whatsapp: document.getElementById('whatsapp_proveedor').value || null,
+    direccion: document.getElementById('direccion_proveedor').value || null,
+    contacto: document.getElementById('contacto_proveedor').value || null,
+    estado: document.getElementById('estado_proveedor').value,
+  };
+
+  if (!payload.nombre.trim()) {
+    alert('Nombre requerido');
+    return;
+  }
+
+  fetch(API_PROVEDORES + '?action=create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+    .then(response => response.json())
+    .then(res => {
+      if (res.success) {
+        alert('Proveedor creado exitosamente');
+        bootstrap.Modal.getInstance(document.getElementById('modalAgregarProveedor')).hide();
+        // Recargar la lista de proveedores en el select
+        OrdenesCompraUI.cargarProveedores();
+      } else {
+        alert('Error: ' + (res.error || 'No se pudo crear'));
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Error de conexión al crear proveedor');
+    });
+}
+
+/**
+ * Prepara el modal para editar un proveedor existente
+ */
+function cargarModalEditarProvedor(id) {
+  fetch(API_PROVEDORES + '?action=getById&id=' + id)
+    .then(response => response.json())
+    .then(res => {
+      if (res.id_provedor) {
+        document.getElementById('id_proveedor').value = res.id_provedor;
+        document.getElementById('nombre_proveedor').value = res.nombre;
+        document.getElementById('telefono_proveedor').value = res.telefono || '';
+        document.getElementById('email_proveedor').value = res.email || '';
+        document.getElementById('whatsapp_proveedor').value = res.whatsapp || '';
+        document.getElementById('direccion_proveedor').value = res.direccion || '';
+        document.getElementById('contacto_proveedor').value = res.contacto || '';
+        document.getElementById('estado_proveedor').value = res.estado ? '1' : '0';
+
+        document.getElementById('accion_proveedor').value = 'editar';
+        document.getElementById('modalAgregarProveedorLabel').textContent = 'Editar Proveedor';
+        document.getElementById('btnGuardarProveedor').style.display = 'none';
+        document.getElementById('btnActualizarProveedor').style.display = 'inline-block';
+
+        bootstrap.Modal.getInstance(document.getElementById('modalAgregarProveedor')).show();
+      } else {
+        alert('Proveedor no encontrado');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Error al cargar proveedor');
+    });
+}
+
+/**
+ * Actualiza un proveedor existente
+ */
+function guardarProveedorEditar() {
+  const payload = {
+    id_provedor: parseInt(document.getElementById('id_proveedor').value),
+    nombre: document.getElementById('nombre_proveedor').value,
+    telefono: document.getElementById('telefono_proveedor').value || null,
+    email: document.getElementById('email_proveedor').value || null,
+    whatsapp: document.getElementById('whatsapp_proveedor').value || null,
+    direccion: document.getElementById('direccion_proveedor').value || null,
+    contacto: document.getElementById('contacto_proveedor').value || null,
+    estado: document.getElementById('estado_proveedor').value,
+  };
+
+  if (!payload.id_provedor || !payload.nombre.trim()) {
+    alert('ID y nombre requeridos');
+    return;
+  }
+
+  fetch(API_PROVEDORES + '?action=update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+    .then(response => response.json())
+    .then(res => {
+      if (res.success) {
+        alert('Proveedor actualizado exitosamente');
+        bootstrap.Modal.getInstance(document.getElementById('modalAgregarProveedor')).hide();
+        // Recargar la lista de proveedores en el select
+        OrdenesCompraUI.cargarProveedores();
+      } else {
+        alert('Error: ' + (res.error || 'No se pudo actualizar'));
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Error de conexión al actualizar proveedor');
+    });
+}

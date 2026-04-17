@@ -39,6 +39,7 @@ function debugLog(mensaje, data = null) {
 }
 
 // Log inmediato para saber si el script se está cargando
+console.log('[COTIZACIONES] === SCRIPT LOADED ===');
 debugLog('Script cargado - Versión 1.0');
 
 // Verificar si el DOM ya está listo
@@ -54,6 +55,7 @@ if (document.readyState === 'loading') {
 }
 
 function inicializarCotizaciones() {
+    console.log('[COTIZACIONES] === inicializarCotizaciones() CALLED ===');
     debugLog('DOM cargado, iniciando carga de componentes');
     debugLog('Verificando elementos del DOM...');
     
@@ -847,7 +849,9 @@ function mostrarExito(mensaje) {
 }
 
 // Exponer funciones globales para eventos inline de HTML
+console.log('[COTIZACIONES] === EXPOSING GLOBAL FUNCTIONS ===');
 window.inicializarCotizaciones = inicializarCotizaciones;
+console.log('[COTIZACIONES] window.inicializarCotizaciones set to:', typeof window.inicializarCotizaciones);
 window.abrirModalCotizaciones = abrirModalCotizaciones;
 window.editarCotizacion = editarCotizacion;
 window.eliminarCotizacion = eliminarCotizacion;

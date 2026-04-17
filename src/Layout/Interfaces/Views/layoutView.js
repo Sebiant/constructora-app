@@ -860,6 +860,18 @@
 
 
 
+            case 'cotizaciones':
+
+                // La inicialización de cotizaciones ya está manejada por el inline script
+
+                // en cotizacionesView.php, que carga el .js y llama a inicializarCotizaciones()
+
+                console.log('[Layout] CASE COTIZACIONES - skipping, handled by inline script');
+
+                break;
+
+
+
             default:
 
                 console.warn(`[Layout] No initialization logic for component: ${componentName}`);
@@ -1044,11 +1056,25 @@
 
         const scripts = Array.from(container.querySelectorAll('script'));
 
+        console.log('[Layout] executeScripts found', scripts.length, 'scripts');
+
+        scripts.forEach((s, i) => {
+
+            console.log(`[Layout] Script ${i}:`, s.src ? s.src.split('/').pop() : '(inline)');
+
+        });
+
 
 
         function loadNext(index) {
 
-            if (index >= scripts.length) return;
+            if (index >= scripts.length) {
+
+                console.log('[Layout] All scripts processed');
+
+                return;
+
+            }
 
 
 
@@ -1070,7 +1096,7 @@
 
                     // class / let / const (ej: PaginadorPresupuestos, API_PROYECTOS...)
 
-                    console.log('[Layout] Script ya cargado, omitiendo:', resolvedSrc.split('/').pop());
+                    console.log('[Layout] Script ALREADY LOADED, SKIPPING:', resolvedSrc.split('/').pop());
 
                     loadNext(index + 1);
 
@@ -1091,6 +1117,8 @@
                 });
 
                 newScript.onload = () => {
+
+                    console.log('[Layout] Script LOADED SUCCESSFULLY:', resolvedSrc.split('/').pop());
 
                     _loadedScripts.add(resolvedSrc);
 
@@ -1298,7 +1326,11 @@
 
                 // Initialize component-specific functionality with small delay
 
+                console.log('[Layout] About to call initializeComponent for:', componentName);
+
                 setTimeout(() => {
+
+                    console.log('[Layout] Calling initializeComponent for:', componentName);
 
                     initializeComponent(componentName);
 

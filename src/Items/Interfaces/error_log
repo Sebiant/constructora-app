@@ -1,0 +1,48 @@
+[19-Mar-2026 03:06:49 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:06:49 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:06:49 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:06:49 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:06:49 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:06:49 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:06:49 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:06:49 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:06:50 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:06:50 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:06:50 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:06:50 UTC] PHP Parse error:  syntax error, unexpected token "default" in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1495
+[19-Mar-2026 03:08:29 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions() in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php:1322
+Stack trace:
+#0 {main}
+  thrown in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1322
+[19-Mar-2026 03:08:29 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions() in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php:1322
+Stack trace:
+#0 {main}
+  thrown in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1322
+[19-Mar-2026 03:08:30 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions() in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php:1322
+Stack trace:
+#0 {main}
+  thrown in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1322
+[19-Mar-2026 03:10:30 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions() in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php:1322
+Stack trace:
+#0 {main}
+  thrown in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1322
+[19-Mar-2026 03:10:31 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions() in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php:1322
+Stack trace:
+#0 {main}
+  thrown in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1322
+[19-Mar-2026 03:10:31 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions() in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php:1322
+Stack trace:
+#0 {main}
+  thrown in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1322
+[19-Mar-2026 03:15:56 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions() in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php:1322
+Stack trace:
+#0 {main}
+  thrown in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1322
+[19-Mar-2026 03:15:56 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions() in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php:1322
+Stack trace:
+#0 {main}
+  thrown in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1322
+[19-Mar-2026 03:15:57 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions() in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php:1322
+Stack trace:
+#0 {main}
+  thrown in /home/gesconjm/public_html/sgigescon/src/Items/Interfaces/ItemsController.php on line 1322

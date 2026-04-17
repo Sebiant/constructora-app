@@ -22,10 +22,10 @@ async function cargarCompras() {
     console.log('📡 Cargando compras...');
 
     // Cargar proyectos primero
-    await cargarProyectos();
+    await cargarProyectosCompras();
 
     // Cargar pedidos para el selector
-    await cargarPedidos();
+    await cargarPedidosCompras();
 
     // Cargar compras
     const tbody = qs('tablaCompras');
@@ -393,7 +393,7 @@ NOTA: Puede registrar futuras recepciones de los items faltantes sobre esta mism
     alert(mensaje);
     limpiarSeleccionPedido();
     cargarCompras(); // Recargar historial
-    cargarPedidos(); // Recargar órdenes disponibles
+    cargarPedidosCompras(); // Recargar órdenes disponibles
   } catch (error) {
     console.error('Error al guardar compra:', error);
     alert('Error al registrar compra: ' + error.message);
@@ -440,9 +440,16 @@ async function apiPost(action, payload) {
   return json;
 }
 
-async function cargarProyectos() {
+async function cargarProyectosCompras() {
   const data = await apiGet('?action=getProyectos');
   const sel = qs('filterProyecto');
+  
+  // Verificar que el elemento existe (evita error cuando se navega a otra vista)
+  if (!sel) {
+    console.log('[Compras] Elemento filterProyecto no encontrado - probablemente en otra vista');
+    return;
+  }
+  
   sel.innerHTML = '<option value="">Todos</option>';
   const selCompras = qs('filterProyectoCompras');
   if (selCompras) selCompras.innerHTML = '<option value="">Todos</option>';
@@ -637,15 +644,26 @@ function filtrarProveedores(termino) {
 }
 
 function getFiltros() {
+  const filterProyecto = qs('filterProyecto');
+  const searchInput = qs('searchInput');
+  const fechaDesde = qs('fechaDesde');
+  const fechaHasta = qs('fechaHasta');
+  
   return {
-    proyecto: qs('filterProyecto').value,
-    busqueda: qs('searchInput').value.trim(),
-    fechaDesde: qs('fechaDesde').value,
-    fechaHasta: qs('fechaHasta').value,
+    proyecto: filterProyecto?.value || '',
+    busqueda: searchInput?.value?.trim?.() || '',
+    fechaDesde: fechaDesde?.value || '',
+    fechaHasta: fechaHasta?.value || '',
   };
 }
 
-async function cargarPedidos() {
+async function cargarPedidosCompras() {
+  // Verificar que estamos en la vista de compras
+  if (!qs('listaPedidos')) {
+    console.log('[Compras] listaPedidos no encontrado - probablemente en otra vista');
+    return;
+  }
+  
   const filtros = getFiltros();
   const params = new URLSearchParams();
   params.set('action', 'getOrdenesParaCompra');
@@ -865,8 +883,8 @@ function getEstadoBadge(estado) {
 async function initCompras() {
   console.log('🚀 Inicializando componente de compras...');
   try {
-    await cargarProyectos();
-    await cargarPedidos();
+    await cargarProyectosCompras();
+    await cargarPedidosCompras();
     await cargarCompras();
   } catch (e) {
     console.error('Error al cargar datos iniciales de compras:', e);
@@ -907,18 +925,18 @@ async function initCompras() {
   }
 
   const filterProyecto = qs('filterProyecto');
-  if (filterProyecto) filterProyecto.addEventListener('change', cargarPedidos);
+  if (filterProyecto) filterProyecto.addEventListener('change', cargarPedidosCompras);
   
   const fechaDesde = qs('fechaDesde');
-  if (fechaDesde) fechaDesde.addEventListener('change', cargarPedidos);
+  if (fechaDesde) fechaDesde.addEventListener('change', cargarPedidosCompras);
   
   const fechaHasta = qs('fechaHasta');
-  if (fechaHasta) fechaHasta.addEventListener('change', cargarPedidos);
+  if (fechaHasta) fechaHasta.addEventListener('change', cargarPedidosCompras);
   
   const searchInput = qs('searchInput');
   if (searchInput) {
     searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') cargarPedidos();
+      if (e.key === 'Enter') cargarPedidosCompras();
     });
   }
 

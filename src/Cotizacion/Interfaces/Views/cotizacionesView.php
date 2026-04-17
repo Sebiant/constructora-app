@@ -222,8 +222,26 @@
 
 <!-- Script para inicializar el componente -->
 <script>
-    // Cargar el script del componente
-    const script = document.createElement('script');
-    script.src = '/sgigescon/src/Cotizacion/Interfaces/Views/cotizacionesView.js';
-    document.head.appendChild(script);
+    console.log('[COTIZACIONES PHP] Inline script executing');
+    // Verificar si el script ya está cargado para evitar re-declaraciones
+    if (!window.cotizacionesScriptLoaded) {
+        window.cotizacionesScriptLoaded = true;
+        console.log('[COTIZACIONES PHP] Loading cotizacionesView.js...');
+        // Cargar el script del componente - usar var para evitar re-declaración
+        var cotizacionesScript = document.createElement('script');
+        cotizacionesScript.src = '/sgigescon/src/Cotizacion/Interfaces/Views/cotizacionesView.js';
+        cotizacionesScript.onload = function() {
+            console.log('[COTIZACIONES PHP] cotizacionesView.js loaded successfully');
+        };
+        cotizacionesScript.onerror = function() {
+            console.error('[COTIZACIONES PHP] ERROR loading cotizacionesView.js');
+        };
+        document.head.appendChild(cotizacionesScript);
+    } else {
+        console.log('[COTIZACIONES PHP] Script already loaded, calling inicializarCotizaciones directly');
+        // El script ya está cargado, llamar a inicializar directamente
+        if (typeof inicializarCotizaciones === 'function') {
+            inicializarCotizaciones();
+        }
+    }
 </script>
