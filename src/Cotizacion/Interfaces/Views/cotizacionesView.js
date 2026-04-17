@@ -26,6 +26,7 @@ let componentesOriginales = []; // Guardar copia original para filtrar
 let proveedoresDB = [];
 let cotizacionesExistentes = [];
 let pedidosPresupuesto = []; // Pedidos asociados al presupuesto actual
+let datosImportacionTemporal = []; // Almacena datos de importación para previsualización
 
 // Habilitar modo debug para ver todos los logs en consola
 const DEBUG_MODE = true;
@@ -986,14 +987,16 @@ function exportarAExcel() {
         return;
     }
 
-    // Preparar datos para Excel (solo información relevante para el proveedor)
+    // Preparar datos para Excel (información del componente + columnas para que el proveedor llene)
     const datos = componentesPresupuesto.map(comp => ({
         'Código': comp.codigo_componente || '',
         'Descripción': comp.descripcion || '',
         'Tipo': getTipoLabel(comp.tipo_componente),
         'Unidad': comp.unidad || 'UND',
         'Cantidad Requerida': parseFloat(comp.cantidad || 0).toFixed(4),
-        'Capítulo': comp.nombre_capitulo || ''
+        'Capítulo': comp.nombre_capitulo || '',
+        'Nombre del Proveedor': '',  // Para que el proveedor llene
+        'Precio Unitario': ''         // Para que el proveedor llene
     }));
 
     // Crear worksheet
@@ -1006,7 +1009,9 @@ function exportarAExcel() {
         { wch: 15 },  // Tipo
         { wch: 10 },  // Unidad
         { wch: 18 },  // Cantidad
-        { wch: 25 }   // Capítulo
+        { wch: 25 },  // Capítulo
+        { wch: 30 },  // Nombre del Proveedor
+        { wch: 18 }   // Precio Unitario
     ];
     ws['!cols'] = colWidths;
 
@@ -1062,6 +1067,261 @@ function mostrarExito(mensaje) {
     toastContainer.lastElementChild.addEventListener('hidden.bs.toast', () => {
         toastContainer.lastElementChild.remove();
     });
+}
+
+/**
+ * Importa cotizaciones desde un archivo Excel y muestra modal de previsualización
+ */
+async function importarCotizacionesDesdeExcel(input) {
+    if (!input.files || input.files.length === 0) return;
+
+    if (!presupuestoActual) {
+        mostrarError('Selecciona un presupuesto primero', 'warning');
+        input.value = '';
+        return;
+    }
+
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+
+            // Leer la primera hoja
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+
+            // Convertir a JSON
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+            if (jsonData.length === 0) {
+                mostrarError('El archivo Excel está vacío', 'warning');
+                input.value = '';
+                return;
+            }
+
+            debugLog('Datos importados del Excel:', jsonData);
+
+            // Procesar y validar datos
+            const cotizaciones = [];
+            const errores = [];
+
+            jsonData.forEach((row, index) => {
+                const codigo = row['Código'] || row['Codigo'] || '';
+                const proveedor = row['Nombre del Proveedor'] || row['Proveedor'] || '';
+                const precio = row['Precio Unitario'] || row['Precio'] || '';
+
+                // Buscar el componente por código
+                const componente = componentesPresupuesto.find(c => 
+                    c.codigo_componente === codigo || 
+                    c.codigo_componente === String(codigo)
+                );
+
+                if (!componente) {
+                    errores.push({
+                        fila: index + 2,
+                        mensaje: `Componente con código "${codigo}" no encontrado`
+                    });
+                    cotizaciones.push({
+                        fila: index + 2,
+                        codigo: codigo,
+                        descripcion: '-',
+                        tipo: '-',
+                        unidad: '-',
+                        cantidad: 0,
+                        proveedor: proveedor || '-',
+                        precio: precio || 0,
+                        valido: false,
+                        error: `Componente con código "${codigo}" no encontrado`
+                    });
+                    return;
+                }
+
+                if (!proveedor || proveedor.toString().trim() === '') {
+                    errores.push({
+                        fila: index + 2,
+                        mensaje: `Falta nombre del proveedor para "${codigo}"`
+                    });
+                }
+
+                const precioNum = parseFloat(precio);
+                if (isNaN(precioNum) || precioNum <= 0) {
+                    errores.push({
+                        fila: index + 2,
+                        mensaje: `Precio inválido para "${codigo}"`
+                    });
+                }
+
+                const esValido = componente && proveedor && proveedor.toString().trim() !== '' && !isNaN(precioNum) && precioNum > 0;
+
+                cotizaciones.push({
+                    fila: index + 2,
+                    id_componente: componente.id_componente,
+                    codigo: codigo,
+                    descripcion: componente.descripcion || '',
+                    tipo: componente.tipo_componente || '',
+                    unidad: componente.unidad || 'UND',
+                    cantidad: parseFloat(componente.cantidad || 0),
+                    proveedor: proveedor ? proveedor.toString().trim() : '',
+                    precio: isNaN(precioNum) ? 0 : precioNum,
+                    valido: esValido,
+                    error: esValido ? null : 'Datos incompletos'
+                });
+            });
+
+            // Guardar temporalmente para la confirmación
+            datosImportacionTemporal = cotizaciones.filter(c => c.valido);
+
+            // Mostrar modal de previsualización
+            mostrarModalPrevisualizacion(cotizaciones, errores);
+
+            input.value = '';
+
+        } catch (error) {
+            console.error('Error leyendo Excel:', error);
+            mostrarError('Error al leer el archivo Excel: ' + error.message);
+            input.value = '';
+        }
+    };
+
+    reader.onerror = function() {
+        mostrarError('Error al leer el archivo');
+        input.value = '';
+    };
+
+    reader.readAsArrayBuffer(file);
+}
+
+/**
+ * Muestra el modal de previsualización con los datos a importar
+ */
+function mostrarModalPrevisualizacion(cotizaciones, errores) {
+    const validas = cotizaciones.filter(c => c.valido);
+    const invalidas = cotizaciones.filter(c => !c.valido);
+    const proveedoresUnicos = [...new Set(validas.map(c => c.proveedor))];
+
+    // Actualizar contadores
+    document.getElementById('contadorCotizaciones').textContent = validas.length;
+    document.getElementById('resumenValidas').textContent = validas.length;
+    document.getElementById('resumenProveedores').textContent = proveedoresUnicos.length;
+
+    // Mostrar/ocultar sección de errores
+    const contadorErrores = document.getElementById('contadorErrores');
+    const alertaErrores = document.getElementById('alertaErroresImportacion');
+    const itemResumenErrores = document.getElementById('itemResumenErrores');
+
+    if (invalidas.length > 0) {
+        contadorErrores.classList.remove('d-none');
+        document.getElementById('contadorErrores').querySelector('strong').textContent = invalidas.length;
+        alertaErrores.classList.remove('d-none');
+        itemResumenErrores.classList.remove('d-none');
+        document.getElementById('resumenErrores').textContent = invalidas.length;
+
+        // Llenar lista de errores
+        const listaErrores = document.getElementById('listaErroresImportacion');
+        listaErrores.innerHTML = invalidas.slice(0, 10).map(c => 
+            `<li>Fila ${c.fila}: ${c.error || 'Error desconocido'}</li>`
+        ).join('');
+        if (invalidas.length > 10) {
+            listaErrores.innerHTML += `<li class="text-muted">... y ${invalidas.length - 10} errores más</li>`;
+        }
+    } else {
+        contadorErrores.classList.add('d-none');
+        alertaErrores.classList.add('d-none');
+        itemResumenErrores.classList.add('d-none');
+    }
+
+    // Llenar tabla de previsualización
+    const tbody = document.getElementById('tablaPrevisualizacionCotizaciones');
+    tbody.innerHTML = cotizaciones.map((c, index) => `
+        <tr class="${c.valido ? '' : 'table-danger'}">
+            <td>${index + 1}</td>
+            <td><code>${c.codigo}</code></td>
+            <td>${c.descripcion}</td>
+            <td>${c.tipo}</td>
+            <td>${c.unidad}</td>
+            <td class="text-end">${c.cantidad.toFixed(4)}</td>
+            <td>${c.proveedor}</td>
+            <td class="text-end">${c.precio > 0 ? '$' + c.precio.toFixed(2) : '-'}</td>
+            <td>
+                ${c.valido 
+                    ? '<span class="badge bg-success"><i class="bi bi-check"></i> Válido</span>'
+                    : '<span class="badge bg-danger"><i class="bi bi-x"></i> Error</span>'
+                }
+            </td>
+        </tr>
+    `).join('');
+
+    // Deshabilitar botón si no hay válidas
+    const btnConfirmar = document.getElementById('btnConfirmarImportacion');
+    if (validas.length === 0) {
+        btnConfirmar.disabled = true;
+        btnConfirmar.innerHTML = '<i class="bi bi-x-circle"></i> Sin cotizaciones válidas';
+    } else {
+        btnConfirmar.disabled = false;
+        btnConfirmar.innerHTML = '<i class="bi bi-check-circle"></i> Confirmar Importación';
+    }
+
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalPrevisualizarImportacion'));
+    modal.show();
+}
+
+/**
+ * Confirma la importación desde el modal
+ */
+async function confirmarImportacionCotizaciones() {
+    if (datosImportacionTemporal.length === 0) {
+        mostrarError('No hay cotizaciones válidas para importar', 'warning');
+        return;
+    }
+
+    // Cerrar modal
+    const modalEl = document.getElementById('modalPrevisualizarImportacion');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    modal.hide();
+
+    // Enviar al backend
+    await guardarCotizacionesMasivo(datosImportacionTemporal);
+
+    // Limpiar temporal
+    datosImportacionTemporal = [];
+}
+
+/**
+ * Guarda las cotizaciones importadas masivamente en el backend
+ */
+async function guardarCotizacionesMasivo(cotizaciones) {
+    try {
+        mostrarMensaje('Guardando cotizaciones...', 'info');
+
+        const response = await fetch(API_COTIZACIONES, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'guardarCotizacionesMasivo',
+                id_presupuesto: presupuestoActual.id_presupuesto,
+                cotizaciones: cotizaciones
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            mostrarExito(`¡Importación exitosa! ${result.cotizaciones_guardadas || cotizaciones.length} cotizaciones guardadas.`);
+            // Recargar componentes para mostrar las nuevas cotizaciones
+            await cargarComponentesPresupuesto(true);
+        } else {
+            mostrarError(result.error || 'Error al guardar las cotizaciones');
+        }
+    } catch (error) {
+        console.error('Error guardando cotizaciones:', error);
+        mostrarError('Error al guardar las cotizaciones: ' + error.message);
+    }
 }
 
 // Funciones utilitarias
@@ -1148,6 +1408,9 @@ window.cancelarEdicionCotizacion = cancelarEdicionCotizacion;
 window.cargarPresupuestosDeProyecto = cargarPresupuestosDeProyecto;
 window.exportarCotizacionesPresupuesto = exportarCotizacionesPresupuesto;
 window.exportarAExcel = exportarAExcel;
+window.importarCotizacionesDesdeExcel = importarCotizacionesDesdeExcel;
+window.confirmarImportacionCotizaciones = confirmarImportacionCotizaciones;
+window.guardarCotizacionesMasivo = guardarCotizacionesMasivo;
 window.cargarComponentesPresupuesto = cargarComponentesPresupuesto;
 window.filtrarComponentes = filtrarComponentes;
 window.cambiarFiltroPedido = cambiarFiltroPedido;

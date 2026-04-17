@@ -18,6 +18,17 @@ $connection = $db->getConnection();
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
+// Si no hay action en GET/POST, intentar leer del body JSON (para fetch con Content-Type: application/json)
+if (empty($action)) {
+    $inputJSON = file_get_contents('php://input');
+    $input = json_decode($inputJSON, true);
+    if (is_array($input) && isset($input['action'])) {
+        $action = $input['action'];
+        // Guardar el input para usarlo después en guardarCotizacionesMasivo
+        $_POST = array_merge($_POST, $input);
+    }
+}
+
 try {
     switch ($action) {
 
@@ -658,6 +669,97 @@ try {
                 'success' => true,
                 'data' => $cotizaciones
             ]);
+            break;
+
+        /* ── Guardar cotizaciones masivamente desde Excel ─────────── */
+        case 'guardarCotizacionesMasivo':
+            // Los datos JSON ya fueron parseados y mergeados a $_POST al inicio del archivo
+            $idPresupuesto = (int)($_POST['id_presupuesto'] ?? 0);
+            $cotizaciones = $_POST['cotizaciones'] ?? [];
+
+            if (!$idPresupuesto) throw new Exception('ID de presupuesto requerido');
+            if (empty($cotizaciones)) throw new Exception('No hay cotizaciones para guardar');
+
+            // Obtener sesión del usuario
+            if (session_status() === PHP_SESSION_NONE) session_start();
+            $idUsuario = (int)($_SESSION['u_id'] ?? 1);
+
+            $connection->beginTransaction();
+            try {
+                $guardadas = 0;
+                $errores = [];
+
+                // Preparar statements
+                $stmtBuscarProveedor = $connection->prepare(
+                    "SELECT id_provedor FROM provedores WHERE nombre = ? LIMIT 1"
+                );
+                $stmtCrearProveedor = $connection->prepare(
+                    "INSERT INTO provedores (nombre, fechareg) VALUES (?, NOW())"
+                );
+                $stmtDesactivarAnterior = $connection->prepare(
+                    "UPDATE cotizaciones_componentes 
+                     SET estado = 'inactiva', fechaupdate = NOW() 
+                     WHERE id_componente = ? AND id_presupuesto = ? AND id_proveedor = ? AND estado = 'activa'"
+                );
+                $stmtInsertar = $connection->prepare(
+                    "INSERT INTO cotizaciones_componentes 
+                     (id_componente, id_presupuesto, id_proveedor, precio_unitario, tiempo_entrega, observaciones, id_usuario, fecha_cotizacion, estado)
+                     VALUES (?, ?, ?, ?, '', '', ?, CURDATE(), 'activa')"
+                );
+
+                foreach ($cotizaciones as $cot) {
+                    try {
+                        $idComponente = (int)($cot['id_componente'] ?? 0);
+                        $nombreProveedor = trim($cot['proveedor'] ?? $cot['nombre_proveedor'] ?? '');
+                        $precioUnitario = (float)($cot['precio'] ?? $cot['precio_unitario'] ?? 0);
+
+                        if (!$idComponente || empty($nombreProveedor) || $precioUnitario <= 0) {
+                            $errores[] = "Datos incompletos para componente {$idComponente}";
+                            continue;
+                        }
+
+                        // Buscar o crear proveedor
+                        $stmtBuscarProveedor->execute([$nombreProveedor]);
+                        $proveedor = $stmtBuscarProveedor->fetch(PDO::FETCH_ASSOC);
+
+                        if ($proveedor) {
+                            $idProveedor = $proveedor['id_provedor'];
+                        } else {
+                            // Crear proveedor nuevo
+                            $stmtCrearProveedor->execute([$nombreProveedor]);
+                            $idProveedor = $connection->lastInsertId();
+                        }
+
+                        // Desactivar cotización anterior del mismo proveedor para este componente
+                        $stmtDesactivarAnterior->execute([$idComponente, $idPresupuesto, $idProveedor]);
+
+                        // Insertar nueva cotización
+                        $stmtInsertar->execute([
+                            $idComponente,
+                            $idPresupuesto,
+                            $idProveedor,
+                            $precioUnitario,
+                            $idUsuario
+                        ]);
+
+                        $guardadas++;
+                    } catch (Exception $e2) {
+                        $errores[] = "Error en componente {$cot['codigo_componente']}: {$e2->getMessage()}";
+                    }
+                }
+
+                $connection->commit();
+
+                echo json_encode([
+                    'success' => true,
+                    'cotizaciones_guardadas' => $guardadas,
+                    'errores' => $errores,
+                    'mensaje' => "{$guardadas} cotizaciones guardadas exitosamente" . (count($errores) > 0 ? ", con " . count($errores) . " errores" : "")
+                ]);
+            } catch (Exception $e) {
+                $connection->rollBack();
+                throw $e;
+            }
             break;
             
         default:

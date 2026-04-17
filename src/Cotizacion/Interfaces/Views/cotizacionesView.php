@@ -116,6 +116,10 @@
                             <button class="btn btn-success" onclick="exportarAExcel()" id="btnExportarExcel">
                                 <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
                             </button>
+                            <button class="btn btn-primary" onclick="document.getElementById('inputImportarExcel').click()" id="btnImportarExcel">
+                                <i class="bi bi-upload"></i> Importar Cotizaciones
+                            </button>
+                            <input type="file" id="inputImportarExcel" accept=".xlsx,.xls" style="display: none;" onchange="importarCotizacionesDesdeExcel(this)">
                         </div>
                     </div>
 
@@ -243,6 +247,73 @@
                         </form>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Previsualización de Importación -->
+<div class="modal fade" id="modalPrevisualizarImportacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-eye"></i> Previsualizar Importación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 
+                    Se encontraron <strong id="contadorCotizaciones">0</strong> cotizaciones válidas para importar.
+                    <span id="contadorErrores" class="d-none"> (<strong class="text-danger">0</strong> con errores)</span>
+                </div>
+
+                <!-- Errores -->
+                <div id="alertaErroresImportacion" class="alert alert-warning d-none">
+                    <h6><i class="bi bi-exclamation-triangle"></i> Errores encontrados:</h6>
+                    <ul id="listaErroresImportacion" class="mb-0 small"></ul>
+                </div>
+
+                <!-- Tabla de previsualización -->
+                <div class="table-responsive" style="max-height: 400px;">
+                    <table class="table table-sm table-striped table-hover">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>#</th>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Tipo</th>
+                                <th>Unidad</th>
+                                <th>Cantidad</th>
+                                <th>Proveedor</th>
+                                <th>Precio Unitario</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaPrevisualizacionCotizaciones">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Resumen -->
+                <div class="mt-3">
+                    <h6>Resumen:</h6>
+                    <ul class="list-unstyled small">
+                        <li><i class="bi bi-check-circle text-success"></i> <span id="resumenValidas">0</span> cotizaciones válidas</li>
+                        <li id="itemResumenErrores" class="d-none"><i class="bi bi-x-circle text-danger"></i> <span id="resumenErrores">0</span> con errores</li>
+                        <li><i class="bi bi-building"></i> <span id="resumenProveedores">0</span> proveedores</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-success" id="btnConfirmarImportacion" onclick="confirmarImportacionCotizaciones()">
+                    <i class="bi bi-check-circle"></i> Confirmar Importación
+                </button>
             </div>
         </div>
     </div>
