@@ -22,8 +22,10 @@ let proyectoActual = null;
 let presupuestoActual = null;
 let componenteActual = null;
 let componentesPresupuesto = [];
+let componentesOriginales = []; // Guardar copia original para filtrar
 let proveedoresDB = [];
 let cotizacionesExistentes = [];
+let pedidosPresupuesto = []; // Pedidos asociados al presupuesto actual
 
 // Habilitar modo debug para ver todos los logs en consola
 const DEBUG_MODE = true;
@@ -95,13 +97,15 @@ function inicializarCotizaciones() {
     const buscarComponente = document.getElementById('buscarComponente');
     const filtroTipo = document.getElementById('filtroTipo');
     const filtroCotizados = document.getElementById('filtroCotizados');
+    const filtroPedido = document.getElementById('filtroPedido');
     const formNuevaCotizacion = document.getElementById('formNuevaCotizacion');
-    
+
     if (buscarComponente) buscarComponente.addEventListener('input', filtrarComponentes);
     if (filtroTipo) filtroTipo.addEventListener('change', filtrarComponentes);
     if (filtroCotizados) filtroCotizados.addEventListener('change', filtrarComponentes);
+    if (filtroPedido) filtroPedido.addEventListener('change', cambiarFiltroPedido);
     if (formNuevaCotizacion) formNuevaCotizacion.addEventListener('submit', guardarNuevaCotizacion);
-    
+
     debugLog('Event listeners configurados');
 }
 
@@ -343,7 +347,12 @@ async function cargarComponentesPresupuesto(silent = false) {
         
         if (result.success) {
             componentesPresupuesto = result.data || [];
+            componentesOriginales = [...componentesPresupuesto]; // Guardar copia original
             document.getElementById('infoTotalComponentes').textContent = componentesPresupuesto.length;
+
+            // Cargar pedidos del presupuesto
+            await cargarPedidosPresupuesto(presupuestoId);
+
             // Aplicar filtros actuales sobre la nueva data en lugar de mostrar todo
             filtrarComponentes();
         } else {
@@ -368,6 +377,180 @@ function mostrarCargandoComponentes() {
 }
 
 /**
+ * Carga los pedidos asociados al presupuesto para el filtro
+ */
+async function cargarPedidosPresupuesto(idPresupuesto) {
+    try {
+        debugLog('Cargando pedidos del presupuesto:', idPresupuesto);
+        const response = await fetch(`${API_COTIZACIONES}?action=getPedidosPorPresupuesto&id_presupuesto=${idPresupuesto}`);
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        debugLog('Respuesta de pedidos:', result);
+
+        const listaChecks = document.getElementById('listaChecksPedidos');
+        if (!listaChecks) return;
+
+        if (result.success) {
+            pedidosPresupuesto = result.data || [];
+            debugLog('Pedidos cargados:', pedidosPresupuesto.length);
+
+            // Limpiar y poblar los checkboxes de pedidos
+            listaChecks.innerHTML = '';
+
+            if (pedidosPresupuesto.length === 0) {
+                listaChecks.innerHTML = '<div class="text-muted small p-2">Sin pedidos asociados</div>';
+            } else {
+                pedidosPresupuesto.forEach((pedido, index) => {
+                    const fecha = pedido.fecha_pedido ? new Date(pedido.fecha_pedido).toLocaleDateString() : '';
+                    const div = document.createElement('div');
+                    div.className = 'form-check';
+                    div.innerHTML = `
+                        <input class="form-check-input" type="checkbox" id="checkPedido${pedido.id_pedido}" 
+                               value="${pedido.id_pedido}" onchange="togglePedidoIndividual()">
+                        <label class="form-check-label small" for="checkPedido${pedido.id_pedido}">
+                            #${pedido.id_pedido} - ${fecha} (${pedido.estado}) - ${pedido.total_items || 0} items
+                        </label>
+                    `;
+                    listaChecks.appendChild(div);
+                });
+            }
+
+            // Resetear el checkbox "Todos"
+            const checkTodos = document.getElementById('checkTodosPedidos');
+            if (checkTodos) checkTodos.checked = true;
+
+            // Limpiar el hidden input
+            const filtroPedido = document.getElementById('filtroPedido');
+            if (filtroPedido) filtroPedido.value = '';
+
+            // Actualizar texto del botón
+            actualizarTextoBotonPedidos();
+        } else {
+            console.error('Error en respuesta:', result.error);
+            listaChecks.innerHTML = '<div class="text-muted small p-2 text-danger">Error cargando pedidos</div>';
+        }
+    } catch (error) {
+        console.error('Error cargando pedidos:', error);
+        const listaChecks = document.getElementById('listaChecksPedidos');
+        if (listaChecks) {
+            listaChecks.innerHTML = '<div class="text-muted small p-2 text-danger">Error de conexión</div>';
+        }
+    }
+}
+
+/**
+ * Maneja el checkbox "Todos los pedidos"
+ */
+function toggleTodosPedidos() {
+    const checkTodos = document.getElementById('checkTodosPedidos');
+    const checkboxes = document.querySelectorAll('#listaChecksPedidos input[type="checkbox"]');
+
+    if (checkTodos.checked) {
+        // Desmarcar todos los individuales
+        checkboxes.forEach(cb => cb.checked = false);
+    }
+
+    actualizarFiltroPedidos();
+}
+
+/**
+ * Maneja el cambio en un checkbox individual de pedido
+ */
+function togglePedidoIndividual() {
+    const checkboxes = document.querySelectorAll('#listaChecksPedidos input[type="checkbox"]:checked');
+    const checkTodos = document.getElementById('checkTodosPedidos');
+
+    // Si hay algún pedido seleccionado, desmarcar "Todos"
+    if (checkboxes.length > 0) {
+        if (checkTodos) checkTodos.checked = false;
+    } else {
+        // Si no hay ninguno, marcar "Todos"
+        if (checkTodos) checkTodos.checked = true;
+    }
+
+    actualizarFiltroPedidos();
+}
+
+/**
+ * Actualiza el filtro de pedidos según los checkboxes seleccionados
+ */
+function actualizarFiltroPedidos() {
+    const checkTodos = document.getElementById('checkTodosPedidos');
+    const checkboxes = document.querySelectorAll('#listaChecksPedidos input[type="checkbox"]:checked');
+    const filtroPedido = document.getElementById('filtroPedido');
+
+    if (checkTodos.checked) {
+        // Mostrar todos los componentes del presupuesto
+        filtroPedido.value = '';
+        componentesPresupuesto = [...componentesOriginales];
+        actualizarTextoBotonPedidos('Todo el presupuesto');
+        filtrarComponentes();
+    } else if (checkboxes.length > 0) {
+        // Obtener IDs de pedidos seleccionados
+        const idsPedidos = Array.from(checkboxes).map(cb => cb.value).join(',');
+        filtroPedido.value = idsPedidos;
+        actualizarTextoBotonPedidos(`${checkboxes.length} pedido(s) seleccionado(s)`);
+        cargarComponentesPorPedidos(idsPedidos);
+    } else {
+        // Ninguno seleccionado, comportamiento por defecto
+        filtroPedido.value = '';
+        actualizarTextoBotonPedidos('Selecciona pedido(s)');
+    }
+}
+
+/**
+ * Actualiza el texto del botón de pedidos
+ */
+function actualizarTextoBotonPedidos(texto) {
+    const btn = document.getElementById('dropdownPedidos');
+    if (btn) {
+        if (texto) {
+            btn.innerHTML = `<i class="bi bi-funnel-fill"></i> ${texto}`;
+        } else {
+            btn.innerHTML = `<i class="bi bi-funnel"></i> Filtrar por pedido`;
+        }
+    }
+}
+
+/**
+ * Carga componentes de múltiples pedidos seleccionados
+ */
+async function cargarComponentesPorPedidos(idsPedidos) {
+    if (!presupuestoActual || !presupuestoActual.id_presupuesto) return;
+
+    try {
+        mostrarCargandoComponentes();
+        debugLog('Cargando componentes de pedidos:', idsPedidos);
+
+        const response = await fetch(`${API_COTIZACIONES}?action=getComponentesPorPedidos&id_pedidos=${idsPedidos}&id_presupuesto=${presupuestoActual.id_presupuesto}`);
+        const result = await response.json();
+
+        if (result.success) {
+            componentesPresupuesto = result.data || [];
+            document.getElementById('infoTotalComponentes').textContent = componentesPresupuesto.length;
+            debugLog(`Componentes cargados:`, componentesPresupuesto.length);
+            filtrarComponentes();
+        } else {
+            mostrarError(result.error || 'Error cargando componentes de los pedidos');
+        }
+    } catch (error) {
+        console.error('Error cargando componentes de los pedidos:', error);
+        mostrarError('Error al cargar los componentes de los pedidos');
+    }
+}
+
+/**
+ * Función legacy - ya no se usa directamente, se usa actualizarFiltroPedidos
+ */
+async function cambiarFiltroPedido() {
+    actualizarFiltroPedidos();
+}
+
+/**
  * Limpia la lista de componentes
  */
 function limpiarComponentes() {
@@ -377,6 +560,24 @@ function limpiarComponentes() {
             <p class="mt-3">Selecciona un proyecto y presupuesto para ver los componentes</p>
         </div>
     `;
+
+    // Limpiar dropdown de pedidos
+    const listaChecks = document.getElementById('listaChecksPedidos');
+    if (listaChecks) {
+        listaChecks.innerHTML = '<div class="text-muted small p-2">Selecciona un presupuesto primero</div>';
+    }
+
+    // Resetear checkbox "Todos"
+    const checkTodos = document.getElementById('checkTodosPedidos');
+    if (checkTodos) checkTodos.checked = true;
+
+    // Limpiar hidden input
+    const filtroPedido = document.getElementById('filtroPedido');
+    if (filtroPedido) filtroPedido.value = '';
+
+    // Limpiar arrays
+    pedidosPresupuesto = [];
+    componentesOriginales = [];
 }
 
 /**
@@ -860,3 +1061,8 @@ window.cancelarEdicionCotizacion = cancelarEdicionCotizacion;
 window.cargarPresupuestosDeProyecto = cargarPresupuestosDeProyecto;
 window.cargarComponentesPresupuesto = cargarComponentesPresupuesto;
 window.filtrarComponentes = filtrarComponentes;
+window.cambiarFiltroPedido = cambiarFiltroPedido;
+window.toggleTodosPedidos = toggleTodosPedidos;
+window.togglePedidoIndividual = togglePedidoIndividual;
+window.actualizarFiltroPedidos = actualizarFiltroPedidos;
+window.cargarComponentesPorPedidos = cargarComponentesPorPedidos;

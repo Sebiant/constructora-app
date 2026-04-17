@@ -64,7 +64,7 @@
                 <div class="col-12">
                     <h5 class="text-success mb-3">Componentes del Presupuesto</h5>
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-3">
                             <div class="input-group">
                                 <input type="text" class="form-control" placeholder="Buscar componente..." id="buscarComponente" oninput="filtrarComponentes()">
                                 <button class="btn btn-outline-secondary" type="button" onclick="filtrarComponentes()">
@@ -88,6 +88,25 @@
                                 <option value="con_cotizacion">Con cotización</option>
                                 <option value="sin_cotizacion">Sin cotización</option>
                             </select>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" type="button" id="dropdownPedidos" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-funnel"></i> Filtrar por pedido
+                                </button>
+                                <div class="dropdown-menu w-100 p-2" aria-labelledby="dropdownPedidos" style="max-height: 300px; overflow-y: auto;">
+                                    <div class="form-check mb-2 border-bottom pb-2">
+                                        <input class="form-check-input" type="checkbox" id="checkTodosPedidos" value="" checked onchange="toggleTodosPedidos()">
+                                        <label class="form-check-label fw-bold" for="checkTodosPedidos">
+                                            Todo el presupuesto
+                                        </label>
+                                    </div>
+                                    <div id="listaChecksPedidos">
+                                        <div class="text-muted small p-2">Selecciona un presupuesto primero</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="filtroPedido" value="">
                         </div>
                     </div>
 

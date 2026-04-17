@@ -20,7 +20,215 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 try {
     switch ($action) {
-        
+
+        /* ── Obtener pedidos de un presupuesto ────────────────────── */
+        case 'getPedidosPorPresupuesto':
+            $idPresupuesto = (int)($_GET['id_presupuesto'] ?? 0);
+            if (!$idPresupuesto) throw new Exception('ID de presupuesto requerido');
+
+            try {
+                // PRIMERA CONSULTA: Pedidos con componentes de items que pertenecen al presupuesto
+                $sqlItems = "SELECT DISTINCT
+                                p.id_pedido,
+                                p.fecha_pedido,
+                                p.estado,
+                                (SELECT COUNT(*) FROM pedidos_detalle pd2 WHERE pd2.id_pedido = p.id_pedido) as total_items
+                            FROM pedidos p
+                            INNER JOIN pedidos_detalle pd ON p.id_pedido = pd.id_pedido
+                            INNER JOIN item_componentes ic ON pd.id_componente = ic.id_componente
+                            INNER JOIN items i ON ic.id_item = i.id_item
+                            INNER JOIN det_presupuesto dp ON i.id_item = dp.id_item AND dp.id_presupuesto = ?
+                            WHERE pd.id_componente > 0
+                            GROUP BY p.id_pedido";
+
+                $stmtItems = $connection->prepare($sqlItems);
+                $stmtItems->execute([$idPresupuesto]);
+                $pedidosItems = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
+
+                // SEGUNDA CONSULTA: Pedidos con items directos del presupuesto (sin componente específico)
+                $sqlItemsDirectos = "SELECT DISTINCT
+                                    p.id_pedido,
+                                    p.fecha_pedido,
+                                    p.estado,
+                                    (SELECT COUNT(*) FROM pedidos_detalle pd2 WHERE pd2.id_pedido = p.id_pedido) as total_items
+                                FROM pedidos p
+                                INNER JOIN pedidos_detalle pd ON p.id_pedido = pd.id_pedido
+                                INNER JOIN items i ON pd.id_item = i.id_item AND pd.id_item > 0
+                                INNER JOIN det_presupuesto dp ON i.id_item = dp.id_item AND dp.id_presupuesto = ?
+                                WHERE (pd.id_componente IS NULL OR pd.id_componente = 0)
+                                GROUP BY p.id_pedido";
+
+                $stmtItemsDirectos = $connection->prepare($sqlItemsDirectos);
+                $stmtItemsDirectos->execute([$idPresupuesto]);
+                $pedidosItemsDirectos = $stmtItemsDirectos->fetchAll(PDO::FETCH_ASSOC);
+
+                // COMBINAR RESULTADOS y eliminar duplicados
+                $pedidosUnicos = [];
+                foreach (array_merge($pedidosItems, $pedidosItemsDirectos) as $pedido) {
+                    $pedidosUnicos[$pedido['id_pedido']] = $pedido;
+                }
+                $pedidos = array_values($pedidosUnicos);
+
+                // Ordenar por fecha
+                usort($pedidos, function($a, $b) {
+                    return strtotime($b['fecha_pedido']) - strtotime($a['fecha_pedido']);
+                });
+
+                echo json_encode([
+                    'success' => true,
+                    'data' => $pedidos,
+                    'total' => count($pedidos),
+                    'debug' => [
+                        'id_presupuesto' => $idPresupuesto,
+                        'pedidos_por_items_con_componente' => count($pedidosItems),
+                        'pedidos_por_items_directos' => count($pedidosItemsDirectos)
+                    ]
+                ]);
+            } catch (Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        /* ── Obtener componentes de un pedido específico ────────────── */
+        case 'getComponentesPorPedido':
+            $idPedido = (int)($_GET['id_pedido'] ?? 0);
+            $idPresupuesto = (int)($_GET['id_presupuesto'] ?? 0);
+
+            if (!$idPedido) throw new Exception('ID de pedido requerido');
+            if (!$idPresupuesto) throw new Exception('ID de presupuesto requerido');
+
+            try {
+                // CONSULTA 1: Componentes de items que pertenecen al presupuesto
+                $sqlItems = "SELECT DISTINCT
+                                ic.id_componente,
+                                COALESCE(m.cod_material, ic.codigo_componente, i.codigo_item, CONCAT('Comp-', ic.id_componente)) as codigo_componente,
+                                COALESCE(ic.descripcion, i.nombre_item, m.nombremat, 'Sin descripción') as descripcion,
+                                COALESCE(ic.tipo_componente, 'material') as tipo_componente,
+                                COALESCE(ic.unidad, i.unidad, u.unidesc, 'UND') as unidad,
+                                dp.id_capitulo,
+                                c.nombre_cap as nombre_capitulo,
+                                pd.cantidad as cantidad,
+                                (SELECT COUNT(*) FROM cotizaciones_componentes cc2
+                                 WHERE cc2.id_componente = ic.id_componente
+                                 AND cc2.id_presupuesto = ?
+                                 AND cc2.estado = 'activa') as cotizaciones_count,
+                                (SELECT MIN(cc3.precio_unitario) FROM cotizaciones_componentes cc3
+                                 WHERE cc3.id_componente = ic.id_componente
+                                 AND cc3.id_presupuesto = ?
+                                 AND cc3.estado = 'activa') as precio_mejor,
+                                p.id_pedido
+                            FROM pedidos p
+                            INNER JOIN pedidos_detalle pd ON p.id_pedido = pd.id_pedido
+                            INNER JOIN item_componentes ic ON pd.id_componente = ic.id_componente AND pd.id_componente > 0
+                            INNER JOIN items i ON ic.id_item = i.id_item
+                            INNER JOIN det_presupuesto dp ON i.id_item = dp.id_item AND dp.id_presupuesto = ?
+                            INNER JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
+                            LEFT JOIN materiales m ON ic.id_material = m.id_material
+                            LEFT JOIN gr_unidad u ON m.idunidad = u.idunidad
+                            WHERE p.id_pedido = ?
+                            ORDER BY c.nombre_cap, descripcion
+                            LIMIT 1000";
+
+                $stmtItems = $connection->prepare($sqlItems);
+                $stmtItems->execute([$idPresupuesto, $idPresupuesto, $idPresupuesto, $idPedido]);
+                $componentesItems = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
+
+                // NOTA: pedidos_detalle no tiene id_material directo, solo id_componente, id_item e id_material_extra
+                // Los componentes con id_componente > 0 ya se obtuvieron en la primera consulta
+                // Los items sin componente específico se manejan como parte del item completo
+
+                echo json_encode([
+                    'success' => true,
+                    'data' => $componentesItems,
+                    'total' => count($componentesItems),
+                    'id_pedido' => $idPedido,
+                    'debug' => [
+                        'id_presupuesto' => $idPresupuesto,
+                        'componentes_encontrados' => count($componentesItems)
+                    ]
+                ]);
+            } catch (Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        /* ── Obtener componentes de múltiples pedidos ──────────────── */
+        case 'getComponentesPorPedidos':
+            $idsPedidos = $_GET['id_pedidos'] ?? '';
+            $idPresupuesto = (int)($_GET['id_presupuesto'] ?? 0);
+
+            if (!$idsPedidos) throw new Exception('IDs de pedidos requeridos');
+            if (!$idPresupuesto) throw new Exception('ID de presupuesto requerido');
+
+            // Sanitizar y convertir IDs a array
+            $idsArray = array_filter(array_map('intval', explode(',', $idsPedidos)));
+            if (empty($idsArray)) throw new Exception('IDs de pedidos inválidos');
+
+            // Crear placeholders para la consulta IN
+            $placeholders = implode(',', array_fill(0, count($idsArray), '?'));
+
+            try {
+                // CONSULTA: Componentes de items que pertenecen al presupuesto y a los pedidos seleccionados
+                $sql = "SELECT DISTINCT
+                            ic.id_componente,
+                            COALESCE(m.cod_material, ic.codigo_componente, i.codigo_item, CONCAT('Comp-', ic.id_componente)) as codigo_componente,
+                            COALESCE(ic.descripcion, i.nombre_item, m.nombremat, 'Sin descripción') as descripcion,
+                            COALESCE(ic.tipo_componente, 'material') as tipo_componente,
+                            COALESCE(ic.unidad, i.unidad, u.unidesc, 'UND') as unidad,
+                            dp.id_capitulo,
+                            c.nombre_cap as nombre_capitulo,
+                            pd.cantidad as cantidad,
+                            (SELECT COUNT(*) FROM cotizaciones_componentes cc2
+                             WHERE cc2.id_componente = ic.id_componente
+                             AND cc2.id_presupuesto = ?
+                             AND cc2.estado = 'activa') as cotizaciones_count,
+                            (SELECT MIN(cc3.precio_unitario) FROM cotizaciones_componentes cc3
+                             WHERE cc3.id_componente = ic.id_componente
+                             AND cc3.id_presupuesto = ?
+                             AND cc3.estado = 'activa') as precio_mejor,
+                            p.id_pedido
+                        FROM pedidos p
+                        INNER JOIN pedidos_detalle pd ON p.id_pedido = pd.id_pedido
+                        INNER JOIN item_componentes ic ON pd.id_componente = ic.id_componente AND pd.id_componente > 0
+                        INNER JOIN items i ON ic.id_item = i.id_item
+                        INNER JOIN det_presupuesto dp ON i.id_item = dp.id_item AND dp.id_presupuesto = ?
+                        INNER JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
+                        LEFT JOIN materiales m ON ic.id_material = m.id_material
+                        LEFT JOIN gr_unidad u ON m.idunidad = u.idunidad
+                        WHERE p.id_pedido IN ($placeholders)
+                        ORDER BY c.nombre_cap, descripcion
+                        LIMIT 1000";
+
+                $params = array_merge([$idPresupuesto, $idPresupuesto, $idPresupuesto], $idsArray);
+                $stmt = $connection->prepare($sql);
+                $stmt->execute($params);
+                $componentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                echo json_encode([
+                    'success' => true,
+                    'data' => $componentes,
+                    'total' => count($componentes),
+                    'id_pedidos' => $idsArray,
+                    'debug' => [
+                        'id_presupuesto' => $idPresupuesto,
+                        'ids_pedidos' => $idsArray,
+                        'componentes_encontrados' => count($componentes)
+                    ]
+                ]);
+            } catch (Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
         /* ── Obtener componentes de un presupuesto ─────────────────── */
         case 'getComponentesPresupuesto':
             $idPresupuesto = (int)($_GET['id_presupuesto'] ?? 0);
