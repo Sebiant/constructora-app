@@ -977,6 +977,93 @@ function exportarCotizacionesPresupuesto() {
     window.open(`${API_COTIZACIONES}?action=exportarCotizacionesPresupuesto&id_presupuesto=${presupuestoActual.id_presupuesto}`, '_blank');
 }
 
+/**
+ * Exporta los componentes filtrados a Excel (Petición de Cotización)
+ */
+function exportarAExcel() {
+    if (!componentesPresupuesto || componentesPresupuesto.length === 0) {
+        mostrarError('No hay componentes para exportar', 'warning');
+        return;
+    }
+
+    // Preparar datos para Excel (solo información relevante para el proveedor)
+    const datos = componentesPresupuesto.map(comp => ({
+        'Código': comp.codigo_componente || '',
+        'Descripción': comp.descripcion || '',
+        'Tipo': getTipoLabel(comp.tipo_componente),
+        'Unidad': comp.unidad || 'UND',
+        'Cantidad Requerida': parseFloat(comp.cantidad || 0).toFixed(4),
+        'Capítulo': comp.nombre_capitulo || ''
+    }));
+
+    // Crear worksheet
+    const ws = XLSX.utils.json_to_sheet(datos);
+
+    // Ajustar anchos de columna
+    const colWidths = [
+        { wch: 15 },  // Código
+        { wch: 50 },  // Descripción
+        { wch: 15 },  // Tipo
+        { wch: 10 },  // Unidad
+        { wch: 18 },  // Cantidad
+        { wch: 25 }   // Capítulo
+    ];
+    ws['!cols'] = colWidths;
+
+    // Crear workbook
+    const wb = XLSX.utils.book_new();
+    
+    // Nombre de la hoja
+    const nombreHoja = 'Peticion_Cotizacion';
+    XLSX.utils.book_append_sheet(wb, ws, nombreHoja);
+
+    // Generar nombre del archivo
+    const fecha = new Date().toISOString().split('T')[0];
+    const nombreProyecto = proyectoActual ? proyectoActual.nombre.replace(/[^a-zA-Z0-9]/g, '_') : 'Proyecto';
+    const nombreArchivo = `Cotizacion_${nombreProyecto}_${fecha}.xlsx`;
+
+    // Descargar archivo
+    XLSX.writeFile(wb, nombreArchivo);
+
+    // Mostrar mensaje de éxito
+    mostrarExito(`Archivo exportado: ${nombreArchivo}`);
+}
+
+/**
+ * Muestra mensaje de éxito
+ */
+function mostrarExito(mensaje) {
+    const toastHTML = `
+        <div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-check-circle"></i> ${mensaje}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+    
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toastElement = document.createElement('div');
+    toastElement.innerHTML = toastHTML;
+    toastContainer.appendChild(toastElement.firstElementChild);
+    
+    const toast = new bootstrap.Toast(toastContainer.lastElementChild);
+    toast.show();
+    
+    toastContainer.lastElementChild.addEventListener('hidden.bs.toast', () => {
+        toastContainer.lastElementChild.remove();
+    });
+}
+
 // Funciones utilitarias
 function getTipoLabel(tipo) {
     const tipos = {
@@ -1059,6 +1146,8 @@ window.eliminarCotizacion = eliminarCotizacion;
 window.activarCotizacion = activarCotizacion;
 window.cancelarEdicionCotizacion = cancelarEdicionCotizacion;
 window.cargarPresupuestosDeProyecto = cargarPresupuestosDeProyecto;
+window.exportarCotizacionesPresupuesto = exportarCotizacionesPresupuesto;
+window.exportarAExcel = exportarAExcel;
 window.cargarComponentesPresupuesto = cargarComponentesPresupuesto;
 window.filtrarComponentes = filtrarComponentes;
 window.cambiarFiltroPedido = cambiarFiltroPedido;

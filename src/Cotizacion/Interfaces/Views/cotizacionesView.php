@@ -110,6 +110,15 @@
                         </div>
                     </div>
 
+                    <!-- Botones de acción -->
+                    <div class="row mb-3">
+                        <div class="col-12 d-flex justify-content-end gap-2">
+                            <button class="btn btn-success" onclick="exportarAExcel()" id="btnExportarExcel">
+                                <i class="bi bi-file-earmark-excel"></i> Exportar a Excel
+                            </button>
+                        </div>
+                    </div>
+
                     <div id="listaComponentes">
                         <div class="text-center text-muted py-5">
                             <i class="bi bi-clipboard-data display-4"></i>
@@ -264,3 +273,6 @@
         }
     }
 </script>
+
+<!-- Librería SheetJS para exportar a Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
