@@ -1180,11 +1180,6 @@ class PaginadorPresupuestos {
     const itemsPagina = this.obtenerItemsPaginaActual();
     this.mostrarItemsEnVista(itemsPagina);
     this.actualizarPaginacion();
-
-    const materialesList = document.getElementById("materialesList");
-    if (materialesList) {
-      materialesList.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
   }
 
   mostrarItemsEnVista(items) {
