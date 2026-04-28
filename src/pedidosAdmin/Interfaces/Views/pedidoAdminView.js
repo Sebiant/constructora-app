@@ -218,21 +218,26 @@ function renderizarTablaPedidos(pedidos) {
         return;
     }
 
-    tbody.innerHTML = pedidos.map(pedido => `
+    tbody.innerHTML = pedidos.map(pedido => {
+        const totalAnexos = parseInt(pedido.total_anexos) || 0;
+        const badgeAnexos = totalAnexos > 0 
+            ? `<span class="badge bg-info ms-1" title="${totalAnexos} anexo(s)"><i class="bi bi-paperclip"></i> ${totalAnexos}</span>` 
+            : '';
+        return `
         <tr>
             <td>${pedido.id_pedido}</td>
             <td>${formatearFecha(pedido.fecha_pedido)}</td>
             <td>${pedido.nombre_proyecto}</td>
             <td>${pedido.nombre_usuario}</td>
             <td class="text-end">${formatearMoneda(pedido.total)}</td>
-            <td class="text-center">${renderizarBadgeEstado(pedido.estado)}</td>
+            <td class="text-center">${renderizarBadgeEstado(pedido.estado)}${badgeAnexos}</td>
             <td class="text-center">
                 <button class="btn btn-sm btn-info" onclick="verDetallePedido(${pedido.id_pedido})">
                     <i class="bi bi-eye"></i> Ver
                 </button>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 /**
@@ -387,6 +392,35 @@ function renderizarDetallePedido(pedido) {
         document.getElementById('seccionExcedentes').style.display = 'none';
     }
 
+    // Mostrar/ocultar sección de anexos
+    const anexos = pedido.anexos || [];
+    if (anexos.length > 0) {
+        document.getElementById('seccionAnexos').style.display = 'block';
+        const containerAnexos = document.getElementById('listaAnexosPedido');
+        containerAnexos.innerHTML = anexos.map(anexo => {
+            const icono = obtenerIconoExtension(anexo.extension);
+            const fecha = new Date(anexo.fecha_subida).toLocaleString('es-ES');
+            const tamanio = formatearTamanioArchivo(anexo.tamanio_bytes);
+            return `
+                <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2">
+                    <div class="d-flex align-items-center">
+                        <i class="bi ${icono} fs-4 me-3 text-primary"></i>
+                        <div>
+                            <div class="fw-semibold">${anexo.nombre_archivo}</div>
+                            <small class="text-muted">${fecha} · ${tamanio}</small>
+                            ${anexo.descripcion ? `<div class="small text-muted mt-1">${anexo.descripcion}</div>` : ''}
+                        </div>
+                    </div>
+                    <a href="${anexo.ruta_archivo}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> Ver
+                    </a>
+                </div>
+            `;
+        }).join('');
+    } else {
+        document.getElementById('seccionAnexos').style.display = 'none';
+    }
+
     // Mostrar/ocultar botones según estado
     if (pedido.estado === 'pendiente') {
         document.getElementById('btnAprobar').style.display = 'inline-block';
@@ -395,6 +429,38 @@ function renderizarDetallePedido(pedido) {
         document.getElementById('btnAprobar').style.display = 'none';
         document.getElementById('btnRechazar').style.display = 'none';
     }
+}
+
+/**
+ * Obtiene el icono de Bootstrap según la extensión del archivo
+ */
+function obtenerIconoExtension(extension) {
+    const iconos = {
+        'pdf': 'bi-file-earmark-pdf',
+        'doc': 'bi-file-earmark-word',
+        'docx': 'bi-file-earmark-word',
+        'xls': 'bi-file-earmark-excel',
+        'xlsx': 'bi-file-earmark-excel',
+        'jpg': 'bi-file-earmark-image',
+        'jpeg': 'bi-file-earmark-image',
+        'png': 'bi-file-earmark-image',
+        'gif': 'bi-file-earmark-image',
+        'zip': 'bi-file-earmark-zip',
+        'rar': 'bi-file-earmark-zip',
+        'txt': 'bi-file-earmark-text'
+    };
+    return iconos[extension?.toLowerCase()] || 'bi-file-earmark';
+}
+
+/**
+ * Formatea el tamaño del archivo en bytes a legible
+ */
+function formatearTamanioArchivo(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 // ============================================

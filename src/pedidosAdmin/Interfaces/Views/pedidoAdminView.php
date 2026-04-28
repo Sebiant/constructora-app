@@ -292,6 +292,17 @@ if (!$isComponent): ?>
                             </table>
                         </div>
                     </div>
+
+                    <!-- Anexos del Pedido -->
+                    <div id="seccionAnexos" style="display: none;">
+                        <hr>
+                        <h6 class="mb-3 text-info">
+                            <i class="bi bi-paperclip"></i> Anexos del Pedido
+                        </h6>
+                        <div id="listaAnexosPedido">
+                            <!-- Se cargarán dinámicamente -->
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>

@@ -499,6 +499,16 @@ function obtenerAnexosComponente(componenteId, tipoVista, itemId) {
 
     const componente = item.componentes.find(c => String(c.id_componente) === String(componenteId));
     return componente?.anexos || [];
+  } else if (tipoVista === 'carrito' && itemId) {
+    // En el carrito, buscar en itemsIndividuales primero (más específico)
+    const item = itemsData.itemsIndividuales?.find(i => String(i.id_item) === String(itemId));
+    if (item?.componentes) {
+      const componente = item.componentes.find(c => String(c.id_componente) === String(componenteId));
+      if (componente?.anexos) return componente.anexos;
+    }
+    // Si no se encuentra, buscar en componentesAgrupados
+    const componente = itemsData.componentesAgrupados?.find(c => String(c.id_componente) === String(componenteId));
+    return componente?.anexos || [];
   } else {
     const componente = itemsData.componentesAgrupados?.find(c => String(c.id_componente) === String(componenteId));
     return componente?.anexos || [];
@@ -511,15 +521,21 @@ function obtenerAnexosComponente(componenteId, tipoVista, itemId) {
 function guardarAnexoEnComponente(componenteId, anexoData, tipoVista, itemId) {
   if (!itemsData) return false;
 
-  if (tipoVista === 'individual' && itemId) {
+  if ((tipoVista === 'individual' || tipoVista === 'carrito') && itemId) {
     const item = itemsData.itemsIndividuales?.find(i => String(i.id_item) === String(itemId));
-    if (!item || !item.componentes) return false;
-
-    const componente = item.componentes.find(c => String(c.id_componente) === String(componenteId));
-    if (!componente) return false;
-
-    if (!componente.anexos) componente.anexos = [];
-    componente.anexos.push(anexoData);
+    if (item?.componentes) {
+      const componente = item.componentes.find(c => String(c.id_componente) === String(componenteId));
+      if (componente) {
+        if (!componente.anexos) componente.anexos = [];
+        componente.anexos.push(anexoData);
+      }
+    }
+    // También guardar en componentesAgrupados para sincronización
+    const compAgrupado = itemsData.componentesAgrupados?.find(c => String(c.id_componente) === String(componenteId));
+    if (compAgrupado) {
+      if (!compAgrupado.anexos) compAgrupado.anexos = [];
+      compAgrupado.anexos.push(anexoData);
+    }
   } else {
     const componente = itemsData.componentesAgrupados?.find(c => String(c.id_componente) === String(componenteId));
     if (!componente) return false;
@@ -565,13 +581,18 @@ function eliminarAnexoComponente(componenteId, indexAnexo, tipoVista, itemId) {
   .catch(err => console.error('[Anexos] Error eliminando:', err));
 
   // Eliminar del estado local
-  if (tipoVista === 'individual' && itemId) {
+  if ((tipoVista === 'individual' || tipoVista === 'carrito') && itemId) {
     const item = itemsData.itemsIndividuales?.find(i => String(i.id_item) === String(itemId));
     if (item && item.componentes) {
       const componente = item.componentes.find(c => String(c.id_componente) === String(componenteId));
       if (componente && componente.anexos) {
         componente.anexos.splice(indexAnexo, 1);
       }
+    }
+    // También eliminar de componentesAgrupados para sincronización
+    const compAgrupado = itemsData.componentesAgrupados?.find(c => String(c.id_componente) === String(componenteId));
+    if (compAgrupado && compAgrupado.anexos) {
+      compAgrupado.anexos.splice(indexAnexo, 1);
     }
   } else {
     const componente = itemsData.componentesAgrupados?.find(c => String(c.id_componente) === String(componenteId));
@@ -814,12 +835,18 @@ function formatearTamanio(bytes) {
 /**
  * Carga los anexos desde la base de datos para un presupuesto
  * y los asigna a los componentes correspondientes
+ * 
+ * @param {number} presupuestoId - ID del presupuesto
+ * @param {boolean} soloSinPedido - Indica si solo se deben cargar anexos sin pedido
  */
-async function cargarAnexosDesdeBD(presupuestoId) {
+async function cargarAnexosDesdeBD(presupuestoId, soloSinPedido = true) {
   try {
-    console.log('[Anexos] Cargando anexos desde BD para presupuesto:', presupuestoId);
+    console.log('[Anexos] Cargando anexos desde BD para presupuesto:', presupuestoId, soloSinPedido ? '(solo sin pedido)' : '(todos)');
 
-    const response = await fetch(`${API_PRESUPUESTOS}?action=obtenerAnexosComponente&presupuesto_id=${presupuestoId}`);
+    // Usar incluir_sin_pedido=true para solo cargar anexos que no están vinculados a un pedido
+    // Esto es importante durante la fase de preparación del pedido
+    const url = `${API_PRESUPUESTOS}?action=obtenerAnexosComponente&presupuesto_id=${presupuestoId}${soloSinPedido ? '&incluir_sin_pedido=1' : ''}`;
+    const response = await fetch(url);
     const result = await response.json();
 
     if (!result.success) {
@@ -1414,9 +1441,6 @@ class PaginadorPresupuestos {
                       <td class="text-center">
                         <button class="btn btn-sm btn-outline-success mb-1" type="button" data-action="max-item" title="Máxima cantidad">
                           <i class="bi bi-plus-circle"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary" type="button" onclick="abrirModalAnexos('${comp.id_componente}', '${comp.nombre_componente.replace(/'/g, "\\'")}', 'agrupada')" title="Anexos">
-                          <i class="bi bi-paperclip"></i>
                         </button>
                       </td>
                     </tr>
@@ -2964,6 +2988,13 @@ function renderResumenCarrito() {
           </div>
           <div class="d-flex align-items-center">
             <div class="small fw-bold text-end me-2">$${formatCurrency(it.subtotal)}</div>
+            ${it.id_componente ? `
+            <button class="btn btn-sm btn-link text-info p-0 me-2" 
+                    onclick="abrirModalAnexos('${it.id_componente}', '${it.titulo.replace(/'/g, "\\'")}', 'carrito', '${it.id_item}')"
+                    title="Gestionar anexos">
+              <i class="bi bi-paperclip"></i>
+            </button>
+            ` : ''}
             <button class="btn btn-sm btn-link text-danger p-0" 
                     onclick="eliminarItemCarrito('${it.id_componente}', '${it.id_item}', '${it.tipo_extra}', ${it.index_extra ?? 'null'})"
                     title="Eliminar ítem">

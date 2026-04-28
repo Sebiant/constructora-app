@@ -893,7 +893,36 @@ try {
                         throw new \Exception('No se insertaron detalles del pedido. Verifique las cantidades.');
                     }
 
-                    // 11. CONFIRMAR TRANSACCIÓN
+                    // 11. VINCULAR ANEXOS AL PEDIDO CREADO
+                    // Los anexos subidos durante la preparación tienen id_pedido=NULL
+                    // Ahora los vinculamos al pedido recién creado
+                    try {
+                        $sqlActualizarAnexos = "UPDATE pedidos_componentes_anexos 
+                                                SET id_pedido = ?, fechaupdate = NOW()
+                                                WHERE id_presupuesto = ? 
+                                                AND (id_pedido IS NULL OR id_pedido = 0)
+                                                AND estado = 1";
+                        $stmtAnexos = $connection->prepare($sqlActualizarAnexos);
+
+                        // Vincular anexos al pedido normal
+                        if ($idPedidoNormal) {
+                            $stmtAnexos->execute([$idPedidoNormal, $idPresupuesto]);
+                            $anexosVinculadosNormal = $stmtAnexos->rowCount();
+                            error_log("[guardarPedido] Anexos vinculados al pedido normal {$idPedidoNormal}: {$anexosVinculadosNormal}");
+                        }
+
+                        // Vincular anexos al pedido adicional (excedentes)
+                        if ($idPedidoAdicional) {
+                            $stmtAnexos->execute([$idPedidoAdicional, $idPresupuesto]);
+                            $anexosVinculadosAdicional = $stmtAnexos->rowCount();
+                            error_log("[guardarPedido] Anexos vinculados al pedido adicional {$idPedidoAdicional}: {$anexosVinculadosAdicional}");
+                        }
+                    } catch (\Exception $eAnexos) {
+                        // No fallar el pedido si hay error con anexos, solo loggear
+                        error_log("[guardarPedido] Error vinculando anexos (no crítico): " . $eAnexos->getMessage());
+                    }
+
+                    // 12. CONFIRMAR TRANSACCIÓN
                     $connection->commit();
 
                     // 12. PREPARAR RESPUESTA
@@ -915,6 +944,10 @@ try {
                             'total_detalles_insertados' => $detallesInsertados,
                             'total_pedido' => $totalGeneral,
                             'total_adicional' => $totalPedidosAdicionales
+                        ],
+                        'anexos' => [
+                            'vinculados_pedido_normal' => $anexosVinculadosNormal ?? 0,
+                            'vinculados_pedido_adicional' => $anexosVinculadosAdicional ?? 0
                         ]
                     ]);
 
@@ -3099,13 +3132,15 @@ try {
         case 'obtenerAnexosComponente':
             try {
                 $presupuestoId = $_GET['presupuesto_id'] ?? $_POST['presupuesto_id'] ?? null;
+                $pedidoId = $_GET['pedido_id'] ?? $_POST['pedido_id'] ?? null;
                 $itemId = $_GET['item_id'] ?? $_POST['item_id'] ?? null;
                 $componenteId = $_GET['componente_id'] ?? $_POST['componente_id'] ?? null;
+                $incluirSinPedido = $_GET['incluir_sin_pedido'] ?? $_POST['incluir_sin_pedido'] ?? false;
 
-                if (!$presupuestoId) {
+                if (!$presupuestoId && !$pedidoId) {
                     echo json_encode([
                         'success' => false,
-                        'error' => 'Falta presupuesto_id'
+                        'error' => 'Se requiere presupuesto_id o pedido_id'
                     ]);
                     break;
                 }
@@ -3125,10 +3160,26 @@ try {
                             idusuario,
                             fechareg as fecha_subida
                         FROM pedidos_componentes_anexos 
-                        WHERE id_presupuesto = :presupuesto_id 
-                        AND estado = 1";
+                        WHERE estado = 1";
                 
-                $params = ['presupuesto_id' => $presupuestoId];
+                $params = [];
+
+                // Si se proporciona pedido_id, filtrar por pedido
+                if ($pedidoId) {
+                    $sql .= " AND id_pedido = :pedido_id";
+                    $params['pedido_id'] = $pedidoId;
+                } 
+                // Si se proporciona presupuesto_id, filtrar por presupuesto
+                elseif ($presupuestoId) {
+                    $sql .= " AND id_presupuesto = :presupuesto_id";
+                    $params['presupuesto_id'] = $presupuestoId;
+                    
+                    // Si incluirSinPedido=true, solo traer anexos sin pedido (fase preparación)
+                    // Si es false, traer todos los del presupuesto
+                    if ($incluirSinPedido) {
+                        $sql .= " AND (id_pedido IS NULL OR id_pedido = 0)";
+                    }
+                }
 
                 if ($itemId) {
                     $sql .= " AND id_item = :item_id";

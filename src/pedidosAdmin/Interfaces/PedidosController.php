@@ -89,12 +89,14 @@ try {
                             pres.id_presupuesto,
                             u.u_nombre as nombre_usuario,
                             u.u_id as id_usuario,
-                            COUNT(pd.id_det_pedido) as total_items
+                            COUNT(pd.id_det_pedido) as total_items,
+                            COUNT(DISTINCT pa.id_anexo) as total_anexos
                         FROM pedidos p
                         INNER JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
                         INNER JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
                         LEFT JOIN gr_usuarios u ON p.idusuario = u.u_id
                         LEFT JOIN pedidos_detalle pd ON p.id_pedido = pd.id_pedido
+                        LEFT JOIN pedidos_componentes_anexos pa ON p.id_pedido = pa.id_pedido AND pa.estado = 1
                         WHERE 1=1";
 
                 $params = [];
@@ -305,6 +307,30 @@ try {
 
                 $pedido['componentes'] = $componentes;
 
+                // Obtener anexos del pedido
+                $sqlAnexos = "SELECT 
+                                    id_anexo,
+                                    id_presupuesto,
+                                    id_item,
+                                    id_componente,
+                                    nombre_archivo,
+                                    ruta_archivo,
+                                    extension,
+                                    tamanio_bytes,
+                                    descripcion,
+                                    idusuario,
+                                    fechareg as fecha_subida
+                                FROM pedidos_componentes_anexos 
+                                WHERE id_pedido = ? 
+                                AND estado = 1
+                                ORDER BY fechareg DESC";
+
+                $stmtAnexos = $connection->prepare($sqlAnexos);
+                $stmtAnexos->execute([$idPedido]);
+                $anexos = $stmtAnexos->fetchAll(\PDO::FETCH_ASSOC);
+
+                $pedido['anexos'] = $anexos;
+
                 echo json_encode([
                     'success' => true,
                     'data' => $pedido
@@ -425,6 +451,49 @@ try {
                 echo json_encode([
                     'success' => true,
                     'proyectos' => $proyectos
+                ]);
+
+            } catch (\Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
+        case 'getAnexosPedido':
+            try {
+                $idPedido = $_GET['id_pedido'] ?? null;
+
+                if (!$idPedido) {
+                    throw new \Exception('ID de pedido requerido');
+                }
+
+                $sqlAnexos = "SELECT 
+                                    id_anexo,
+                                    id_presupuesto,
+                                    id_item,
+                                    id_componente,
+                                    nombre_archivo,
+                                    ruta_archivo,
+                                    extension,
+                                    tamanio_bytes,
+                                    descripcion,
+                                    idusuario,
+                                    fechareg as fecha_subida
+                                FROM pedidos_componentes_anexos 
+                                WHERE id_pedido = ? 
+                                AND estado = 1
+                                ORDER BY fechareg DESC";
+
+                $stmtAnexos = $connection->prepare($sqlAnexos);
+                $stmtAnexos->execute([$idPedido]);
+                $anexos = $stmtAnexos->fetchAll(\PDO::FETCH_ASSOC);
+
+                echo json_encode([
+                    'success' => true,
+                    'anexos' => $anexos,
+                    'total' => count($anexos)
                 ]);
 
             } catch (\Exception $e) {
