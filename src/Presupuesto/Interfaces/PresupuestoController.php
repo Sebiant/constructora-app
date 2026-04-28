@@ -1908,7 +1908,7 @@ try {
                                 INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                                 INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
                                 WHERE ic2.descripcion = ic.descripcion
-                                AND ic2.tipo_componente = ic.tipo_componente
+                                AND TRIM(ic2.tipo_componente) = TRIM(ic.tipo_componente)
                                 AND ped.id_presupuesto = p.id_presupuesto
                             ), 0.0000) as ya_pedido,
                             ROUND(SUM(dp.cantidad * ic.cantidad) - COALESCE((
@@ -1917,7 +1917,7 @@ try {
                                 INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                                 INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
                                 WHERE ic2.descripcion = ic.descripcion
-                                AND ic2.tipo_componente = ic.tipo_componente
+                                AND TRIM(ic2.tipo_componente) = TRIM(ic.tipo_componente)
                                 AND ped.id_presupuesto = p.id_presupuesto
                             ), 0), 4) as disponible,
                             COUNT(DISTINCT i.id_item) as cantidad_items,
@@ -1959,11 +1959,11 @@ try {
             throw new \Exception('ID de presupuesto requerido');
         }
 
-        $sql = "SELECT 
+        $sql = "SELECT
                     MIN(ic.id_componente) as id_componente,
-                    ic.descripcion as nombre_componente,
+                    TRIM(ic.descripcion) as nombre_componente,
                     ic.tipo_componente,
-                    ic.unidad as unidad_componente,
+                    TRIM(ic.unidad) as unidad_componente,
                     AVG(ic.precio_unitario) as precio_unitario,
                     p.id_presupuesto,
                     ROUND(SUM(dp.cantidad * ic.cantidad), 4) as total_necesario,
@@ -1974,8 +1974,8 @@ try {
                         FROM pedidos_detalle pd
                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                         INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
-                        WHERE ic2.descripcion = ic.descripcion
-                        AND ic2.tipo_componente = ic.tipo_componente
+                        WHERE REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic2.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ') = REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ')
+                        AND TRIM(ic2.tipo_componente) = TRIM(ic.tipo_componente)
                         AND ped.id_presupuesto = p.id_presupuesto
                         AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
                                                 AND pd.es_excedente = 0
@@ -1987,8 +1987,8 @@ try {
                         FROM pedidos_detalle pd
                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                         INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
-                        WHERE ic2.descripcion = ic.descripcion
-                        AND ic2.tipo_componente = ic.tipo_componente
+                        WHERE REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic2.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ') = REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ')
+                        AND TRIM(ic2.tipo_componente) = TRIM(ic.tipo_componente)
                         AND ped.id_presupuesto = p.id_presupuesto
                         AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
                                                 AND pd.es_excedente = 0
@@ -2000,8 +2000,8 @@ try {
                         FROM pedidos_detalle pd
                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                         INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
-                        WHERE ic2.descripcion = ic.descripcion
-                        AND ic2.tipo_componente = ic.tipo_componente
+                        WHERE REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic2.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ') = REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ')
+                        AND TRIM(ic2.tipo_componente) = TRIM(ic.tipo_componente)
                         AND ped.id_presupuesto = p.id_presupuesto
                         AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
                                                 AND pd.es_excedente = 0
@@ -2014,8 +2014,8 @@ try {
                         FROM pedidos_detalle pd
                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                         INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
-                        WHERE ic2.descripcion = ic.descripcion
-                        AND ic2.tipo_componente = ic.tipo_componente
+                        WHERE REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic2.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ') = REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ')
+                        AND TRIM(ic2.tipo_componente) = TRIM(ic.tipo_componente)
                         AND ped.id_presupuesto = p.id_presupuesto
                         AND pd.es_excedente = 1
                         AND ped.estado = 'aprobado'
@@ -2026,8 +2026,8 @@ try {
                         FROM pedidos_detalle pd
                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                         INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
-                        WHERE ic2.descripcion = ic.descripcion
-                        AND ic2.tipo_componente = ic.tipo_componente
+                        WHERE REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic2.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ') = REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ')
+                        AND TRIM(ic2.tipo_componente) = TRIM(ic.tipo_componente)
                         AND ped.id_presupuesto = p.id_presupuesto
                         AND pd.es_excedente = 1
                         AND ped.estado = 'rechazado'
@@ -2038,8 +2038,8 @@ try {
                         FROM pedidos_detalle pd
                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                         INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
-                        WHERE ic2.descripcion = ic.descripcion
-                        AND ic2.tipo_componente = ic.tipo_componente
+                        WHERE REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic2.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ') = REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ')
+                        AND TRIM(ic2.tipo_componente) = TRIM(ic.tipo_componente)
                         AND ped.id_presupuesto = p.id_presupuesto
                         AND pd.es_excedente = 1
                         AND ped.estado = 'pendiente'
@@ -2051,8 +2051,8 @@ try {
                         FROM pedidos_detalle pd
                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                         INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
-                        WHERE ic2.descripcion = ic.descripcion
-                        AND ic2.tipo_componente = ic.tipo_componente
+                        WHERE REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic2.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ') = REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ')
+                        AND TRIM(ic2.tipo_componente) = TRIM(ic.tipo_componente)
                         AND ped.id_presupuesto = p.id_presupuesto
                         AND ped.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
                     ), 4), 0.0000) as ya_pedido,
@@ -2063,8 +2063,8 @@ try {
                         FROM pedidos_detalle pd
                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                         INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
-                        WHERE ic2.descripcion = ic.descripcion
-                        AND ic2.tipo_componente = ic.tipo_componente
+                        WHERE REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic2.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ') = REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ')
+                        AND TRIM(ic2.tipo_componente) = TRIM(ic.tipo_componente)
                         AND ped.id_presupuesto = p.id_presupuesto
                         AND ped.estado IN ('comprado','parcialmente_comprado')
                     ), 4), 0.0000) as ya_comprado,
@@ -2075,8 +2075,8 @@ try {
                         FROM pedidos_detalle pd
                         INNER JOIN pedidos ped ON pd.id_pedido = ped.id_pedido
                         INNER JOIN item_componentes ic2 ON pd.id_componente = ic2.id_componente
-                        WHERE ic2.descripcion = ic.descripcion
-                        AND ic2.tipo_componente = ic.tipo_componente
+                        WHERE REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic2.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ') = REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ')
+                        AND TRIM(ic2.tipo_componente) = TRIM(ic.tipo_componente)
                         AND ped.id_presupuesto = p.id_presupuesto
                         AND ped.estado = 'aprobado'
                     ), 0), 4) as disponible,
@@ -2098,8 +2098,8 @@ try {
                                 FROM pedidos_detalle pd
                                 INNER JOIN pedidos ped2 ON pd.id_pedido = ped2.id_pedido
                                 INNER JOIN item_componentes ic3 ON pd.id_componente = ic3.id_componente
-                                WHERE ic3.descripcion = ic.descripcion
-                                AND ic3.tipo_componente = ic.tipo_componente
+                                WHERE REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic3.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ') = REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ')
+                                AND TRIM(ic3.tipo_componente) = TRIM(ic.tipo_componente)
                                 AND pd.id_item = i.id_item
                                 AND ped2.id_presupuesto = p.id_presupuesto
                                 AND ped2.estado IN ('aprobado','pendiente','comprado','parcialmente_comprado')
@@ -2113,12 +2113,12 @@ try {
                 JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
                 JOIN items i ON dp.id_item = i.id_item
                 JOIN item_componentes ic ON i.id_item = ic.id_item
-                WHERE dp.idestado = 1 
-                AND ic.idestado = 1 
+                WHERE dp.idestado = 1
+                AND ic.idestado = 1
                 AND p.idestado = 1
                 AND p.id_presupuesto = ?
-                GROUP BY ic.descripcion, ic.tipo_componente, ic.unidad, p.id_presupuesto
-                ORDER BY ic.tipo_componente, ic.descripcion";
+                GROUP BY REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' '), TRIM(ic.tipo_componente), TRIM(ic.unidad), p.id_presupuesto
+                ORDER BY TRIM(ic.tipo_componente), REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' ')";
 
         
         $stmt = $connection->prepare($sql);

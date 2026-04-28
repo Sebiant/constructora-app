@@ -762,6 +762,49 @@ try {
             }
             break;
             
+        case 'getPedidosSinCotizar':
+            try {
+                // Pedidos aprobados que tienen al menos un componente sin cotización activa
+                // Se considera "sin cotización" si el componente NO tiene registros en cotizaciones_componentes para ese presupuesto con estado 'activa'
+                $sql = "SELECT 
+                            p.id_pedido, 
+                            p.fecha_pedido, 
+                            p.total, 
+                            pr.nombre as nombre_proyecto,
+                            pres.id_presupuesto,
+                            (SELECT COUNT(DISTINCT pd.id_componente) 
+                             FROM pedidos_detalle pd 
+                             LEFT JOIN cotizaciones_componentes cc ON pd.id_componente = cc.id_componente 
+                                AND cc.id_presupuesto = p.id_presupuesto 
+                                AND cc.estado = 'activa'
+                             WHERE pd.id_pedido = p.id_pedido 
+                               AND pd.id_componente > 0
+                               AND cc.id_cotizacion IS NULL
+                            ) as items_sin_cotizacion
+                        FROM pedidos p
+                        INNER JOIN presupuestos pres ON p.id_presupuesto = pres.id_presupuesto
+                        INNER JOIN proyectos pr ON pres.id_proyecto = pr.id_proyecto
+                        WHERE p.estado = 'aprobado'
+                        HAVING items_sin_cotizacion > 0
+                        ORDER BY p.fecha_pedido DESC";
+
+                $stmt = $connection->prepare($sql);
+                $stmt->execute();
+                $pedidos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                echo json_encode([
+                    'success' => true,
+                    'total' => count($pedidos),
+                    'data' => $pedidos
+                ]);
+            } catch (Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            break;
+
         default:
             echo json_encode(['success' => false, 'error' => "Acción '{$action}' no reconocida"]);
     }

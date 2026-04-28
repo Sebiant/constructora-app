@@ -1,14 +1,20 @@
-﻿<?php
+<?php
 /**
  * limpiar_datos_pedidos_y_ordenes.php
  * Herramienta de mantenimiento para limpiar datos de negocio relacionados con:
  * - pedidos
  * - pedidos_detalle
+ * - pedidos_componentes_anexos (anexos)
+ * - cotizaciones
+ * - cotizacion_detalle
+ * - cotizacion_proveedores
+ * - cotizaciones_componentes
  * - ordenes_compra
  * - ordenes_compra_detalle
  * - compras
- * - compras_finales (si existe)
- * - log_recepciones (historial de recepciones)
+ * - compras_detalle
+ * - compras_finales
+ * - log_recepciones
  *
  * Uso:
  *  - Abrir en el navegador: http://localhost/sgigescon/limpiar_datos_pedidos_y_ordenes.php
@@ -48,11 +54,19 @@ $pdo = getPDO();
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $allTables = [
+    'pedidos_componentes_anexos',
+    'cotizacion_detalle',
+    'cotizacion_proveedores',
+    'cotizaciones_componentes',
+    'cotizaciones',
+    'compras_detalle',
+    'compras_proveedores',
+    'compras_provedores',
     'ordenes_compra_detalle',
     'ordenes_compra',
-    'compras',            // tabla principal de compras
-    'compras_finales',     // opcional si existe
-    'log_recepciones',     // historial detallado de recepciones
+    'compras_finales',
+    'compras',
+    'log_recepciones',
     'pedidos_detalle',
     'pedidos',
 ];
@@ -97,6 +111,21 @@ if ($method === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clean
             } catch (Throwable $te) {
                 $errors[] = "Error en tabla {$t}: " . $te->getMessage();
             }
+        }
+
+        // Limpiar archivos físicos de anexos si existen
+        $anexosDir = $_SERVER['DOCUMENT_ROOT'] . '/sgigescon/uploads/pedidos_anexos/';
+        if (is_dir($anexosDir)) {
+            $deleteRecursive = function($dir, $isRoot = false) use (&$deleteRecursive) {
+                if (!is_dir($dir)) return;
+                $files = array_diff(scandir($dir), array('.', '..'));
+                foreach ($files as $file) {
+                    $path = "$dir/$file";
+                    is_dir($path) ? $deleteRecursive($path) : unlink($path);
+                }
+                if (!$isRoot) rmdir($dir);
+            };
+            $deleteRecursive($anexosDir, true);
         }
 
         $pdo->commit();
@@ -170,7 +199,7 @@ if ($method === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clean
           </div>
           <div class="card-body">
             <div class="alert alert-warning" role="alert">
-              Esta acción eliminará datos de negocio (pedidos, detalles, órdenes, detalles, compras, log de recepciones y compras finales si existen).
+              Esta acción eliminará datos de negocio (pedidos, detalles, anexos, cotizaciones, órdenes, compras y log de recepciones).
               No elimina catálogos como materiales, items, proyectos, presupuestos, proveedores. Úsalo con cuidado.
             </div>
 

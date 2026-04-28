@@ -2405,9 +2405,18 @@ async function cargarItemsPresupuesto(presupuestoId, capituloId = null) {
 function agruparComponentesPorNombre(componentes) {
   const gruposMap = new Map();
 
+  // Función para normalizar texto (trim + quitar espacios múltiples + uppercase)
+  const normalize = (str) => {
+    const trimmed = (str || '').toString().trim().toUpperCase();
+    // Reemplazar múltiples espacios con uno solo (igual que el SQL)
+    return trimmed.replace(/\s+/g, ' ');
+  };
+
   componentes.forEach(comp => {
-    // Clave única por nombre, tipo y unidad
-    const clave = `${comp.nombre_componente}|${comp.tipo_componente}|${comp.unidad_componente}`;
+    // Clave única por nombre, tipo y unidad (normalizados)
+    // Aplicar trim adicional al tipo_componente para coincidir con SQL
+    const tipoNormalizado = normalize(comp.tipo_componente).trim();
+    const clave = `${normalize(comp.nombre_componente)}|${tipoNormalizado}|${normalize(comp.unidad_componente)}`;
 
     if (!gruposMap.has(clave)) {
       // Primera vez que vemos este componente
@@ -2862,6 +2871,7 @@ function actualizarEstadisticas() {
 
 
   renderResumenCarrito();
+  actualizarCarrito();
 }
 
 function renderResumenCarrito() {
@@ -3049,6 +3059,210 @@ function renderResumenCarrito() {
       </div>
     </div>
   `;
+}
+
+/**
+ * Renderiza la tabla detallada del carrito en la sección principal
+ */
+function actualizarCarrito() {
+  const container = document.getElementById('carritoList');
+  const cardCarrito = document.getElementById('cardCarrito');
+  if (!container) return;
+
+  const itemsCarrito = [];
+  const itemsFueraPresupuesto = [];
+  const vistaActual = window.vistaActualPedido || 'productos';
+
+  // Obtener datos del carrito (mismo algoritmo que renderResumenCarrito)
+  if (vistaActual === 'items') {
+    if (itemsData && Array.isArray(itemsData.itemsIndividuales)) {
+      itemsData.itemsIndividuales.forEach((item) => {
+        if (!Array.isArray(item.componentes)) return;
+        item.componentes.forEach((componente) => {
+          const cantidad = parseFloat(componente.pedido) || 0;
+          if (cantidad <= 0) return;
+          itemsCarrito.push({
+            id_componente: componente.id_componente,
+            id_item: item.id_item,
+            tipo_extra: null,
+            titulo: `${item.codigo_item} - ${componente.descripcion || componente.nombre_componente}`,
+            detalle: item.nombre_item,
+            unidad: componente.unidad || 'UND',
+            cantidad,
+            precio: parseFloat(componente.precio_unitario) || 0,
+            subtotal: cantidad * (parseFloat(componente.precio_unitario) || 0)
+          });
+        });
+      });
+    }
+  } else {
+    if (itemsData && Array.isArray(itemsData.componentesAgrupados)) {
+      itemsData.componentesAgrupados.forEach((componente) => {
+        if (!Array.isArray(componente.items_que_usan)) return;
+        componente.items_que_usan.forEach((item) => {
+          const cantidad = parseFloat(item.pedido_actual) || 0;
+          if (cantidad <= 0) return;
+          itemsCarrito.push({
+            id_componente: componente.id_componente,
+            id_item: item.id_item,
+            tipo_extra: null,
+            titulo: `${item.codigo_item} - ${componente.nombre_componente}`,
+            detalle: item.nombre_item,
+            unidad: componente.unidad_componente || componente.unidad || 'UND',
+            cantidad,
+            precio: parseFloat(componente.precio_unitario) || 0,
+            subtotal: cantidad * (parseFloat(componente.precio_unitario) || 0)
+          });
+        });
+      });
+    }
+  }
+
+  // Extras y Fuera de Presupuesto
+  if (Array.isArray(materialesExtra)) {
+    materialesExtra.forEach((extra, idx) => {
+      if (extra && extra.en_pedido_actual && (parseFloat(extra.cantidad) || 0) > 0) {
+        itemsCarrito.push({
+          id_componente: null,
+          id_item: null,
+          tipo_extra: 'material_extra',
+          index_extra: idx,
+          titulo: `${extra.codigo || 'EXTRA'} - ${extra.descripcion || ''}`,
+          detalle: 'Material extra',
+          unidad: extra.unidad || 'UND',
+          cantidad: parseFloat(extra.cantidad),
+          precio: parseFloat(extra.precio_unitario) || 0,
+          subtotal: parseFloat(extra.cantidad) * (parseFloat(extra.precio_unitario) || 0)
+        });
+      }
+    });
+  }
+
+  if (Array.isArray(pedidosFueraPresupuesto)) {
+    pedidosFueraPresupuesto.forEach((p, idx) => {
+      const cantidad = parseFloat(p.cantidad_extra ?? p.cantidad_solicitada ?? 0) || 0;
+      if (cantidad > 0) {
+        itemsFueraPresupuesto.push({
+          id_componente: p.id_componente,
+          id_item: p.id_item,
+          tipo_extra: 'pedido_fuera',
+          index_extra: idx,
+          titulo: `${p.codigo_item || ''} - ${p.descripcion_componente || ''}`.trim(),
+          detalle: `${p.nombre_item || ''} (pendiente aprobación)`,
+          unidad: p.unidad || 'UND',
+          cantidad,
+          precio: parseFloat(p.precio_unitario) || 0,
+          subtotal: cantidad * (parseFloat(p.precio_unitario) || 0)
+        });
+      }
+    });
+  }
+
+  if (itemsCarrito.length === 0 && itemsFueraPresupuesto.length === 0) {
+    if (cardCarrito) cardCarrito.style.display = 'none';
+    container.innerHTML = `
+      <div class="text-center text-muted py-4">
+        <i class="bi bi-cart display-4"></i>
+        <p class="mt-3">Agregue materiales del presupuesto para verlos aquí</p>
+      </div>
+    `;
+    return;
+  }
+
+  if (cardCarrito) cardCarrito.style.display = 'block';
+  const contadorCarrito = document.getElementById('contadorCarrito');
+  if (contadorCarrito) {
+    contadorCarrito.textContent = `${itemsCarrito.length + itemsFueraPresupuesto.length} items`;
+  }
+
+  let html = `
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Recurso / Item</th>
+            <th class="text-center">Unidad</th>
+            <th class="text-end" style="width: 120px;">Cantidad</th>
+            <th class="text-end">Precio</th>
+            <th class="text-end">Subtotal</th>
+            <th class="text-center" style="width: 100px;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  itemsCarrito.forEach(it => {
+    html += `
+      <tr>
+        <td>
+          <div class="fw-semibold">${it.titulo}</div>
+          <div class="small text-muted" style="font-size: 0.75rem;">${it.detalle}</div>
+        </td>
+        <td class="text-center">${it.unidad}</td>
+        <td class="text-end">
+           ${it.tipo_extra ? it.cantidad.toFixed(4) : `
+          <input type="number" class="form-control form-control-sm text-end ms-auto" style="max-width: 100px;"
+                 value="${it.cantidad.toFixed(4)}" step="0.0001" min="0"
+                 onchange="actualizarCantidadDesdeCarrito('${it.id_componente}', '${it.id_item}', this.value)">
+          `}
+        </td>
+        <td class="text-end">$${formatCurrency(it.precio)}</td>
+        <td class="text-end fw-bold">$${formatCurrency(it.subtotal)}</td>
+        <td class="text-center">
+          <div class="btn-group">
+            ${it.id_componente ? `
+              <button class="btn btn-sm btn-link text-info p-0 me-2" 
+                      onclick="abrirModalAnexos('${it.id_componente}', '${it.titulo.replace(/'/g, "\\'")}', 'carrito', '${it.id_item}')"
+                      title="Anexos">
+                <i class="bi bi-paperclip"></i>
+              </button>
+            ` : ''}
+            <button class="btn btn-sm btn-link text-danger p-0" 
+                    onclick="eliminarItemCarrito('${it.id_componente}', '${it.id_item}', '${it.tipo_extra}', ${it.index_extra ?? 'null'})"
+                    title="Eliminar">
+              <i class="bi bi-x-circle-fill"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+
+  if (itemsFueraPresupuesto.length > 0) {
+    html += `<tr class="table-warning"><td colspan="6" class="fw-bold">Pendientes de Autorización (Fuera de Presupuesto)</td></tr>`;
+    itemsFueraPresupuesto.forEach(it => {
+      html += `
+        <tr class="table-warning">
+          <td>
+            <div class="fw-semibold">${it.titulo}</div>
+            <div class="small text-muted" style="font-size: 0.75rem;">${it.detalle}</div>
+          </td>
+          <td class="text-center">${it.unidad}</td>
+          <td class="text-end">${it.cantidad.toFixed(4)}</td>
+          <td class="text-end">$${formatCurrency(it.precio)}</td>
+          <td class="text-end fw-bold">$${formatCurrency(it.subtotal)}</td>
+          <td class="text-center">
+             <button class="btn btn-sm btn-link text-danger p-0" 
+                    onclick="eliminarItemCarrito('${it.id_componente}', '${it.id_item}', '${it.tipo_extra}', ${it.index_extra ?? 'null'})"
+                    title="Eliminar">
+              <i class="bi bi-x-circle-fill"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+
+  html += `</tbody></table></div>`;
+  container.innerHTML = html;
+}
+
+/**
+ * Permite actualizar la cantidad de un componente directamente desde el carrito
+ */
+function actualizarCantidadDesdeCarrito(componenteId, itemId, nuevaCantidad) {
+    const cant = parseFloat(nuevaCantidad) || 0;
+    actualizarCantidadComponente(componenteId, cant, itemId === 'null' ? null : itemId);
 }
 
 async function refrescarMaterialesExtra(btn) {
@@ -6948,6 +7162,8 @@ window.sincronizarCarritoConVistaActiva = sincronizarCarritoConVistaActiva;
 window.sincronizarCarritoAVistaItems = sincronizarCarritoAVistaItems;
 window.sincronizarCarritoAVistaAgrupada = sincronizarCarritoAVistaAgrupada;
 window.sincronizarDatosEntreVistas = sincronizarDatosEntreVistas;
+window.actualizarCarrito = actualizarCarrito;
+window.actualizarCantidadDesdeCarrito = actualizarCantidadDesdeCarrito;
 
 // Exportar funciones de anexos
 window.abrirModalAnexos = abrirModalAnexos;

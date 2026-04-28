@@ -77,6 +77,7 @@ function inicializarCotizaciones() {
         debugLog('Todos los elementos existen, iniciando carga');
         cargarProyectos();
         cargarProveedores();
+        verificarPedidosSinCotizar(); // Nueva notificación
     } else {
         debugLog('Faltan elementos en el DOM, esperando...');
         // Reintentar cargar después de un pequeño retraso
@@ -148,6 +149,7 @@ async function cargarProyectos() {
                 const option = document.createElement('option');
                 option.value = proyecto.id_proyecto;
                 option.textContent = proyecto.nombre;
+                option.setAttribute('data-proyecto', JSON.stringify(proyecto));
                 select.appendChild(option);
                 debugLog(`Proyecto ${index + 1}:`, { id: proyecto.id_proyecto, nombre: proyecto.nombre });
             });
@@ -161,6 +163,30 @@ async function cargarProyectos() {
         debugLog('ERROR en carga de proyectos:', error);
         console.error('[Cotizaciones] Error:', error);
         mostrarError('Error al cargar los proyectos');
+    }
+}
+
+/**
+ * Verifica si hay pedidos aprobados sin cotizar y muestra una notificación
+ */
+async function verificarPedidosSinCotizar() {
+    debugLog('Verificando pedidos sin cotizar...');
+    try {
+        const response = await fetch(`${API_COTIZACIONES}?action=getPedidosSinCotizar`);
+        const result = await response.json();
+        
+        if (result.success && result.total > 0) {
+            const notificacionDiv = document.getElementById('notificacionPedidosSinCotizar');
+            const mensajeP = document.getElementById('mensajeNotificacionPedidos');
+            
+            if (notificacionDiv && mensajeP) {
+                const total = result.total;
+                mensajeP.innerHTML = `Hay <strong>${total}</strong> pedido(s) aprobado(s) con ítems que aún no tienen cotizaciones vigentes. <br><small>Selecciona un proyecto y presupuesto para empezar a cotizar.</small>`;
+                notificacionDiv.style.display = 'block';
+            }
+        }
+    } catch (error) {
+        console.error('Error al verificar pedidos sin cotizar:', error);
     }
 }
 

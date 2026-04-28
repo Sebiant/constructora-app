@@ -7,6 +7,20 @@
 ?>
 
 <div class="container-fluid py-4">
+    <!-- Area de Notificaciones -->
+    <div id="notificacionPedidosSinCotizar" style="display: none;">
+        <div class="alert alert-warning alert-dismissible fade show shadow-sm border-start border-4 border-warning mb-4" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                <div>
+                    <h6 class="alert-heading mb-1 fw-bold">Pedidos Pendientes de Cotización</h6>
+                    <p class="mb-0" id="mensajeNotificacionPedidos">Tienes pedidos aprobados que aún no cuentan con todas sus cotizaciones.</p>
+                </div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+
     <div class="card shadow-lg">
         <div class="card-header bg-primary text-white">
             <h4 class="mb-0">
