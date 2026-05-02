@@ -26,6 +26,7 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                 <table id="datos_provedores" class="table table-bordered table-striped align-middle mb-0">
                     <thead class="table-info text-center">
                         <tr>
+                            <th>NIT</th>
                             <th>Nombre</th>
                             <th>Teléfono</th>
                             <th>Email</th>
@@ -57,34 +58,41 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
+                            <label for="nit_provedor" class="form-label fw-bold">NIT:</label>
+                            <input type="text" name="nit" id="nit_provedor" class="form-control" placeholder="NIT del provedor">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
                             <label for="nombre_provedor" class="form-label fw-bold">Nombre:</label>
                             <input type="text" name="nombre" id="nombre_provedor" class="form-control" required placeholder="Nombre del provedor">
                         </div>
+                    </div>
 
+                    <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="telefono_provedor" class="form-label fw-bold">Teléfono:</label>
                             <input type="text" name="telefono" id="telefono_provedor" class="form-control" placeholder="Teléfono">
                         </div>
-                    </div>
 
-                    <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="email_provedor" class="form-label fw-bold">Email:</label>
                             <input type="email" name="email" id="email_provedor" class="form-control" placeholder="Email">
                         </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="whatsapp_provedor" class="form-label fw-bold">WhatsApp:</label>
-                            <input type="text" name="whatsapp" id="whatsapp_provedor" class="form-control" placeholder="WhatsApp">
-                        </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
+                            <label for="whatsapp_provedor" class="form-label fw-bold">WhatsApp:</label>
+                            <input type="text" name="whatsapp" id="whatsapp_provedor" class="form-control" placeholder="WhatsApp">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
                             <label for="contacto_provedor" class="form-label fw-bold">Contacto:</label>
                             <input type="text" name="contacto" id="contacto_provedor" class="form-control" placeholder="Nombre de contacto">
                         </div>
+                    </div>
 
+                    <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="estado_provedor" class="form-label fw-bold">Estado:</label>
                             <select name="estado" id="estado_provedor" class="form-select">
@@ -92,11 +100,10 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                 <option value="0">Inactivo</option>
                             </select>
                         </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="direccion_provedor" class="form-label fw-bold">Dirección:</label>
-                        <input type="text" name="direccion" id="direccion_provedor" class="form-control" placeholder="Dirección">
+                        <div class="col-md-6 mb-3">
+                            <label for="direccion_provedor" class="form-label fw-bold">Dirección:</label>
+                            <input type="text" name="direccion" id="direccion_provedor" class="form-control" placeholder="Dirección">
+                        </div>
                     </div>
                 </form>
             </div>

@@ -3,6 +3,7 @@ namespace Src\Provedores\Domain;
 
 class Provedor {
     private ?int $id_provedor;
+    private ?string $nit;
     private string $nombre;
     private ?string $telefono;
     private ?string $email;
@@ -13,6 +14,7 @@ class Provedor {
 
     public function __construct(
         ?int $id_provedor,
+        ?string $nit,
         string $nombre,
         ?string $telefono = null,
         ?string $email = null,
@@ -22,6 +24,7 @@ class Provedor {
         bool $estado = true
     ) {
         $this->id_provedor = $id_provedor;
+        $this->nit = $nit;
         $this->nombre = $nombre;
         $this->telefono = $telefono;
         $this->email = $email;
@@ -32,6 +35,7 @@ class Provedor {
     }
 
     public static function crear(
+        ?string $nit,
         string $nombre,
         ?string $telefono = null,
         ?string $email = null,
@@ -42,6 +46,7 @@ class Provedor {
     ): self {
         return new self(
             null,
+            $nit,
             $nombre,
             $telefono,
             $email,
@@ -54,6 +59,10 @@ class Provedor {
 
     public function getId(): ?int {
         return $this->id_provedor;
+    }
+
+    public function getNit(): ?string {
+        return $this->nit;
     }
 
     public function getNombre(): string {
@@ -91,6 +100,7 @@ class Provedor {
     public function toArray(): array {
         return [
             'id_provedor' => $this->id_provedor,
+            'nit' => $this->nit,
             'nombre' => $this->nombre,
             'telefono' => $this->telefono,
             'email' => $this->email,

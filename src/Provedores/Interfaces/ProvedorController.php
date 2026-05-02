@@ -38,6 +38,7 @@ try {
             }
 
             $provedor = Provedor::crear(
+                $data['nit'] ?? null,
                 $data['nombre'],
                 $data['telefono'] ?? null,
                 $data['email'] ?? null,
@@ -112,6 +113,7 @@ try {
                 $useCase = new UpdateProvedor($repo);
                 $result = $useCase->execute(
                     (int)$input['id_provedor'],
+                    $input['nit'] ?? null,
                     $input['nombre'],
                     $input['telefono'] ?? null,
                     $input['email'] ?? null,
@@ -161,6 +163,7 @@ try {
                 $updateUseCase = new UpdateProvedor($repo);
                 $result = $updateUseCase->execute(
                     (int)$input['id_provedor'],
+                    $provedorActual['nit'] ?? null,
                     $provedorActual['nombre'],
                     $provedorActual['telefono'] ?? null,
                     $provedorActual['email'] ?? null,

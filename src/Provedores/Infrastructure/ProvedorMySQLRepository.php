@@ -34,6 +34,7 @@ class ProvedorMySQLRepository implements ProvedorRepository {
 
         return new Provedor(
             (int)$row['id_provedor'],
+            $row['nit'] ?? null,
             $row['nombre'],
             $row['telefono'] ?? null,
             $row['email'] ?? null,
@@ -45,11 +46,12 @@ class ProvedorMySQLRepository implements ProvedorRepository {
     }
 
     public function save(Provedor $provedor): Provedor {
-        $sql = "INSERT INTO provedores (nombre, telefono, email, whatsapp, direccion, contacto, estado, idusuario)
-                VALUES (:nombre, :telefono, :email, :whatsapp, :direccion, :contacto, :estado, :idusuario)";
+        $sql = "INSERT INTO provedores (nit, nombre, telefono, email, whatsapp, direccion, contacto, estado, idusuario)
+                VALUES (:nit, :nombre, :telefono, :email, :whatsapp, :direccion, :contacto, :estado, :idusuario)";
         $stmt = $this->conn->prepare($sql);
 
         $stmt->execute([
+            'nit' => $provedor->getNit(),
             'nombre' => $provedor->getNombre(),
             'telefono' => $provedor->getTelefono(),
             'email' => $provedor->getEmail(),
@@ -67,11 +69,12 @@ class ProvedorMySQLRepository implements ProvedorRepository {
 
     public function update(Provedor $provedor): bool {
         $sql = "UPDATE provedores
-                SET nombre=:nombre, telefono=:telefono, email=:email, whatsapp=:whatsapp, direccion=:direccion, contacto=:contacto, estado=:estado
+                SET nit=:nit, nombre=:nombre, telefono=:telefono, email=:email, whatsapp=:whatsapp, direccion=:direccion, contacto=:contacto, estado=:estado
                 WHERE id_provedor=:id";
         $stmt = $this->conn->prepare($sql);
 
         return $stmt->execute([
+            'nit' => $provedor->getNit(),
             'nombre' => $provedor->getNombre(),
             'telefono' => $provedor->getTelefono(),
             'email' => $provedor->getEmail(),

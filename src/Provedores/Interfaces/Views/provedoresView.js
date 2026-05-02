@@ -19,6 +19,12 @@ function initProvedoresDataTable() {
       dataSrc: "",
     },
     columns: [
+      { 
+        data: "nit",
+        render: function (data) {
+          return data || "-";
+        },
+      },
       { data: "nombre" },
       {
         data: "telefono",
@@ -105,6 +111,7 @@ function cargarModalCrearProvedor() {
 
 function guardarProvedor() {
   let payload = {
+    nit: $("#nit_provedor").val() || null,
     nombre: $("#nombre_provedor").val(),
     telefono: $("#telefono_provedor").val() || null,
     email: $("#email_provedor").val() || null,
@@ -148,6 +155,7 @@ function cargarModalEditarProvedor(id) {
     success: function (res) {
       if (res.id_provedor) {
         $("#id_provedor").val(res.id_provedor);
+        $("#nit_provedor").val(res.nit || "");
         $("#nombre_provedor").val(res.nombre);
         $("#telefono_provedor").val(res.telefono || "");
         $("#email_provedor").val(res.email || "");
@@ -175,6 +183,7 @@ function cargarModalEditarProvedor(id) {
 function guardarProvedorEditar() {
   let payload = {
     id_provedor: parseInt($("#id_provedor").val()),
+    nit: $("#nit_provedor").val() || null,
     nombre: $("#nombre_provedor").val(),
     telefono: $("#telefono_provedor").val() || null,
     email: $("#email_provedor").val() || null,

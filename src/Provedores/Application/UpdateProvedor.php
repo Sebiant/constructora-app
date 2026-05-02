@@ -10,6 +10,7 @@ class UpdateProvedor {
 
     public function execute(
         int $id_provedor,
+        ?string $nit,
         string $nombre,
         ?string $telefono = null,
         ?string $email = null,
@@ -25,6 +26,7 @@ class UpdateProvedor {
 
         $provedor = new Provedor(
             $id_provedor,
+            $nit,
             $nombre,
             $telefono,
             $email,
