@@ -82,7 +82,7 @@ try {
     }
 
     /* ── Proveedores activos (para la hoja auxiliar) ─────────────── */
-    $stmtProv = $conn->prepare("SELECT id_provedor, nombre, email, telefono FROM provedores WHERE estado = 1 ORDER BY nombre");
+    $stmtProv = $conn->prepare("SELECT id_provedor, nit, nombre, email, telefono FROM provedores WHERE estado = 1 ORDER BY nombre");
     $stmtProv->execute();
     $proveedores = $stmtProv->fetchAll(PDO::FETCH_ASSOC);
 
@@ -126,7 +126,7 @@ $sheet->getRowDimension(1)->setRowHeight(28);
 /* ── Fila 2: Instrucciones ───────────────────────────────────────── */
 $sheet->mergeCells("A2:{$lastCol}2");
 $sheet->setCellValue('A2',
-    '⚠ INSTRUCCIONES: (1) En la fila 4, escriba el nombre del proveedor en cada celda amarilla "NOMBRE DEL PROVEEDOR". ' .
+    '⚠ INSTRUCCIONES: (1) En la fila 4, escriba el NIT del proveedor en cada celda amarilla "NIT DEL PROVEEDOR". ' .
     '(2) Complete los PRECIOS UNITARIOS en las filas de datos. ' .
     '(3) No modifique las columnas A-F ni la fila 3. ' .
     '(4) Guarde y suba este archivo para importar la cotización.'
@@ -173,7 +173,7 @@ for ($p = 0; $p < NUM_PROV_SLOTS; $p++) {
     $colNombre = FIXED_COLS + 1 + ($p * 2);
     $colPrecio = $colNombre + 1;
 
-    $sheet->setCellValueByColumnAndRow($colNombre, 4, 'NOMBRE DEL PROVEEDOR');
+    $sheet->setCellValueByColumnAndRow($colNombre, 4, 'NIT DEL PROVEEDOR');
     $sheet->setCellValueByColumnAndRow($colPrecio, 4, 'PRECIO_UNITARIO');
 
     // Celda de nombre: fondo amarillo para que el usuario la identifique
@@ -290,11 +290,12 @@ $sheetProv = $spreadsheet->createSheet();
 $sheetProv->setTitle('Proveedores (referencia)');
 
 $sheetProv->setCellValue('A1', 'ID');
-$sheetProv->setCellValue('B1', 'NOMBRE');
-$sheetProv->setCellValue('C1', 'EMAIL');
-$sheetProv->setCellValue('D1', 'TELÉFONO');
+$sheetProv->setCellValue('B1', 'NIT');
+$sheetProv->setCellValue('C1', 'NOMBRE');
+$sheetProv->setCellValue('D1', 'EMAIL');
+$sheetProv->setCellValue('E1', 'TELÉFONO');
 
-$sheetProv->getStyle('A1:D1')->applyFromArray([
+$sheetProv->getStyle('A1:E1')->applyFromArray([
     'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '00384A']],
 ]);
@@ -302,15 +303,17 @@ $sheetProv->getStyle('A1:D1')->applyFromArray([
 $rp = 2;
 foreach ($proveedores as $pv) {
     $sheetProv->setCellValue("A{$rp}", $pv['id_provedor']);
-    $sheetProv->setCellValue("B{$rp}", $pv['nombre']);
-    $sheetProv->setCellValue("C{$rp}", $pv['email'] ?? '');
-    $sheetProv->setCellValue("D{$rp}", $pv['telefono'] ?? '');
+    $sheetProv->setCellValue("B{$rp}", $pv['nit'] ?? '');
+    $sheetProv->setCellValue("C{$rp}", $pv['nombre']);
+    $sheetProv->setCellValue("D{$rp}", $pv['email'] ?? '');
+    $sheetProv->setCellValue("E{$rp}", $pv['telefono'] ?? '');
     $rp++;
 }
 $sheetProv->getColumnDimension('A')->setWidth(8);
-$sheetProv->getColumnDimension('B')->setWidth(30);
-$sheetProv->getColumnDimension('C')->setWidth(28);
-$sheetProv->getColumnDimension('D')->setWidth(18);
+$sheetProv->getColumnDimension('B')->setWidth(20);
+$sheetProv->getColumnDimension('C')->setWidth(30);
+$sheetProv->getColumnDimension('D')->setWidth(28);
+$sheetProv->getColumnDimension('E')->setWidth(18);
 
 // Volver a la hoja principal
 $spreadsheet->setActiveSheetIndex(0);

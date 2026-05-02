@@ -137,8 +137,9 @@ const CotizacionesPedido = (() => {
     for (let c = FIXED; c < filaNombres.length; c += 2) {
       const nombreRaw = String(filaNombres[c] ?? '').trim();
       if (!nombreRaw ||
-          nombreRaw.toUpperCase() === 'NOMBRE DEL PROVEEDOR' ||
-          nombreRaw.toUpperCase() === 'NOMBRE_PROVEEDOR') {
+          nombreRaw.toUpperCase() === 'NIT DEL PROVEEDOR' ||
+          nombreRaw.toUpperCase() === 'NIT_PROVEEDOR' ||
+          nombreRaw.toUpperCase() === 'NOMBRE DEL PROVEEDOR') {
         continue;  // slot vacío, omitir
       }
 
@@ -154,7 +155,7 @@ const CotizacionesPedido = (() => {
 
     if (proveedoresExcel.length === 0) {
       _toast(
-        'No se encontraron proveedores. Escribe el nombre del proveedor en la fila 4 (celdas amarillas) del Excel.',
+        'No se encontraron proveedores. Escribe el NIT del proveedor en la fila 4 (celdas amarillas) del Excel.',
         'warning'
       );
       return null;
@@ -327,14 +328,22 @@ const CotizacionesPedido = (() => {
 
   /* ── Helpers ─────────────────────────────────────────────────── */
 
-  /** Busca el id_provedor en el catálogo del sistema por nombre (exact o parcial) */
-  function _matchProveedor(nombre) {
-    if (!nombre || !_proveedoresDB.length) return null;
-    const n = nombre.trim().toLowerCase();
-    const exacto = _proveedoresDB.find(p => p.nombre?.toLowerCase() === n);
-    if (exacto) return exacto.id_provedor;
+  /** Busca el id_provedor en el catálogo del sistema por NIT (prioridad) o nombre */
+  function _matchProveedor(identificador) {
+    if (!identificador || !_proveedoresDB.length) return null;
+    const val = identificador.trim().toLowerCase();
+
+    // 1. Intentar por NIT (coincidencia exacta)
+    const porNit = _proveedoresDB.find(p => String(p.nit ?? '').trim().toLowerCase() === val);
+    if (porNit) return porNit.id_provedor;
+
+    // 2. Intentar por Nombre (coincidencia exacta)
+    const porNombre = _proveedoresDB.find(p => p.nombre?.toLowerCase() === val);
+    if (porNombre) return porNombre.id_provedor;
+
+    // 3. Intentar por Nombre (coincidencia parcial)
     const parcial = _proveedoresDB.find(p =>
-      p.nombre?.toLowerCase().includes(n) || n.includes(p.nombre?.toLowerCase() ?? '')
+      p.nombre?.toLowerCase().includes(val) || val.includes(p.nombre?.toLowerCase() ?? '')
     );
     return parcial?.id_provedor ?? null;
   }

@@ -1021,7 +1021,7 @@ function exportarAExcel() {
         'Unidad': comp.unidad || 'UND',
         'Cantidad Requerida': parseFloat(comp.cantidad || 0).toFixed(4),
         'Capítulo': comp.nombre_capitulo || '',
-        'Nombre del Proveedor': '',  // Para que el proveedor llene
+        'NIT del Proveedor': '',  // Para que el proveedor llene
         'Precio Unitario': ''         // Para que el proveedor llene
     }));
 
@@ -1036,7 +1036,7 @@ function exportarAExcel() {
         { wch: 10 },  // Unidad
         { wch: 18 },  // Cantidad
         { wch: 25 },  // Capítulo
-        { wch: 30 },  // Nombre del Proveedor
+        { wch: 20 },  // NIT del Proveedor
         { wch: 18 }   // Precio Unitario
     ];
     ws['!cols'] = colWidths;
@@ -1136,7 +1136,7 @@ async function importarCotizacionesDesdeExcel(input) {
 
             jsonData.forEach((row, index) => {
                 const codigo = row['Código'] || row['Codigo'] || '';
-                const proveedor = row['Nombre del Proveedor'] || row['Proveedor'] || '';
+                const proveedor = row['NIT del Proveedor'] || row['NIT'] || row['Nombre del Proveedor'] || row['Proveedor'] || '';
                 const precio = row['Precio Unitario'] || row['Precio'] || '';
 
                 // Buscar el componente por código
@@ -1168,7 +1168,7 @@ async function importarCotizacionesDesdeExcel(input) {
                 if (!proveedor || proveedor.toString().trim() === '') {
                     errores.push({
                         fila: index + 2,
-                        mensaje: `Falta nombre del proveedor para "${codigo}"`
+                        mensaje: `Falta NIT del proveedor para "${codigo}"`
                     });
                 }
 
