@@ -693,9 +693,6 @@ try {
                 $stmtBuscarProveedor = $connection->prepare(
                     "SELECT id_provedor FROM provedores WHERE nit = ? OR nombre = ? LIMIT 1"
                 );
-                $stmtCrearProveedor = $connection->prepare(
-                    "INSERT INTO provedores (nit, nombre, fechareg) VALUES (?, ?, NOW())"
-                );
                 $stmtDesactivarAnterior = $connection->prepare(
                     "UPDATE cotizaciones_componentes 
                      SET estado = 'inactiva', fechaupdate = NOW() 
@@ -718,7 +715,7 @@ try {
                             continue;
                         }
 
-                        // Buscar o crear proveedor
+                        // Buscar proveedor (ahora obligatorio)
                         // Intentamos buscar por el valor recibido tanto en NIT como en Nombre
                         $stmtBuscarProveedor->execute([$nombreProveedor, $nombreProveedor]);
                         $proveedor = $stmtBuscarProveedor->fetch(PDO::FETCH_ASSOC);
@@ -726,12 +723,8 @@ try {
                         if ($proveedor) {
                             $idProveedor = $proveedor['id_provedor'];
                         } else {
-                            // Crear proveedor nuevo
-                            // Si el valor parece un NIT (numérico o formato común), lo guardamos como NIT y nombre
-                            // Si no, lo guardamos como nombre
-                            $nitProv = (preg_match('/^[0-9.-]+$/', $nombreProveedor)) ? $nombreProveedor : null;
-                            $stmtCrearProveedor->execute([$nitProv, $nombreProveedor]);
-                            $idProveedor = $connection->lastInsertId();
+                            // Error: el proveedor debe existir previamente
+                            throw new Exception("El proveedor con NIT o Nombre '{$nombreProveedor}' no existe en el sistema. Debe crearlo primero o corregir el Excel.");
                         }
 
                         // Desactivar cotización anterior del mismo proveedor para este componente

@@ -1180,7 +1180,19 @@ async function importarCotizacionesDesdeExcel(input) {
                     });
                 }
 
-                const esValido = componente && proveedor && proveedor.toString().trim() !== '' && !isNaN(precioNum) && precioNum > 0;
+                const existeProveedor = proveedoresDB.find(p => 
+                    String(p.nit || '').trim().toLowerCase() === proveedor.toString().trim().toLowerCase() ||
+                    p.nombre.toLowerCase() === proveedor.toString().trim().toLowerCase()
+                );
+
+                if (!existeProveedor && proveedor) {
+                    errores.push({
+                        fila: index + 2,
+                        mensaje: `Proveedor con NIT/Nombre "${proveedor}" no encontrado. Regístrelo primero.`
+                    });
+                }
+
+                const esValido = componente && proveedor && existeProveedor && !isNaN(precioNum) && precioNum > 0;
 
                 cotizaciones.push({
                     fila: index + 2,
@@ -1191,9 +1203,10 @@ async function importarCotizacionesDesdeExcel(input) {
                     unidad: componente.unidad || 'UND',
                     cantidad: parseFloat(componente.cantidad || 0),
                     proveedor: proveedor ? proveedor.toString().trim() : '',
+                    id_proveedor: existeProveedor ? existeProveedor.id_provedor : null,
                     precio: isNaN(precioNum) ? 0 : precioNum,
                     valido: esValido,
-                    error: esValido ? null : 'Datos incompletos'
+                    error: esValido ? null : (!existeProveedor ? 'Proveedor no registrado' : 'Datos incompletos')
                 });
             });
 

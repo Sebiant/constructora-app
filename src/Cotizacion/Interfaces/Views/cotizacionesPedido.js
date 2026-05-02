@@ -153,6 +153,17 @@ const CotizacionesPedido = (() => {
       });
     }
 
+    // Validar que todos los proveedores existan
+    const desconocidos = proveedoresExcel.filter(pv => !pv.id_provedor);
+    if (desconocidos.length > 0) {
+      const lista = desconocidos.map(pv => `"${pv.nombre_proveedor}"`).join(', ');
+      _toast(
+        `Error: Los proveedores ${lista} no están registrados en el sistema. Debe crearlos primero o corregir el NIT/Nombre en el Excel.`,
+        'danger'
+      );
+      return null;
+    }
+
     if (proveedoresExcel.length === 0) {
       _toast(
         'No se encontraron proveedores. Escribe el NIT del proveedor en la fila 4 (celdas amarillas) del Excel.',
