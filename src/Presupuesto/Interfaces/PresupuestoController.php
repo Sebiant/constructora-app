@@ -702,6 +702,57 @@ try {
                 $materialesExtra = $pedidoData['materialesExtra'] ?? [];
                 $pedidosFueraPresupuesto = $pedidoData['pedidosFueraPresupuesto'] ?? [];
 
+                // 2. VALIDACIÓN DE ESTADO (Evitar pedidos de recursos desactivados)
+                $compIds = []; $itemIds = []; $matIds = [];
+                foreach ($componentes as $c) {
+                    if ((float)($c['pedido'] ?? 0) > 0) {
+                        if (!empty($c['id_componente'])) $compIds[] = (int)$c['id_componente'];
+                        if (!empty($c['id_item'])) $itemIds[] = (int)$c['id_item'];
+                    }
+                }
+                foreach ($pedidosFueraPresupuesto as $p) {
+                    if ((float)($p['cantidad_extra'] ?? 0) > 0) {
+                        if (!empty($p['id_componente'])) $compIds[] = (int)$p['id_componente'];
+                        if (!empty($p['id_item'])) $itemIds[] = (int)$p['id_item'];
+                    }
+                }
+                foreach ($materialesExtra as $m) {
+                    if ((float)($m['cantidad'] ?? 0) > 0 && !empty($m['id_material'])) {
+                        $matIds[] = (int)$m['id_material'];
+                    }
+                }
+
+                $compIds = array_unique($compIds);
+                $itemIds = array_unique($itemIds);
+                $matIds = array_unique($matIds);
+
+                $erroresEstado = [];
+                if (!empty($compIds)) {
+                    $pcomp = implode(',', array_fill(0, count($compIds), '?'));
+                    $stmt = $connection->prepare("SELECT ic.descripcion, i.nombre_item, ic.idestado as c_st, i.idestado as i_st FROM item_componentes ic JOIN items i ON ic.id_item = i.id_item WHERE ic.id_componente IN ($pcomp)");
+                    $stmt->execute($compIds);
+                    while ($r = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                        if ($r['c_st'] != 1) $erroresEstado[] = "Componente '{$r['descripcion']}' desactivado.";
+                        if ($r['i_st'] != 1) $erroresEstado[] = "Ítem '{$r['nombre_item']}' inactivo globalmente.";
+                    }
+                }
+                if (!empty($itemIds)) {
+                    $pitem = implode(',', array_fill(0, count($itemIds), '?'));
+                    $stmt = $connection->prepare("SELECT i.nombre_item FROM det_presupuesto dp JOIN items i ON dp.id_item = i.id_item WHERE dp.id_presupuesto = ? AND dp.id_item IN ($pitem) AND dp.idestado != 1");
+                    $stmt->execute(array_merge([$idPresupuesto], $itemIds));
+                    while ($name = $stmt->fetchColumn()) $erroresEstado[] = "Ítem '{$name}' desactivado en presupuesto.";
+                }
+                if (!empty($matIds)) {
+                    $pmat = implode(',', array_fill(0, count($matIds), '?'));
+                    $stmt = $connection->prepare("SELECT nombremat FROM materiales WHERE id_material IN ($pmat) AND idestado != 1");
+                    $stmt->execute($matIds);
+                    while ($name = $stmt->fetchColumn()) $erroresEstado[] = "Material extra '{$name}' desactivado.";
+                }
+
+                if (!empty($erroresEstado)) {
+                    throw new \Exception("No se puede procesar el pedido: " . implode(' | ', $erroresEstado));
+                }
+
                 // Validar que el presupuesto existe y pertenece al proyecto
                 $stmtValidar = $connection->prepare(
                     "SELECT id_presupuesto FROM presupuestos

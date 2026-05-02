@@ -437,8 +437,8 @@ async function cargarPedidosPresupuesto(idPresupuesto) {
                     div.className = 'form-check';
                     div.innerHTML = `
                         <input class="form-check-input" type="checkbox" id="checkPedido${pedido.id_pedido}" 
-                               value="${pedido.id_pedido}" onchange="togglePedidoIndividual()">
-                        <label class="form-check-label small" for="checkPedido${pedido.id_pedido}">
+                               value="${pedido.id_pedido}" onchange="togglePedidoIndividual()" onclick="event.stopPropagation()">
+                        <label class="form-check-label small" for="checkPedido${pedido.id_pedido}" onclick="event.stopPropagation()">
                             #${pedido.id_pedido} - ${fecha} (${pedido.estado}) - ${pedido.total_items || 0} items
                         </label>
                     `;

@@ -110,8 +110,8 @@
                                 </button>
                                 <div class="dropdown-menu w-100 p-2" aria-labelledby="dropdownPedidos" style="max-height: 300px; overflow-y: auto;">
                                     <div class="form-check mb-2 border-bottom pb-2">
-                                        <input class="form-check-input" type="checkbox" id="checkTodosPedidos" value="" checked onchange="toggleTodosPedidos()">
-                                        <label class="form-check-label fw-bold" for="checkTodosPedidos">
+                                        <input class="form-check-input" type="checkbox" id="checkTodosPedidos" value="" checked onchange="toggleTodosPedidos()" onclick="event.stopPropagation()">
+                                        <label class="form-check-label fw-bold" for="checkTodosPedidos" onclick="event.stopPropagation()">
                                             Todo el presupuesto
                                         </label>
                                     </div>
