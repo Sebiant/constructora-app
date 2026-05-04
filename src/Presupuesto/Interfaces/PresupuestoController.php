@@ -560,7 +560,8 @@ try {
                                 FROM capitulos c
                                 INNER JOIN det_presupuesto dp ON c.id_capitulo = dp.id_capitulo
                                 INNER JOIN material_precio mp ON dp.id_mat_precio = mp.id_mat_precio
-                                WHERE dp.id_presupuesto = ?
+                                WHERE dp.id_presupuesto = ? AND dp.idestado = 1
+                                AND c.estado = 1
                                 GROUP BY c.id_capitulo, c.nombre_cap
                                 ORDER BY c.id_capitulo";
                 
@@ -582,6 +583,7 @@ try {
                                     INNER JOIN material_precio mp ON dp.id_mat_precio = mp.id_mat_precio
                                     INNER JOIN gr_unidad u ON m.idunidad = u.idunidad
                                     WHERE dp.id_presupuesto = ? AND dp.id_capitulo = ?
+                                AND dp.idestado = 1 AND m.idestado = 1
                                     ORDER BY m.cod_material";
                     
                     $stmt = $connection->prepare($sqlMateriales);
@@ -727,30 +729,70 @@ try {
                 $matIds = array_unique($matIds);
 
                 $erroresEstado = [];
+
+                // Validar Componentes (item_componentes) y sus dependencias
                 if (!empty($compIds)) {
                     $pcomp = implode(',', array_fill(0, count($compIds), '?'));
-                    $stmt = $connection->prepare("SELECT ic.descripcion, i.nombre_item, ic.idestado as c_st, i.idestado as i_st FROM item_componentes ic JOIN items i ON ic.id_item = i.id_item WHERE ic.id_componente IN ($pcomp)");
+                    $sqlComp = "SELECT 
+                                    ic.id_componente,
+                                    ic.descripcion, 
+                                    ic.idestado as comp_estado,
+                                    i.nombre_item, 
+                                    i.idestado as item_estado,
+                                    m.nombremat,
+                                    m.idestado as mat_estado
+                                FROM item_componentes ic 
+                                LEFT JOIN items i ON ic.id_item = i.id_item 
+                                LEFT JOIN materiales m ON ic.id_material = m.id_material
+                                WHERE ic.id_componente IN ($pcomp)";
+                    $stmt = $connection->prepare($sqlComp);
                     $stmt->execute($compIds);
                     while ($r = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                        if ($r['c_st'] != 1) $erroresEstado[] = "Componente '{$r['descripcion']}' desactivado.";
-                        if ($r['i_st'] != 1) $erroresEstado[] = "Ítem '{$r['nombre_item']}' inactivo globalmente.";
+                        if ($r['comp_estado'] != 1) {
+                            $erroresEstado[] = "El componente '{$r['descripcion']}' está desactivado.";
+                        }
+                        if ($r['nombre_item'] && $r['item_estado'] != 1) {
+                            $erroresEstado[] = "El ítem '{$r['nombre_item']}' (padre de {$r['descripcion']}) está inactivo.";
+                        }
+                        if ($r['nombremat'] && $r['mat_estado'] != 1) {
+                            $erroresEstado[] = "El material '{$r['nombremat']}' vinculado al componente está desactivado.";
+                        }
                     }
                 }
+
+                // Validar Ítems en el Presupuesto (det_presupuesto)
                 if (!empty($itemIds)) {
                     $pitem = implode(',', array_fill(0, count($itemIds), '?'));
-                    $stmt = $connection->prepare("SELECT i.nombre_item FROM det_presupuesto dp JOIN items i ON dp.id_item = i.id_item WHERE dp.id_presupuesto = ? AND dp.id_item IN ($pitem) AND dp.idestado != 1");
+                    // Verificamos si el ítem está desactivado específicamente en este presupuesto
+                    $sqlDet = "SELECT i.nombre_item, dp.idestado as dp_st 
+                               FROM det_presupuesto dp 
+                               JOIN items i ON dp.id_item = i.id_item 
+                               WHERE dp.id_presupuesto = ? AND dp.id_item IN ($pitem)";
+                    $stmt = $connection->prepare($sqlDet);
                     $stmt->execute(array_merge([$idPresupuesto], $itemIds));
-                    while ($name = $stmt->fetchColumn()) $erroresEstado[] = "Ítem '{$name}' desactivado en presupuesto.";
+                    while ($r = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                        if ($r['dp_st'] != 1) {
+                            $erroresEstado[] = "El ítem '{$r['nombre_item']}' ha sido desactivado de este presupuesto.";
+                        }
+                    }
                 }
+
+                // Validar Materiales (Directos o Extra)
                 if (!empty($matIds)) {
                     $pmat = implode(',', array_fill(0, count($matIds), '?'));
-                    $stmt = $connection->prepare("SELECT nombremat FROM materiales WHERE id_material IN ($pmat) AND idestado != 1");
+                    $stmt = $connection->prepare("SELECT nombremat, idestado FROM materiales WHERE id_material IN ($pmat)");
                     $stmt->execute($matIds);
-                    while ($name = $stmt->fetchColumn()) $erroresEstado[] = "Material extra '{$name}' desactivado.";
+                    while ($r = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                        if ($r['idestado'] != 1) {
+                            $erroresEstado[] = "El material '{$r['nombremat']}' está desactivado.";
+                        }
+                    }
                 }
 
                 if (!empty($erroresEstado)) {
-                    throw new \Exception("No se puede procesar el pedido: " . implode(' | ', $erroresEstado));
+                    $msg = "No se puede procesar el pedido debido a recursos inactivos: " . implode(' | ', array_unique($erroresEstado));
+                    error_log("[guardarPedido] Bloqueado por estados: " . $msg);
+                    throw new \Exception($msg);
                 }
 
                 // Validar que el presupuesto existe y pertenece al proyecto
@@ -1768,7 +1810,8 @@ try {
                     INNER JOIN items i ON dp.id_item = i.id_item
                     INNER JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
                     WHERE dp.id_presupuesto = ?
-                    AND dp.idestado = 1";
+                    AND dp.idestado = 1
+                    AND i.idestado = 1";
             
             $params = [$presupuestoId];
             
@@ -1842,6 +1885,7 @@ try {
                                 LEFT JOIN materiales m ON ic.id_material = m.id_material
                                 LEFT JOIN tipo_material tm ON m.id_tipo_material = tm.id_tipo_material
                                 WHERE ic.id_item = ? AND ic.idestado = 1
+                                AND (m.id_material IS NULL OR m.idestado = 1)
                                 ORDER BY FIELD(ic.tipo_componente, 'material', 'mano_obra', 'equipo', 'transporte', 'otro')";
                 
                 $stmtComp = $connection->prepare($sqlComponentes);
@@ -2164,8 +2208,11 @@ try {
                 JOIN capitulos c ON dp.id_capitulo = c.id_capitulo
                 JOIN items i ON dp.id_item = i.id_item
                 JOIN item_componentes ic ON i.id_item = ic.id_item
+                LEFT JOIN materiales m ON ic.id_material = m.id_material
                 WHERE dp.idestado = 1
                 AND ic.idestado = 1
+                AND i.idestado = 1
+                AND (m.id_material IS NULL OR m.idestado = 1)
                 AND p.idestado = 1
                 AND p.id_presupuesto = ?
                 GROUP BY REPLACE(REPLACE(REPLACE(TRIM(LOWER(ic.descripcion)), '  ', ' '), '  ', ' '), '  ', ' '), TRIM(ic.tipo_componente), TRIM(ic.unidad), p.id_presupuesto
