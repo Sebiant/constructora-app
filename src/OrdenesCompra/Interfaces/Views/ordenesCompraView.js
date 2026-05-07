@@ -447,7 +447,7 @@ const OrdenesCompraUI = (() => {
     }
 
     let html = state.productos.map((producto, index) => {
-      const cantPedida = Number(producto.cantidad_solicitada ?? producto.cantidad ?? 0);
+      const cantPedida = Number(producto.cantidad ?? 0);
       const cantOC = Number(producto.cantidad_comprada ?? 0);
       const precio = Number(producto.precio_unitario ?? 0);
       const mejorPrecio = producto.mejor_precio_cotizado ? Number(producto.mejor_precio_cotizado) : null;
@@ -1089,8 +1089,23 @@ const OrdenesCompraUI = (() => {
     }
 
     // Verificar que todos los seleccionados tengan un proveedor asignado
+    console.log('🔍 Debug: Verificando proveedores en productos seleccionados...');
+    console.log('📊 Total productos seleccionados:', state.productosSeleccionados.size);
+    
+    state.productosSeleccionados.forEach((producto, key) => {
+      console.log(`📦 Producto: ${producto.descripcion}`);
+      console.log(`   - id_provedor: ${producto.id_provedor}`);
+      console.log(`   - nombre_proveedor: ${producto.nombre_proveedor}`);
+      console.log(`   - key: ${key}`);
+    });
+    
     const incompletos = Array.from(state.productosSeleccionados.values())
       .filter(p => !p.id_provedor);
+
+    console.log('❌ Productos sin proveedor:', incompletos.length);
+    incompletos.forEach(p => {
+      console.log(`   - Sin proveedor: ${p.descripcion}`);
+    });
 
     if (incompletos.length > 0) {
       mostrarError(`Debe usar el botón de desglose para asignar un proveedor a: \n- ${incompletos.map(p => p.descripcion).join('\n- ')}`);
@@ -1198,10 +1213,19 @@ const OrdenesCompraUI = (() => {
   }
 
   async function verDesglose(idDetPedido, idsOriginales) {
+    console.log('🔍 Botón de desglose presionado');
+    console.log('   - idDetPedido:', idDetPedido);
+    console.log('   - idsOriginales:', idsOriginales);
+    
     const rowDesglose = document.getElementById(`desglose_${idDetPedido}`);
     const contDesglose = document.getElementById(`contenido_desglose_${idDetPedido}`);
+    
+    console.log('   - rowDesglose encontrado:', !!rowDesglose);
+    console.log('   - contDesglose encontrado:', !!contDesglose);
+    console.log('   - rowDesglose está oculto:', rowDesglose?.classList.contains('d-none'));
 
     if (rowDesglose.classList.contains('d-none')) {
+      console.log('📖 Abriendo desglose...');
 
       let producto = state.productos.find(p => {
         const pIds = Array.isArray(p.id_det_pedido) ? p.id_det_pedido : [p.id_det_pedido];
@@ -1211,6 +1235,8 @@ const OrdenesCompraUI = (() => {
       if (!producto && state.productosSeleccionados.has(String(idDetPedido))) {
         producto = state.productosSeleccionados.get(String(idDetPedido));
       }
+      
+      console.log('   - producto encontrado:', !!producto);
 
       if (!producto) {
         console.error('❌ No se encontró el producto con ID:', idDetPedido);
@@ -1232,10 +1258,18 @@ const OrdenesCompraUI = (() => {
       rowDesglose.classList.remove('d-none');
 
       try {
-        const resp = await fetch(`/sgigescon/src/Cotizacion/Interfaces/CotizacionController.php?action=getDetallePreciosRecurso&ids=${idsStr}`);
+        const url = `/sgigescon/src/Cotizacion/Interfaces/CotizacionController.php?action=getDetallePreciosRecurso&ids=${idsStr}`;
+        console.log('🌐 Haciendo fetch a:', url);
+        
+        const resp = await fetch(url);
+        console.log('📊 Response status:', resp.status);
+        console.log('📊 Response ok:', resp.ok);
+        
         const res = await resp.json();
+        console.log('📥 Response JSON:', res);
 
         if (res.success && res.data.length > 0) {
+          console.log('✅ Cotizaciones encontradas:', res.data.length);
 
           // usamos SIEMPRE "nombre" (no nombre_proveedor)
           const grupos = res.data.reduce((acc, item) => {
@@ -1574,8 +1608,8 @@ const OrdenesCompraUI = (() => {
         const productosAgrupados = agruparProductosPorDescripcion(orden.productos);
 
         return productosAgrupados.map(producto => {
-          const solicitada = parseFloat(producto.cantidad_solicitada || 0);
-          const comprada = parseFloat(producto.cantidad_comprada || 0);
+          const solicitada = parseFloat(producto.cantidad_comprada || producto.cantidad || 0);
+          const comprada = parseFloat(producto.cantidad_comprada || producto.cantidad || 0);
           const recibida = parseFloat(producto.cantidad_recibida || 0);
           const precio = parseFloat(producto.precio_unitario || 0);
           const subtotal = parseFloat(producto.subtotal || 0);
@@ -1738,9 +1772,48 @@ const OrdenesCompraUI = (() => {
   }
 
   function convertirEnCompra(idOrden) {
-    // Implementar conversión a compra
-    console.log('Convertir en compra:', idOrden);
-    mostrarError('Función de conversión en desarrollo');
+    console.log('🛒 Iniciando conversión a compra para orden:', idOrden);
+    console.log('🌐 API_ORDENES:', API_ORDENES);
+    
+    const url = `${API_ORDENES}?action=getOrdenCompraDetalle&id_orden_compra=${idOrden}`;
+    console.log('🔗 URL completa:', url);
+    
+    // Obtener los detalles de la orden de compra
+    fetch(url)
+      .then(response => {
+        console.log('📊 Response status:', response.status);
+        console.log('📊 Response ok:', response.ok);
+        return response.json();
+      })
+      .then(result => {
+        console.log('📥 Resultado JSON:', result);
+        
+        if (result.success) {
+          console.log('📋 Detalles de orden obtenidos:', result.data);
+          
+          // Redirigir al módulo de compras con los datos de la orden
+          const ordenData = result.data;
+          
+          // Guardar temporalmente los datos de la orden para que el módulo de compras los use
+          console.log('💾 Guardando en sessionStorage...');
+          sessionStorage.setItem('ordenParaCompra', JSON.stringify(ordenData));
+          console.log('✅ Datos guardados en sessionStorage');
+          
+          // Redirigir al módulo de compras
+          console.log('🔄 Redirigiendo a compras...');
+          console.log('🌐 URL destino: /sgigescon/componentes/comprasComponent.php');
+          
+          window.location.href = '/sgigescon/componentes/comprasComponent.php';
+          
+        } else {
+          console.error('❌ Error al obtener detalles de la orden:', result.error);
+          mostrarError('No se pudieron obtener los detalles de la orden: ' + (result.error || 'Error desconocido'));
+        }
+      })
+      .catch(error => {
+        console.error('❌ Error en la llamada:', error);
+        mostrarError('Error de conexión al obtener los detalles de la orden');
+      });
   }
 
   function verDetallePedido(idPedido) {
@@ -2039,7 +2112,10 @@ const OrdenesCompraUI = (() => {
     editarOrden,
     convertirEnCompra,
     abrirNuevaOrdenConPedido,
-    actualizarNotificacionPedidos
+    actualizarNotificacionPedidos,
+    verDesglose,
+    seleccionarDeDesglose,
+    guardarOrden
   };
 })();
 

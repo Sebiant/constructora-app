@@ -149,17 +149,19 @@ try {
 
                 // Intentar obtener detalles desde log_recepciones (método nuevo y preciso)
                 $sqlDet = "SELECT 
+                                lr.id_compra,
                                 lr.id_det_pedido,
                                 lr.descripcion,
                                 lr.unidad,
-                                ocd.cantidad_solicitada,
+                                COALESCE(pd.cantidad, ocd.cantidad_comprada) as cantidad_solicitada,
                                 lr.cantidad_recibida,
                                 ocd.cantidad_recibida as cantidad_acumulada_total,
-                                (ocd.cantidad_solicitada - ocd.cantidad_recibida) AS cantidad_faltante,
+                                (COALESCE(pd.cantidad, ocd.cantidad_comprada) - ocd.cantidad_recibida) AS cantidad_faltante,
                                 lr.precio_unitario,
                                 lr.subtotal_item AS subtotal
                            FROM log_recepciones lr
                            INNER JOIN ordenes_compra_detalle ocd ON lr.id_det_pedido = ocd.id_det_pedido AND lr.id_orden_compra = ocd.id_orden_compra
+                           LEFT JOIN pedidos_detalle pd ON lr.id_det_pedido = pd.id_det_pedido
                            WHERE lr.id_compra = ?
                            ORDER BY lr.id_det_pedido ASC";
                 
@@ -173,9 +175,9 @@ try {
                                         ocd.id_det_pedido,
                                         ocd.descripcion,
                                         ocd.unidad,
-                                        ocd.cantidad_solicitada,
+                                        ocd.cantidad_comprada as cantidad_solicitada,
                                         COALESCE(ocd.cantidad_recibida, 0) AS cantidad_recibida,
-                                        (ocd.cantidad_solicitada - COALESCE(ocd.cantidad_recibida, 0)) AS cantidad_faltante,
+                                        (ocd.cantidad_comprada - COALESCE(ocd.cantidad_recibida, 0)) AS cantidad_faltante,
                                         ocd.precio_unitario,
                                         ocd.subtotal,
                                         pv.nombre AS nombre_provedor
@@ -242,7 +244,7 @@ try {
                 $sqlDet = "SELECT
                               ocd.descripcion,
                               ocd.unidad,
-                              ocd.cantidad_solicitada AS cantidad,
+                              ocd.cantidad_comprada AS cantidad,
                               ocd.precio_unitario,
                               ocd.subtotal
                            FROM ordenes_compra_detalle ocd
@@ -370,7 +372,6 @@ try {
                             ocd.id_det_pedido,
                             ocd.descripcion,
                             ocd.unidad,
-                            ocd.cantidad_solicitada,
                             ocd.cantidad_comprada,
                             ocd.precio_unitario,
                             ocd.subtotal,

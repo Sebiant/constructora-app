@@ -146,10 +146,10 @@ async function verDetalleCompra(idCompra) {
 
     const filas = detalles
       .map((d) => {
-        const solicitada = Number(d.cantidad_solicitada || 0);
+        const solicitada = Number(d.cantidad_solicitada || d.cantidad_comprada || d.cantidad || 0);
         const recibidaEstaCompra = Number(d.cantidad_recibida || 0);
         const acumuladoTotal = Number(d.cantidad_acumulada_total || recibidaEstaCompra);
-        const faltante = Number(d.cantidad_faltante || 0);
+        const faltante = Math.max(0, solicitada - acumuladoTotal);
 
         // El estado se basa en el ACUMULADO, no solo en esta compra
         const estadoRecibido = acumuladoTotal >= solicitada ?
@@ -502,7 +502,7 @@ function generarHtmlItemsRecepcion(items) {
         <tbody>
           ${items.map((item, idx) => {
     console.log('Procesando item:', item); // Debug
-    const cantTotal = Number(item.cantidad_comprada ?? item.cantidad_solicitada ?? 0);
+    const cantTotal = Number(item.cantidad_comprada ?? 0);
     const cantYaRecibida = Number(item.cantidad_recibida ?? 0);
     const cantPendiente = cantTotal - cantYaRecibida;
     const precio = Number(item.precio_unitario ?? 0);

@@ -115,6 +115,10 @@ try {
             getProductosPedido($connection);
             break;
 
+        case 'getOrdenCompraDetalle':
+            getOrdenCompraDetalle($connection);
+            break;
+
         case 'eliminarPedido':
             try {
                 $idPedido = (int)($_POST['id_pedido'] ?? 0);
@@ -249,7 +253,6 @@ function getDetalleOrden($connection) {
                 ocd.id_det_pedido,
                 ocd.descripcion,
                 ocd.unidad,
-                ocd.cantidad_solicitada,
                 ocd.cantidad_comprada,
                 ocd.cantidad_recibida,
                 ocd.precio_unitario,
@@ -513,21 +516,19 @@ function guardarOrdenCompra($connection, $data) {
             // Insertar un registro por cada ID original
             $sql = "INSERT INTO ordenes_compra_detalle 
                         (id_orden_compra, id_det_pedido, descripcion, unidad, 
-                         cantidad_solicitada, cantidad_comprada, precio_unitario, subtotal, impuesto) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                         cantidad_comprada, precio_unitario, subtotal, impuesto) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $connection->prepare($sql);
             
             foreach ($idsOriginales as $index => $idDetPedido) {
-                // Distribuir la cantidad proporcionalmente entre todos los IDs
+                // Distribuir la cantidad a comprar proporcionalmente entre todos los IDs
                 // Para evitar problemas de redondeo, el último ID recibe el resto
                 if ($index === $numIds - 1) {
                     // Último ID: calcular lo que falta para llegar al total
                     $cantidadComprarEsteId = $cantidadTotalComprar - ($cantidadTotalComprar / $numIds * $index);
-                    $cantidadSolicitadaEsteId = $cantidadTotalSolicitada - ($cantidadTotalSolicitada / $numIds * $index);
                 } else {
                     $cantidadComprarEsteId = $cantidadTotalComprar / $numIds;
-                    $cantidadSolicitadaEsteId = $cantidadTotalSolicitada / $numIds;
                 }
                 
                 $subtotalEsteId = $cantidadComprarEsteId * floatval($producto['precio_unitario']);
@@ -538,7 +539,6 @@ function guardarOrdenCompra($connection, $data) {
                     $idDetPedido,
                     $producto['descripcion'] ?? '',
                     $producto['unidad'] ?? '',
-                    $cantidadSolicitadaEsteId,
                     $cantidadComprarEsteId,
                     $producto['precio_unitario'] ?? 0,
                     $subtotalEsteId,
@@ -851,10 +851,10 @@ function getProductosPedido($connection) {
             ];
         }
         
-        // Acumular IDs y cantidades
+        // Acumular IDs pero NO sumar cantidades (esto causa el problema del doble)
         $productosAgrupados[$clave]['id_det_pedido'][] = $producto['id_det_pedido'];
-        $productosAgrupados[$clave]['cantidad'] += $producto['cantidad'];
-        $productosAgrupados[$clave]['subtotal'] += $producto['subtotal'];
+        // La cantidad y subtotal no se suman, se mantienen los valores originales del primer registro
+        // Esto evita que se dupliquen las cantidades cuando hay múltiples IDs del mismo producto
         
         // Actualizar mejor precio si es menor
         if ($productosAgrupados[$clave]['mejor_precio_cotizado'] === null || 
@@ -1006,4 +1006,64 @@ function getPedidosSinOrden($connection) {
         ]);
     }
 }
+
+function getOrdenCompraDetalle($connection) {
+    try {
+        $idOrden = isset($_GET['id_orden_compra']) ? (int)$_GET['id_orden_compra'] : 0;
+        if (!$idOrden) {
+            throw new Exception('ID de orden requerido');
+        }
+
+        $sqlO = "SELECT 
+                    oc.id_orden_compra,
+                    oc.numero_orden,
+                    oc.fecha_orden,
+                    oc.estado,
+                    oc.subtotal,
+                    oc.impuestos,
+                    oc.total,
+                    oc.observaciones,
+                    oc.numero_factura,
+                    oc.fecha_factura,
+                    oc.id_pedido,
+                    pv.nombre as nombre_provedor,
+                    pv.id_provedor
+                 FROM ordenes_compra oc
+                 LEFT JOIN provedores pv ON oc.id_provedor = pv.id_provedor
+                 WHERE oc.id_orden_compra = ?";
+        
+        $stmt = $connection->prepare($sqlO);
+        $stmt->execute([$idOrden]);
+        $orden = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$orden) {
+            throw new Exception('Orden no encontrada');
+        }
+
+        $sqlD = "SELECT 
+                    ocd.id_det_pedido,
+                    ocd.descripcion,
+                    ocd.unidad,
+                    ocd.cantidad_comprada,
+                    ocd.cantidad_recibida,
+                    ocd.precio_unitario,
+                    ocd.subtotal,
+                    ocd.impuesto
+                 FROM ordenes_compra_detalle ocd
+                 WHERE ocd.id_orden_compra = ?
+                 ORDER BY ocd.id_det_pedido ASC";
+
+        $stmtD = $connection->prepare($sqlD);
+        $stmtD->execute([$idOrden]);
+        $detalles = $stmtD->fetchAll(PDO::FETCH_ASSOC);
+        
+        $orden['detalles'] = $detalles;
+        
+        echo json_encode(['success' => true, 'data' => $orden]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+}
+
 ?>
