@@ -701,7 +701,7 @@ const ItemsUIModule = (() => {
     if (!tbody) return;
 
     if (!data.length) {
-      setEmpty(tbody, 9, "No hay materiales registrados.");
+      setEmpty(tbody, 10, "No hay materiales registrados.");
       return;
     }
 
@@ -730,6 +730,9 @@ const ItemsUIModule = (() => {
             <small class="text-muted">${material.presentacion_comercial || 'Unidad'}</small>
           </td>
           <td>${formatDate(material.fecha_precio)}</td>
+          <td class="text-center">
+            <span class="badge bg-secondary">${Number(material.impuesto || 0).toFixed(2)}%</span>
+          </td>
           <td class="text-center">
             <div class="btn-group btn-group-sm" role="group">
               <button class="btn btn-outline-primary btn-sm" onclick='ItemsUI.editMaterial(${JSON.stringify(material)})'>
@@ -845,6 +848,7 @@ const ItemsUIModule = (() => {
       document.getElementById("materialPrecio").value = material.precio_actual;
       document.getElementById("materialMinimoComercial").value = material.minimo_comercial || 1.0;
       document.getElementById("materialPresentacionComercial").value = material.presentacion_comercial || '';
+      document.getElementById("materialImpuesto").value = material.impuesto ?? 0.00;
       priceWrapper?.classList.remove("d-none");
       resetMaterialPriceForm(material.id_material);
       hideCollapse("materialPriceForm");
@@ -853,6 +857,7 @@ const ItemsUIModule = (() => {
     } else {
       document.getElementById("materialMinimoComercial").value = 1.0;
       document.getElementById("materialPresentacionComercial").value = '';
+      document.getElementById("materialImpuesto").value = 0.00;
       priceWrapper?.classList.add("d-none");
       resetMaterialPriceForm("");
       hideCollapse("materialPriceForm");

@@ -135,12 +135,13 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                                         <th class="text-center">Mínimo comercial</th>
                                         <th>Presentación</th>
                                         <th>Actualizado</th>
+                                        <th class="text-center">Impuesto</th>
                                         <th class="text-center">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td colspan="9" class="text-center py-4 text-muted">
+                                        <td colspan="10" class="text-center py-4 text-muted">
                                             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                                             <p class="mb-0 mt-2">Cargando recursos...</p>
                                         </td>
@@ -278,7 +279,12 @@ include_once __DIR__ . '/../../../Shared/Components/header.php';
                             <input type="text" class="form-control" name="presentacion_comercial" id="materialPresentacionComercial" placeholder="Ej: Frasco x 1kg, Caja x 25 und">
                             <div class="form-text">Cómo se vende el producto al proveedor</div>
                         </div>
-                        <div class="col-12">
+                        <div class="col-md-4">
+                            <label class="form-label">Impuesto (%)</label>
+                            <input type="number" step="0.01" min="0" max="100" class="form-control" name="impuesto" id="materialImpuesto" placeholder="Ej: 19.00" value="0.00">
+                            <div class="form-text">Porcentaje de impuesto (ej: 19.00 para IVA 19%)</div>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label">Estado</label>
                             <select class="form-select" name="estado" id="materialEstado">
                                 <option value="1">Activo</option>

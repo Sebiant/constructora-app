@@ -254,7 +254,8 @@ function getDetalleOrden($connection) {
                 ocd.cantidad_recibida,
                 ocd.precio_unitario,
                 ocd.subtotal,
-                ocd.fecha_recepcion
+                ocd.fecha_recepcion,
+                COALESCE(ocd.impuesto, 0.00) AS impuesto
             FROM ordenes_compra_detalle ocd
             WHERE ocd.id_orden_compra = ?
             ORDER BY ocd.descripcion";
@@ -278,7 +279,8 @@ function getDetalleOrden($connection) {
                 'cantidad_recibida' => 0,
                 'precio_unitario' => $producto['precio_unitario'],
                 'subtotal' => 0,
-                'fecha_recepcion' => $producto['fecha_recepcion']
+                'fecha_recepcion' => $producto['fecha_recepcion'],
+                'impuesto' => $producto['impuesto'] ?? 0.00
             ];
         }
         
@@ -511,8 +513,8 @@ function guardarOrdenCompra($connection, $data) {
             // Insertar un registro por cada ID original
             $sql = "INSERT INTO ordenes_compra_detalle 
                         (id_orden_compra, id_det_pedido, descripcion, unidad, 
-                         cantidad_solicitada, cantidad_comprada, precio_unitario, subtotal) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                         cantidad_solicitada, cantidad_comprada, precio_unitario, subtotal, impuesto) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $connection->prepare($sql);
             
@@ -529,6 +531,7 @@ function guardarOrdenCompra($connection, $data) {
                 }
                 
                 $subtotalEsteId = $cantidadComprarEsteId * floatval($producto['precio_unitario']);
+                $impuesto = floatval($producto['impuesto'] ?? 0.00);
                 
                 $stmt->execute([
                     $idOrden,
@@ -538,7 +541,8 @@ function guardarOrdenCompra($connection, $data) {
                     $cantidadSolicitadaEsteId,
                     $cantidadComprarEsteId,
                     $producto['precio_unitario'] ?? 0,
-                    $subtotalEsteId
+                    $subtotalEsteId,
+                    $impuesto
                 ]);
             }
         }
@@ -763,7 +767,7 @@ function getProductosPedido($connection) {
     $sql = "SELECT 
                 pd.id_det_pedido,
                 COALESCE(ic.id_componente, pd.id_componente) AS id_componente,
-                COALESCE(ic.descripcion, CAST(m.nombremat AS CHAR)) AS descripcion,
+                COALESCE(ic.descripcion, CAST(m1.nombremat AS CHAR), CAST(m2.nombremat AS CHAR)) AS descripcion,
                 COALESCE(ic.unidad, u.unidesc, 'unidad') AS unidad,
                 pd.cantidad,
                 pd.precio_unitario,
@@ -785,13 +789,15 @@ function getProductosPedido($connection) {
                     ELSE 'completado'
                 END AS estado_producto,
                 GREATEST(pd.cantidad - COALESCE(SUM(ocd.cantidad_comprada), 0), 0) AS cantidad_maxima_seleccionable,
-                COALESCE(m.minimo_comercial, 1.0) AS minimo_comercial,
-                COALESCE(m.presentacion_comercial, 'Unidad') AS presentacion_comercial
+                COALESCE(m1.minimo_comercial, m2.minimo_comercial, 1.0) AS minimo_comercial,
+                COALESCE(m1.presentacion_comercial, m2.presentacion_comercial, 'Unidad') AS presentacion_comercial,
+                COALESCE(m1.impuesto, m2.impuesto, 0.00) AS impuesto
             FROM pedidos_detalle pd
             LEFT JOIN item_componentes ic ON pd.id_componente = ic.id_componente
+            LEFT JOIN materiales m1 ON ic.id_material = m1.id_material
             LEFT JOIN materiales_extra_presupuesto mep ON pd.id_material_extra = mep.id_material_extra
-            LEFT JOIN materiales m ON mep.id_material = m.id_material
-            LEFT JOIN gr_unidad u ON m.idunidad = u.idunidad
+            LEFT JOIN materiales m2 ON mep.id_material = m2.id_material
+            LEFT JOIN gr_unidad u ON COALESCE(m1.idunidad, m2.idunidad) = u.idunidad
             LEFT JOIN ordenes_compra_detalle ocd ON pd.id_det_pedido = ocd.id_det_pedido
             LEFT JOIN ordenes_compra oc ON ocd.id_orden_compra = oc.id_orden_compra AND oc.estado IN ('aprobada', 'comprada', 'parcialmente_comprada')
             WHERE pd.id_pedido = ?
@@ -801,12 +807,16 @@ function getProductosPedido($connection) {
                 pd.cantidad,
                 pd.precio_unitario,
                 pd.subtotal,
-                COALESCE(ic.descripcion, m.nombremat),
+                COALESCE(ic.descripcion, m1.nombremat, m2.nombremat),
                 COALESCE(ic.unidad, u.unidesc, 'unidad'),
-                m.minimo_comercial,
-                m.presentacion_comercial
+                m1.minimo_comercial,
+                m1.presentacion_comercial,
+                m1.impuesto,
+                m2.minimo_comercial,
+                m2.presentacion_comercial,
+                m2.impuesto
             HAVING cantidad_disponible > 0
-            ORDER BY COALESCE(ic.descripcion, m.nombremat) ASC";
+            ORDER BY COALESCE(ic.descripcion, m1.nombremat, m2.nombremat) ASC";
 
     $stmt = $connection->prepare($sql);
     $stmt->execute([$idPedido]);
@@ -836,6 +846,7 @@ function getProductosPedido($connection) {
                 'cantidad_maxima_seleccionable' => $producto['cantidad_maxima_seleccionable'],
                 'minimo_comercial' => $producto['minimo_comercial'],
                 'presentacion_comercial' => $producto['presentacion_comercial'],
+                'impuesto' => $producto['impuesto'],
                 'id_componente' => $producto['id_componente'] // Agregar id_componente
             ];
         }

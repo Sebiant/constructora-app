@@ -46,7 +46,8 @@ try {
                         mp.estado AS estado_precio,
                         m.idestado,
                         COALESCE(m.minimo_comercial, 1.0) AS minimo_comercial,
-                        COALESCE(m.presentacion_comercial, 'Unidad') AS presentacion_comercial
+                        COALESCE(m.presentacion_comercial, 'Unidad') AS presentacion_comercial,
+                        COALESCE(m.impuesto, 0.00) AS impuesto
                     FROM materiales m
                     LEFT JOIN tipo_material tm ON m.id_tipo_material = tm.id_tipo_material
                     LEFT JOIN gr_unidad u ON m.idunidad = u.idunidad
@@ -136,6 +137,7 @@ try {
                     'precio' => $precio,
                     'minimoComercial' => $minimoComercial,
                     'presentacion' => $presentacion,
+                    'impuesto' => $impuesto,
                     'estado' => $estado,
                     'valido' => $valido,
                     'incomplete' => $isIncomplete,
@@ -196,14 +198,14 @@ try {
             if ($hasNotasCol) {
                 $stmtInsertMaterial = $connection->prepare(
                     "INSERT INTO materiales 
-                        (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate, minimo_comercial, presentacion_comercial, notas_importacion)
-                     VALUES (?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?)"
+                        (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate, minimo_comercial, presentacion_comercial, impuesto, notas_importacion)
+                     VALUES (?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?, ?)"
                 );
             } else {
                 $stmtInsertMaterial = $connection->prepare(
                     "INSERT INTO materiales 
-                        (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate, minimo_comercial, presentacion_comercial)
-                     VALUES (?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?)"
+                        (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate, minimo_comercial, presentacion_comercial, impuesto)
+                     VALUES (?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?)"
                 );
             }
 
@@ -288,6 +290,7 @@ try {
                             $estado,
                             $minimoComercial,
                             $presentacion,
+                            $impuesto,
                             $notasImportacion
                         ]);
                     } else {
@@ -299,7 +302,8 @@ try {
                             $usuarioId,
                             $estado,
                             $minimoComercial,
-                            $presentacion
+                            $presentacion,
+                            $impuesto
                         ]);
                     }
 
@@ -346,6 +350,7 @@ try {
             $precio = (float)($data['precio'] ?? 0);
             $minimoComercial = (float)($data['minimo_comercial'] ?? 1.0);
             $presentacionComercial = trim($data['presentacion_comercial'] ?? '');
+            $impuesto = (float)($data['impuesto'] ?? 0.00);
             $usuarioId = (int)($data['idusuario'] ?? 1);
 
             if ($codigo === '' || $nombre === '' || !$tipoId || $unidadId === '' || $precio <= 0) {
@@ -355,8 +360,8 @@ try {
             $connection->beginTransaction();
 
             $sqlMaterial = "INSERT INTO materiales 
-                                (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate, minimo_comercial, presentacion_comercial)
-                            VALUES (?, ?, ?, ?, ?, NOW(), 1, NOW(), ?, ?)";
+                                (cod_material, nombremat, id_tipo_material, idunidad, idusuario, matfchreg, idestado, matfupdate, minimo_comercial, presentacion_comercial, impuesto)
+                            VALUES (?, ?, ?, ?, ?, NOW(), 1, NOW(), ?, ?, ?)";
             $stmt = $connection->prepare($sqlMaterial);
             $stmt->execute([
                 $codigo,
@@ -365,7 +370,8 @@ try {
                 $unidadId,
                 $usuarioId,
                 $minimoComercial,
-                $presentacionComercial
+                $presentacionComercial,
+                $impuesto
             ]);
 
             $materialId = (int)$connection->lastInsertId();
@@ -400,6 +406,7 @@ try {
             $precio = isset($data['precio']) ? (float)$data['precio'] : null;
             $minimoComercial = (float)($data['minimo_comercial'] ?? 1.0);
             $presentacionComercial = trim($data['presentacion_comercial'] ?? '');
+            $impuesto = (float)($data['impuesto'] ?? 0.00);
             $usuarioId = (int)($data['idusuario'] ?? 1);
 
             if ($codigo === '' || $nombre === '' || !$tipoId || $unidadId === '') {
@@ -416,10 +423,11 @@ try {
                                 idestado = ?, 
                                 matfupdate = NOW(),
                                 minimo_comercial = ?,
-                                presentacion_comercial = ?
+                                presentacion_comercial = ?,
+                                impuesto = ?
                             WHERE id_material = ?";
             $stmt = $connection->prepare($sqlMaterial);
-            $stmt->execute([$codigo, $nombre, $tipoId, $unidadId, $estado, $minimoComercial, $presentacionComercial, $materialId]);
+            $stmt->execute([$codigo, $nombre, $tipoId, $unidadId, $estado, $minimoComercial, $presentacionComercial, $impuesto, $materialId]);
 
             if ($precio !== null && $precio > 0) {
                 $connection->prepare("UPDATE material_precio SET estado = 0 WHERE id_material = ?")

@@ -849,12 +849,26 @@ const OrdenesCompraUI = (() => {
 
   function actualizarTotales() {
     let subtotal = 0;
+    let impuestos = 0;
+
+    console.log('=== DEBUG IMPUESTOS ===');
+    console.log('Productos seleccionados:', state.productosSeleccionados);
 
     state.productosSeleccionados.forEach((producto, id) => {
       const cantidad = parseFloat(producto.cantidad_comprar) || 0;
       const precio = parseFloat(producto.precio_unitario) || 0;
       const subtotalProducto = cantidad * precio;
+      const impuestoPorcentaje = parseFloat(producto.impuesto) || 0.00;
+      const impuestoProducto = subtotalProducto * (impuestoPorcentaje / 100);
+      
+      console.log(`Producto: ${producto.descripcion}`);
+      console.log(`  - Cantidad: ${cantidad}`);
+      console.log(`  - Precio: ${precio}`);
+      console.log(`  - Impuesto (%): ${impuestoPorcentaje}`);
+      console.log(`  - Impuesto ($): ${impuestoProducto}`);
+      
       subtotal += subtotalProducto;
+      impuestos += impuestoProducto;
 
       // Actualizar subtotal en la tabla
       const idABuscar = Array.isArray(producto.id_det_pedido) ? producto.id_det_pedido[0] : producto.id_det_pedido;
@@ -867,7 +881,6 @@ const OrdenesCompraUI = (() => {
       }
     });
 
-    const impuestos = subtotal * 0.16; // 16% IVA
     const total = subtotal + impuestos;
 
     // Actualizar elementos del DOM con verificación
@@ -1069,12 +1082,20 @@ const OrdenesCompraUI = (() => {
 
     for (const grupo of gruposArray) {
       // Usar siempre el precio de cotización seleccionado (ya actualizado en seleccionarDeDesglose)
-      const subtotal = grupo.productos.reduce((s, p) => {
+      let subtotal = 0;
+      let impuestos = 0;
+      
+      grupo.productos.forEach(p => {
         const precioCotizacion = parseFloat(p.precio_unitario) || 0;
         const cantidad = parseFloat(p.cantidad_comprar) || 0;
-        return s + (cantidad * precioCotizacion);
-      }, 0);
-      const impuestos = subtotal * 0.16;
+        const subtotalProducto = cantidad * precioCotizacion;
+        const impuestoPorcentaje = parseFloat(p.impuesto) || 0.00;
+        const impuestoProducto = subtotalProducto * (impuestoPorcentaje / 100);
+        
+        subtotal += subtotalProducto;
+        impuestos += impuestoProducto;
+      });
+      
       const total = subtotal + impuestos;
 
       const ordenData = {
@@ -1500,6 +1521,7 @@ const OrdenesCompraUI = (() => {
                   <th class="text-end">Cant. Recibida</th>
                   <th class="text-end">Precio Unitario</th>
                   <th class="text-end">Subtotal</th>
+                  <th class="text-center">Impuesto</th>
                   <th class="text-center">Estado</th>
                 </tr>
               </thead>
@@ -1545,6 +1567,8 @@ const OrdenesCompraUI = (() => {
           const indicadorAgrupado = producto.ids_originales.length > 1 ?
             '<span class="badge bg-info ms-1" title="Productos agrupados"><i class="bi bi-layers"></i></span>' : '';
 
+          const impuestoPct = parseFloat(producto.impuesto || 0).toFixed(2);
+
           return `
                       <tr>
                         <td>
@@ -1557,6 +1581,7 @@ const OrdenesCompraUI = (() => {
                         <td class="text-end">${recibida.toFixed(2)}</td>
                         <td class="text-end">$${precio.toFixed(2)}</td>
                         <td class="text-end">$${subtotal.toFixed(2)}</td>
+                        <td class="text-center"><span class="badge bg-secondary">${impuestoPct}%</span></td>
                         <td class="text-center">${estadoBadge}</td>
                       </tr>
                     `;
