@@ -32,12 +32,12 @@ const OrdenesCompraUI = (() => {
 
   // Inicialización
   async function init() {
-    if (state.inicializado) {
-      console.log('ℹ️ OrdenesCompraUI ya estaba inicializado.');
-      return;
-    }
     console.log('🚀 Inicializando OrdenesCompraUI...');
-    try {
+    
+    // Solo inicializar modales y event listeners si no está inicializado
+    if (!state.inicializado) {
+      console.log('� Primera vez: configurando modales y event listeners...');
+      
       const modalOrdenEl = document.querySelector(selectores.modalOrden);
       const modalDetalleEl = document.querySelector(selectores.modalDetalle);
 
@@ -101,39 +101,63 @@ const OrdenesCompraUI = (() => {
         });
       }
 
+      // Marcar inicialización completa
+      state.inicializado = true;
+      console.log('✨ OrdenesCompraUI inicializado correctamente');
+    }
+    
+    // Siempre cargar datos, incluso si ya está inicializado
+    console.log('🔄 Recargando datos del componente...');
+    try {
       await Promise.all([
         cargarProveedores(),
         cargarPedidos(),
         cargarOrdenes()
       ]);
 
-      // Inicializar módulo de cotización
-      if (typeof CotizacionModal !== 'undefined') {
+      // Inicializar módulo de cotización solo la primera vez
+      if (typeof CotizacionModal !== 'undefined' && !state.cotizacionInicializada) {
         CotizacionModal.init();
+        state.cotizacionInicializada = true;
       }
-
-      // Marcar inicialización completa
-      state.inicializado = true;
-      console.log('✨ OrdenesCompraUI inicializado correctamente');
     } catch (error) {
-      console.error('❌ Error durante la inicialización:', error);
+      console.error('❌ Error al recargar datos:', error);
     }
   }
 
   // Cargar datos principales
   async function cargarOrdenes() {
     try {
+      console.log('📡 Cargando órdenes de compra...');
+      console.log('🌐 URL de llamada:', `${API_ORDENES}?action=getOrdenesCompra`);
+      
       const response = await fetch(`${API_ORDENES}?action=getOrdenesCompra`);
+      console.log('📊 Status HTTP:', response.status);
+      console.log('📊 Headers:', response.headers);
+      
       const result = await response.json();
+      console.log('📥 Respuesta de órdenes:', result);
 
-      if (!result.success) throw new Error(result.error || 'Error al cargar órdenes');
+      if (!result.success) {
+        console.error('❌ Error en la respuesta:', result.error);
+        throw new Error(result.error || 'Error al cargar órdenes');
+      }
 
+      console.log('✅ Órdenes cargadas:', result.data);
+      console.log('📊 Cantidad de órdenes:', result.data ? result.data.length : 0);
+      
       state.ordenes = result.data || [];
       state.ordenesFiltradas = [];
+      
+      console.log('🔄 Llamando a renderizarOrdenes...');
       renderizarOrdenes();
+      console.log('🔄 Llamando a actualizarResumen...');
       actualizarResumen();
+      
+      console.log('✅ cargarOrdenes completado exitosamente');
     } catch (error) {
-      console.error('Error cargando órdenes:', error);
+      console.error('❌ Error cargando órdenes:', error);
+      console.error('❌ Stack trace:', error.stack);
       mostrarError('Error al cargar las órdenes de compra');
     }
   }
@@ -279,21 +303,38 @@ const OrdenesCompraUI = (() => {
 
   // Renderizado
   function renderizarOrdenes() {
+    console.log('🔄 renderizarOrdenes iniciado');
+    console.log('📊 state.ordenes:', state.ordenes);
+    console.log('📊 state.ordenesFiltradas:', state.ordenesFiltradas);
+    console.log('📊 vistaActual:', state.vistaActual);
+    
     const datos = state.ordenesFiltradas.length ? state.ordenesFiltradas : state.ordenes;
+    console.log('📊 Datos a renderizar:', datos);
+    console.log('📊 Cantidad de órdenes a renderizar:', datos.length);
 
     if (state.vistaActual === 'tabla') {
+      console.log('📋 Renderizando vista tabla...');
       renderizarVistaTabla(datos);
     } else {
+      console.log('📋 Renderizando vista tarjetas...');
       renderizarVistaTarjetas(datos);
     }
 
+    console.log('🔄 Actualizando contador...');
     actualizarContador(datos.length);
+    console.log('✅ renderizarOrdenes completado');
   }
 
   function renderizarVistaTabla(ordenes) {
+    console.log('📋 renderizarVistaTabla iniciado');
+    console.log('📊 Selector:', selectores.tablaOrdenes);
+    
     const tbody = document.querySelector(selectores.tablaOrdenes);
+    console.log('📊 tbody encontrado:', tbody);
+    console.log('📊 Cantidad de órdenes:', ordenes.length);
 
     if (!ordenes.length) {
+      console.log('📋 No hay órdenes, mostrando mensaje vacío');
       tbody.innerHTML = `
         <tr>
           <td colspan="8" class="text-center py-4">
@@ -305,6 +346,7 @@ const OrdenesCompraUI = (() => {
       return;
     }
 
+    console.log('📋 Generando HTML para', ordenes.length, 'órdenes');
     tbody.innerHTML = ordenes.map(orden => `
       <tr>
         <td class="fw-semibold">${orden.numero_orden}</td>
@@ -326,6 +368,7 @@ const OrdenesCompraUI = (() => {
         </td>
       </tr>
     `).join('');
+    console.log('✅ renderizarVistaTabla completado - HTML insertado');
   }
 
   function renderizarVistaTarjetas(ordenes) {
@@ -1975,6 +2018,19 @@ const OrdenesCompraUI = (() => {
       console.error('Error actualizando notificación:', error);
     }
   }
+  
+  // Event listener para el botón de cerrar del modal
+  document.addEventListener('click', function (e) {
+    if (e.target.hasAttribute('data-bs-dismiss') || e.target.closest('[data-bs-dismiss]')) {
+      if (state.modalOrden) {
+        state.modalOrden.hide();
+      }
+      if (state.modalDetalle) {
+        state.modalDetalle.hide();
+      }
+    }
+  });
+
   return {
     init,
     cargarOrdenes,
@@ -1983,24 +2039,9 @@ const OrdenesCompraUI = (() => {
     editarOrden,
     convertirEnCompra,
     abrirNuevaOrdenConPedido,
-    verDesglose,
-    seleccionarDeDesglose,
-    actualizarNotificacionPedidos,
-    state
+    actualizarNotificacionPedidos
   };
 })();
-
-// Event listener para el botón de cerrar del modal
-document.addEventListener('click', function (e) {
-  if (e.target.hasAttribute('data-bs-dismiss') || e.target.closest('[data-bs-dismiss]')) {
-    if (OrdenesCompraUI.state?.modalOrden) {
-      OrdenesCompraUI.state.modalOrden.hide();
-    }
-    if (OrdenesCompraUI.state?.modalDetalle) {
-      OrdenesCompraUI.state.modalDetalle.hide();
-    }
-  }
-});
 
 // Exponer en window para uso en handlers inline
 window.OrdenesCompraUI = OrdenesCompraUI;
@@ -2141,4 +2182,16 @@ function guardarProveedorEditar() {
       console.error('Error:', error);
       alert('Error de conexión al actualizar proveedor');
     });
+}
+
+// Auto-inicialización cuando el DOM está listo
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('🔄 DOMContentLoaded - Inicializando OrdenesCompraUI automáticamente...');
+    OrdenesCompraUI.init();
+  });
+} else {
+  // El DOM ya está listo
+  console.log('🔄 DOM ya listo - Inicializando OrdenesCompraUI automáticamente...');
+  OrdenesCompraUI.init();
 }
