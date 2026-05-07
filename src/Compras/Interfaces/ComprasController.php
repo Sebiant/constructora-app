@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * ComprasController.php
  * Controlador para gestión de compras sobre pedidos aprobados
@@ -155,8 +155,17 @@ try {
                                 lr.unidad,
                                 COALESCE(pd.cantidad, ocd.cantidad_comprada) as cantidad_solicitada,
                                 lr.cantidad_recibida,
-                                ocd.cantidad_recibida as cantidad_acumulada_total,
-                                (COALESCE(pd.cantidad, ocd.cantidad_comprada) - ocd.cantidad_recibida) AS cantidad_faltante,
+                                (SELECT SUM(lr2.cantidad_recibida) 
+                                 FROM log_recepciones lr2 
+                                 WHERE lr2.id_det_pedido = lr.id_det_pedido 
+                                   AND lr2.id_orden_compra = lr.id_orden_compra 
+                                   AND lr2.id_compra <= lr.id_compra) as cantidad_acumulada_total,
+                                (COALESCE(pd.cantidad, ocd.cantidad_comprada) - 
+                                 (SELECT SUM(lr2.cantidad_recibida) 
+                                  FROM log_recepciones lr2 
+                                  WHERE lr2.id_det_pedido = lr.id_det_pedido 
+                                    AND lr2.id_orden_compra = lr.id_orden_compra 
+                                    AND lr2.id_compra <= lr.id_compra)) AS cantidad_faltante,
                                 lr.precio_unitario,
                                 lr.subtotal_item AS subtotal
                            FROM log_recepciones lr
