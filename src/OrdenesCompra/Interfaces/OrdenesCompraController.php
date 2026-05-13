@@ -57,6 +57,7 @@ try {
 
 try {
     require __DIR__ . '/../../../src/Shared/Utils/CalculosComerciales.php';
+    require __DIR__ . '/../../../src/Shared/Utils/MailService.php'; // Cargar servicio de correo
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
@@ -460,6 +461,16 @@ function guardarOrdenCompra($connection, $data) {
         throw new Exception('Faltan datos requeridos');
     }
 
+    // Obtener información del proveedor (necesaria para el correo)
+    $sqlProv = "SELECT nombre, email FROM provedores WHERE id_provedor = ?";
+    $stmtProv = $connection->prepare($sqlProv);
+    $stmtProv->execute([$data['id_provedor']]);
+    $infoProveedor = $stmtProv->fetch(PDO::FETCH_ASSOC);
+
+    if (!$infoProveedor) {
+        throw new Exception('Proveedor no encontrado');
+    }
+
     try {
         $connection->beginTransaction();
 
@@ -548,6 +559,21 @@ function guardarOrdenCompra($connection, $data) {
         }
 
         $connection->commit();
+
+        // Intentar enviar correo al proveedor (silencioso, no bloquea la respuesta)
+        if (!empty($infoProveedor['email'])) {
+            try {
+                \Src\Shared\Utils\MailService::enviarOrdenCompra(
+                    $infoProveedor['email'],
+                    $infoProveedor['nombre'],
+                    $numeroOrden,
+                    $data['productos'],
+                    $data['total']
+                );
+            } catch (Exception $eMail) {
+                error_log("Error al intentar enviar correo de OC: " . $eMail->getMessage());
+            }
+        }
 
         echo json_encode([
             'success' => true,
